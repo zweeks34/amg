@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amg"
+version = "0.1.0"
+description = "Automobile Maintenance Genie: service history, schedule gaps, fuel and cost forecasts for your cars"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0",
+    "anthropic>=1.0",
+    "pymupdf>=1.24.3",
+    "pytesseract>=0.3.10",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27"]
+server = ["gunicorn>=22"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+amg = ["migrations/*.sql", "web/templates/**/*.html", "web/static/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# importlib mode: tests/amg/ mirrors src/amg/ without becoming a second
+# package named "amg" that would shadow the real one.
+addopts = "-q --import-mode=importlib"
