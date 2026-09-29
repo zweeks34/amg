@@ -1,0 +1,47 @@
+"""Shared fixtures. Every test gets its own data directory — none touches data/."""
+
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+from amg import auth, db
+
+PASSWORD = "correct horse battery"
+
+
+@pytest.fixture(autouse=True)
+def data_dir(tmp_path, monkeypatch):
+    path = tmp_path / "data"
+    monkeypatch.setenv("AMG_DATA_DIR", str(path))
+    monkeypatch.setattr(auth, "FAILED_LOGIN_DELAY", 0)
+    return path
+
+
+@pytest.fixture
+def password():
+    return PASSWORD
+
+
+@pytest.fixture
+def conn(data_dir):
+    connection = db.connect()
+    db.migrate(connection)
+    yield connection
+    connection.close()
+
+
+@pytest.fixture
+def client(data_dir):
+    from amg.app import app
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def signed_in(client, conn):
+    auth.set_password(conn, PASSWORD)
+    response = client.post("/login", data={"password": PASSWORD}, follow_redirects=False)
+    assert response.status_code == 303
+    return client
