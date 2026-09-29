@@ -43,21 +43,23 @@ needs asking first (CLAUDE.md).
 **For:** a running, logged-in, styled empty app that every later phase plugs
 into.
 
-- [ ] `.gitignore` before `git init` (`.env`, `data/`, `samples/`)
-- [ ] `pyproject.toml` + `requirements.txt` / `requirements-dev.txt`; `src/` layout
-- [ ] `amg.config` — settings from `.env` (paths resolved per call so tests can redirect them)
-- [ ] `amg.db` — connection factory (WAL, foreign keys on), migration runner over `migrations/NNNN_*.sql`, a `schema_version` table
-- [ ] `0001_init.sql` — `settings` table (the rest arrive with the phases that own them)
-- [ ] `amg.auth` — scrypt password hash in `settings`, HMAC-signed session cookie, login/logout routes, a dependency that guards every page
-- [ ] `python -m amg.cli set-password`
-- [ ] Design system: tokens (colour, type scale, spacing), self-hosted fonts, base layout, nav, empty garage page, login page
-- [ ] CLAUDE.md: Stack, Commands, Layout, Gotchas filled in
+- [x] `.gitignore` before `git init` (`.env`, `data/`, `samples/`)
+- [x] `pyproject.toml` (dependencies live only there; `[dev]` and `[server]` extras); `src/` layout
+- [x] `amg.config` — settings from `.env` (paths resolved per call so tests can redirect them)
+- [x] `amg.db` — connection factory (WAL, foreign keys on), migration runner over `migrations/NNNN_*.sql`, a `schema_version` table
+- [x] `0001_init.sql` — `settings` table (the rest arrive with the phases that own them)
+- [x] `amg.auth` — scrypt password hash in `settings`, HMAC-signed session cookie, login/logout routes, a middleware guard on every page
+- [x] `python -m amg.cli set-password`
+- [x] Design system: tokens (colour, type scale, spacing, light + dark), self-hosted fonts, base layout, nav, empty garage page, login page, and `/design` — a reference page with the interval chart drawn from hand-written sample data
+- [x] CLAUDE.md: Stack, Commands, Layout, Gotchas filled in
 
 **Data owned:** `settings`, `schema_version`.
 
-**Can go wrong:** the session secret is missing on the server → refuse to start
-rather than use a default. A migration fails halfway → each migration runs in
-one transaction.
+**Can go wrong:** two workers start at once → migrations run under one
+`BEGIN IMMEDIATE`, so the second waits and finds nothing to do. A migration
+fails halfway → the whole run rolls back. The session secret is generated on
+first use and stored in `settings`, so there is no secret to forget to set on
+the server; setting a new password signs every session out.
 
 **Tests pin:** migrations apply in order to an empty database and are
 idempotent on a second run; a wrong password is rejected; a forged or expired
