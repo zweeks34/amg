@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% from "_chart.html" import interval_chart, next_up, legend %}
+{% block title %}Design reference{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow">For building AMG</p>
+  <h1 class="display">Design reference</h1>
+  <p class="pagehead__lede">The colours, type, controls and chart every page is built from. The car below is
+    sample data written by hand, not one of yours.</p>
+</header>
+
+<section class="ref" aria-labelledby="ref-chart">
+  <h2 class="h3" id="ref-chart">Interval chart</h2>
+  <p class="ref__note">One row per schedule item, one mark per time it comes due. The ink line is the
+    car's estimated odometer today.</p>
+  <div class="sheet sheet--flush">
+    <div class="vehiclehead">
+      <p class="eyebrow">2019 · Gasoline · Sample</p>
+      <p class="vehiclehead__name">{{ chart.vehicle }}</p>
+    </div>
+    {{ interval_chart(chart) }}
+  </div>
+</section>
+
+<section class="ref" aria-labelledby="ref-next">
+  <h2 class="h3" id="ref-next">Next up</h2>
+  <p class="ref__note">The phone-first view of the same chart: what needs doing, most urgent first.</p>
+  <div class="sheet">
+    {{ next_up(upcoming) }}
+  </div>
+</section>
+
+<section class="ref" aria-labelledby="ref-colour">
+  <h2 class="h3" id="ref-colour">Colour</h2>
+  <ul class="swatches">
+    {% for token, name, role in palette %}
+    <li class="swatch">
+      <span class="swatch__chip" style="background: var(--{{ token }})"></span>
+      <span class="swatch__name">{{ name }}</span>
+      <code class="swatch__token">--{{ token }}</code>
+      <span class="swatch__role">{{ role }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="ref" aria-labelledby="ref-type">
+  <h2 class="h3" id="ref-type">Type</h2>
+  <div class="sheet specimens">
+    <div class="specimen">
+      <p class="specimen__label">Display · Barlow Condensed</p>
+      <p class="display">2019 Tacoma TRD Off-Road</p>
+    </div>
+    <div class="specimen">
+      <p class="specimen__label">Body · Public Sans</p>
+      <p>Brake fluid absorbs water from the air, which lowers its boiling point. Most manufacturers
+        want it replaced every two or three years whatever the mileage.</p>
+    </div>
+    <div class="specimen">
+      <p class="specimen__label">Figures · IBM Plex Mono</p>
+      <p class="mono">64,300 mi &nbsp;·&nbsp; $146.48 &nbsp;·&nbsp; 5TFCZ5AN8KX012345</p>
+    </div>
+  </div>
+</section>
+
+<section class="ref" aria-labelledby="ref-controls">
+  <h2 class="h3" id="ref-controls">Controls</h2>
+  <div class="sheet controls">
+    <div class="controls__row">
+      <button class="btn btn--primary" type="button">Confirm receipt</button>
+      <button class="btn btn--secondary" type="button">Fix a field</button>
+      <button class="btn btn--quiet" type="button">Cancel</button>
+    </div>
+    <div class="controls__fields">
+      <div class="field">
+        <label for="ref-odo">Odometer</label>
+        <input id="ref-odo" class="mono" inputmode="numeric" value="64,300">
+        <p class="field__hint">Miles on the dash when the work was done.</p>
+      </div>
+      <div class="field">
+        <label for="ref-shop">Shop</label>
+        <input id="ref-shop" value="Sample Auto Service" aria-invalid="true" aria-describedby="ref-shop-error">
+        <p class="field__error" id="ref-shop-error">Pick the shop from the receipt or type its name.</p>
+      </div>
+      <div class="field">
+        <label for="ref-type">Service</label>
+        <select id="ref-type">
+          <option>Oil and filter</option>
+          <option>Tire rotation</option>
+        </select>
+      </div>
+      <label class="check"><input type="checkbox" checked> Filled the tank</label>
+    </div>
+  </div>
+</section>
+
+<section class="ref" aria-labelledby="ref-marks">
+  <h2 class="h3" id="ref-marks">Status marks</h2>
+  <p class="ref__note">Every status has its own shape as well as its own colour, so none depends on colour alone.</p>
+  <div class="sheet">{{ legend() }}</div>
+</section>
+{% endblock %}

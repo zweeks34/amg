@@ -1,0 +1,73 @@
+{#- The interval chart and its companions — AMG's signature.
+
+    Each row is one schedule item laid along a mileage axis; each mark is one
+    occurrence of it. The ink line is the car's estimated odometer today: it
+    sweeps in from zero on load and the marks appear as it passes them.
+    On narrow screens the chart scrolls sideways under a sticky item column;
+    the next-up list is the phone-first summary of the same data. -#}
+
+{% macro mark(status, label, position=None) -%}
+<span class="mark mark--{{ status }}" role="img" aria-label="{{ label }}" title="{{ label }}"
+      {%- if position is not none %} style="--p: {{ position }}"{% endif %}></span>
+{%- endmacro %}
+
+{% macro legend() -%}
+<ul class="legend" aria-label="Legend">
+  {% for status in ["done", "gap", "overdue", "due", "later"] %}
+  <li><span class="mark mark--{{ status }}" aria-hidden="true"></span>{{ status_words[status] }}</li>
+  {% endfor %}
+</ul>
+{%- endmacro %}
+
+{% macro interval_chart(chart) -%}
+<figure class="ichart" style="--here: {{ axis(chart.here, chart.span) }}; --segments: {{ chart.ticks | length - 1 }}">
+  <div class="ichart__scroll" x-data="ichartScroll" tabindex="0" role="region" aria-label="Service interval chart for {{ chart.vehicle }}">
+    <div class="ichart__grid">
+      <div class="ichart__row ichart__row--axis">
+        <div class="ichart__name">Service</div>
+        <div class="ichart__track">
+          {% for tick in chart.ticks %}
+          <span class="ichart__tick" style="--p: {{ axis(tick, chart.span) }}">{{ '%dk' % (tick // 1000) if tick else '0' }}</span>
+          {% endfor %}
+          <span class="ichart__here" aria-label="Estimated odometer today">{{ chart.here | miles }}</span>
+        </div>
+      </div>
+      {% for group in chart.groups %}
+      <div class="ichart__row ichart__row--group">
+        <div class="ichart__name">{{ group.label }}</div>
+        <div class="ichart__track"></div>
+      </div>
+      {% for row in group.rows %}
+      <div class="ichart__row">
+        <div class="ichart__name">
+          <span class="ichart__item">{{ row.name }}</span>
+          <span class="ichart__every">every {{ row.every }}</span>
+        </div>
+        <div class="ichart__track">
+          {% for m in row.marks %}
+          {{ mark(m.status, row.name ~ " at " ~ (m.miles | miles) ~ ": " ~ (status_words[m.status] | lower), axis(m.miles, chart.span)) }}
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+  <figcaption class="ichart__caption">
+    {{ legend() }}
+  </figcaption>
+</figure>
+{%- endmacro %}
+
+{% macro next_up(items) -%}
+<ol class="nextup">
+  {% for item in items %}
+  <li class="nextup__item">
+    {{ mark(item.status, status_words[item.status]) }}
+    <span class="nextup__name">{{ item.name }}</span>
+    <span class="nextup__when">{{ item.when }}</span>
+    <span class="nextup__cost" aria-label="Estimated cost {{ item.cost | dollars }}">~{{ item.cost | dollars }}</span>
+  </li>
+  {% endfor %}
+</ol>
+{%- endmacro %}

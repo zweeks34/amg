@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Garage{% endblock %} · AMG</title>
+  <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+  <link rel="stylesheet" href="{{ asset('app.css') }}">
+  <script defer src="{{ asset('vendor/htmx.min.js') }}"></script>
+  <script defer src="{{ asset('app.js') }}"></script>
+  <script defer src="{{ asset('vendor/alpine.min.js') }}"></script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip" href="#main">Skip to content</a>
+  {% block masthead %}
+  <header class="masthead">
+    <a class="wordmark" href="/" aria-label="AMG — Automobile Maintenance Genie, garage">
+      <span class="mark mark--due" aria-hidden="true"></span>
+      <span class="wordmark__name">AMG</span>
+      <span class="wordmark__sub">Maintenance Genie</span>
+    </a>
+    <nav class="mainnav" aria-label="Main">
+      <a href="/" {% if active == 'garage' %}aria-current="page"{% endif %}>Garage</a>
+    </nav>
+    <form class="signout" method="post" action="/logout">
+      <button class="btn btn--quiet" type="submit">Sign out</button>
+    </form>
+  </header>
+  {% endblock %}
+
+  <main id="main" class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block colophon %}
+  <footer class="colophon">
+    <a href="/design" {% if active == 'design' %}aria-current="page"{% endif %}>Design reference</a>
+  </footer>
+  {% endblock %}
+</body>
+</html>

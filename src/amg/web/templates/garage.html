@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Garage{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <h1 class="display">Garage</h1>
+</header>
+
+{% if not vehicles %}
+<section class="sheet empty" aria-labelledby="empty-heading">
+  <h2 class="h2" id="empty-heading">No cars yet</h2>
+  <p class="empty__lede">AMG compares each car's service history with its manufacturer's maintenance
+    schedule, then shows what was missed, what's coming up, and what it will cost.</p>
+  <ol class="steps">
+    <li>
+      <span class="steps__title">Add a car</span>
+      <span class="steps__detail">Its VIN fills in the year, make, model and powertrain.</span>
+    </li>
+    <li>
+      <span class="steps__title">Load its maintenance schedule</span>
+      <span class="steps__detail">From the owner's manual PDF, or a draft you check item by item.</span>
+    </li>
+    <li>
+      <span class="steps__title">Add service receipts</span>
+      <span class="steps__detail">Scans, PDFs or phone photos. You confirm what AMG reads from each one.</span>
+    </li>
+  </ol>
+</section>
+{% endif %}
+{% endblock %}

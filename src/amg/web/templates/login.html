@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body_class %}login{% endblock %}
+{% block masthead %}{% endblock %}
+{% block colophon %}{% endblock %}
+
+{% block content %}
+<div class="login__column">
+  <p class="wordmark wordmark--large">
+    <span class="mark mark--due" aria-hidden="true"></span>
+    <span class="wordmark__name">AMG</span>
+    <span class="wordmark__sub">Automobile Maintenance Genie</span>
+  </p>
+
+  {% if password_set %}
+  <form class="sheet login__form" method="post" action="/login">
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password"
+             required autofocus {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}>
+      {% if error %}<p class="field__error" id="login-error">{{ error }}</p>{% endif %}
+    </div>
+    <button class="btn btn--primary btn--block" type="submit">Sign in</button>
+  </form>
+  {% else %}
+  <section class="sheet login__form" aria-labelledby="setup-heading">
+    <h1 class="h3" id="setup-heading">Set a password first</h1>
+    <p>AMG doesn't have a login password yet. On the machine running AMG, run:</p>
+    <pre class="code">python -m amg.cli set-password</pre>
+    <p>Then reload this page.</p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
