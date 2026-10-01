@@ -135,27 +135,27 @@ anything. The extra cost is about 1.6¢ a receipt.
 
 **For:** getting the backlog of scanned receipts in with one review pass each.
 
-- [ ] Upload: several files at once, PDF/PNG/JPG/GIF, phone camera capture; stored by sha256 so a re-upload is recognised
-- [ ] Text for search only: PDF text layer first, Tesseract otherwise (the trial showed it can't be trusted to read from)
-- [ ] Claude reads every page as an image (`receipts.read_receipt(..., mode="vision")`): shop, date, odometer, VIN, line items, tax, total, suggested service types, recommendations kept apart from work done
-- [ ] Schema additions from the trial: **document kind** (invoice / estimate or quote / deposit / inspection report) with the items kept as lines whatever the kind, so you decide whether an estimate records work done; **licence plate** (two handwritten receipts carry only a plate) — vehicles gain a plate field; **delivery date** (dealer invoices print it) offered as the car's in-service date; **next-service reminder** (date and/or miles) when one is written on
-- [ ] **You can correct anything AMG read.** On the review screen every field is editable beside the scan — car, shop, date, odometer, VIN, each line, its amount and service tags, totals, document kind — and lines can be added, removed or moved between work done and recommendations. A confirmed receipt stays editable the same way, with its scan alongside; confirming is never a one-way door
-- [ ] The car is a suggestion, never a decision. Suggested by VIN, then plate, then VINs printed on receipts already confirmed for a car — so a shop that keeps printing the wrong car is recognised the next time — then year/make/model. A printed VIN or vehicle that disagrees with the car you pick is shown as a note on the receipt, not an error, and never changes the car's own details
-- [ ] Both versions are kept: what Claude read, and what you confirmed. Every correction becomes a labelled example for `scripts/eval_receipts.py`
-- [ ] Learned aliases: a confirmed mapping of line-item text to service types is reused without asking Claude again
-- [ ] Review screen: scan beside the fields; AI-read values styled as unconfirmed until you confirm them
-- [ ] Background jobs for multi-file uploads, with progress and a stalled-job "carry on"
-- [ ] `scripts/eval_receipts.py` — per-field accuracy against hand-labelled samples (start from the two receipts checked by hand in the trial)
+- [x] Upload: several files at once, PDF/PNG/JPG/GIF, phone camera capture, or several photos combined into one receipt; stored by sha256 so a re-upload is recognised; phone JPEGs turned upright from their EXIF rotation
+- [x] ~~Text for search~~ — dropped. The scanner's text layer can't be trusted, and what Claude read is already stored with every receipt; searching it moves to phase 9
+- [x] Claude reads every page as an image (`receipts.read_receipt(..., mode="vision")`): shop, date, odometer, VIN, line items, tax, total, suggested service types, recommendations kept apart from work done
+- [x] Schema additions from the trial: **document kind** (invoice / estimate / deposit / inspection report) with the items kept as lines whatever the kind; **licence plate** — vehicles gain a plate field; **delivery date**, offered as the car's in-service date; **next-service reminder** (date and/or miles)
+- [x] **You can correct anything AMG read.** On the review screen every field is editable beside the scan — car, shop, date, odometer, VIN, each line, its amount and service tags, totals, document kind — and lines move between work done and recommendations. A confirmed receipt reopens on the same screen and saving rewrites its service; deleting the service sends the receipt back to be checked
+- [x] The car is a suggestion, never a decision: VIN, then plate, then VINs/plates printed on receipts already confirmed for a car, then year/make/model, then "your only car". Printed details that disagree with the car you pick are a note, never an error; the car's own details are only ever *filled* from a receipt (plate, VIN, in-service date — each a checkbox you tick), never overwritten
+- [x] Both versions are kept: `extraction_json` (what Claude read, never edited) and `draft_json` (what you confirmed)
+- [x] Learned aliases: when you confirm, each line's text is remembered with the service types you gave it; the next receipt printing the same words gets those types instead of Claude's suggestion, marked "from your earlier receipts"
+- [x] Review screen: scan beside the fields; anything still as Claude read it is drawn dashed until you change it
+- [x] Background jobs for multi-file uploads; the inbox updates as each is read; a job whose thread died (restart, deploy) shows as stopped with "Carry on reading"
+- [x] `scripts/eval_receipts.py` — per-field accuracy of the original readings against your confirmed receipts (free), or `--reread` to score the current model and prompt on the same files
 
-**Data owned:** `documents`, `document_pages`, `extractions`, `service_aliases`,
-`jobs`.
+**Data owned:** `documents`, `receipts`, `jobs`, `service_aliases`; `vehicles.plate`.
 
 **Can go wrong:** the shop prints another car's details (seen in the trial:
 two Outback receipts carry a Forester's VIN) → the car you pick wins; the
-printed details stay on the receipt as a note. A receipt spans two cars →
-split on review. A receipt without an odometer → the event is saved; the
-odometer model interpolates. The same receipt scanned twice at different
-resolutions → hash dedupe misses it, so also warn on same shop + date + total.
+printed details stay on the receipt as a note. A receipt spans two cars → *not
+built*: confirm it under one car and type the other car's part in by hand. A
+receipt without an odometer → the event is saved; the odometer model
+interpolates. The same receipt scanned twice at different resolutions → hash
+dedupe misses it, so the review warns on the same date + total.
 
 **Tests pin:** dedupe; the Claude response is validated against the schema and
 a malformed one becomes a review error, not a crash; nothing counts in history
@@ -165,6 +165,9 @@ to no car (or another car) can be assigned to any car, and the next receipt
 with that VIN is suggested for the same one; alias learning.
 
 **Done when:** the backlog imports and each receipt takes one review pass.
+*Built and checked end to end on three real receipts (2026-09-30); the backlog
+import itself is yours to run — best done once AMG is on the server (phase 3),
+so the data lands where it will live.*
 
 ---
 
@@ -289,6 +292,7 @@ rejects a wrong value.
 **For:** looking back, and handing over a car's history when you sell it.
 
 - [ ] Report builder: vehicle, date range, service type or category, shop
+- [ ] Search across receipts: what Claude read and you confirmed — shops, line descriptions, notes
 - [ ] Output as a printable page or CSV
 - [ ] Presets: full history, spend by year and category, fuel-economy trend
 - [ ] Sale packet: history plus every receipt merged into one PDF (PyMuPDF)
