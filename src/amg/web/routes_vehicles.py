@@ -19,7 +19,7 @@ router = APIRouter()
 
 POWERTRAIN_LABELS = {"gas": "Gasoline", "hybrid": "Hybrid", "ev": "Electric"}
 _FIELDS = (
-    "name", "vin", "year", "make", "model", "trim", "engine", "powertrain",
+    "name", "vin", "plate", "year", "make", "model", "trim", "engine", "powertrain",
     "in_service_date", "acquired_date", "acquired_miles", "notes",
 )
 
@@ -244,6 +244,7 @@ def _read(conn: sqlite3.Connection, raw: dict, vehicle_id: int | None = None) ->
         trim=raw.get("trim", ""),
         engine=raw.get("engine", ""),
         powertrain=powertrain,
+        plate=raw.get("plate", "").upper(),
         in_service_date=in_service,
         acquired_date=acquired,
         acquired_miles=acquired_miles,

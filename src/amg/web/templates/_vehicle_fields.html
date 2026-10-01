@@ -15,7 +15,11 @@
     {% if notice %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
   </div>
 
-  {{ input("name", "Name", raw, errors, hint="What you call it — “Outback”, “Dad's truck”.", cls="field--wide") }}
+  <div class="fieldgrid">
+    {{ input("name", "Name", raw, errors, hint="What you call it — “Outback”, “Dad's truck”.") }}
+    {{ input("plate", "Licence plate", raw, errors, hint="Helps match receipts that don't print the VIN.",
+             attrs='class="mono" autocapitalize="characters" spellcheck="false"') }}
+  </div>
 
   <div class="fieldgrid">
     {{ input("year", "Year", raw, errors, attrs='inputmode="numeric" maxlength="4"') }}

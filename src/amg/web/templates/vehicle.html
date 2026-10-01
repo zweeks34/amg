@@ -10,6 +10,7 @@
     {% if car.model or car.trim %}<div><dt>Model</dt><dd>{{ [car.model, car.trim] | select | join(" ") }}</dd></div>{% endif %}
     {% if car.engine %}<div><dt>Engine</dt><dd>{{ car.engine }}</dd></div>{% endif %}
     {% if car.vin %}<div><dt>VIN</dt><dd class="mono">{{ car.vin }}</dd></div>{% endif %}
+    {% if car.plate %}<div><dt>Plate</dt><dd class="mono">{{ car.plate }}</dd></div>{% endif %}
     <div>
       <dt>Odometer</dt>
       <dd class="mono">{% if latest %}{{ latest.miles | miles }} <span class="muted">on {{ latest.read_on }}</span>{% else %}<span class="muted">No readings yet</span>{% endif %}</dd>

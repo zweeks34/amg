@@ -34,3 +34,4 @@ testpaths = ["tests"]
 # importlib mode: tests/amg/ mirrors src/amg/ without becoming a second
 # package named "amg" that would shadow the real one.
 addopts = "-q --import-mode=importlib"
+pythonpath = ["tests"]   # shared builders (tests/receipt_fixtures.py) import by name

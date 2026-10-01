@@ -20,6 +20,7 @@ class VehicleFields:
     trim: str = ""
     engine: str = ""
     powertrain: str = "gas"
+    plate: str = ""
     in_service_date: str | None = None
     acquired_date: str | None = None
     acquired_miles: int | None = None

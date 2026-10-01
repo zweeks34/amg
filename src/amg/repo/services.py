@@ -117,6 +117,11 @@ def update_event(conn: sqlite3.Connection, event_id: int, event: EventInput) -> 
         _insert_lines(conn, event_id, event.lines)
 
 
+def move_event(conn: sqlite3.Connection, event_id: int, vehicle_id: int) -> None:
+    """File a service under a different car (a receipt reassigned on review)."""
+    conn.execute("UPDATE service_events SET vehicle_id = ?, updated_at = ? WHERE id = ?", (vehicle_id, now_iso(), event_id))
+
+
 def delete_event(conn: sqlite3.Connection, event_id: int) -> None:
     conn.execute("DELETE FROM service_events WHERE id = ?", (event_id,))
 

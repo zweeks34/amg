@@ -80,6 +80,12 @@ def test_vin_lookup_reports_service_failure(signed_in, monkeypatch):
     assert "reach NHTSA&#39;s VIN service" in response.text
 
 
+def test_plate_is_kept_through_an_edit(signed_in, conn, car):
+    signed_in.post(f"/vehicles/{car}/edit", data={"name": "Wagon", "powertrain": "gas", "plate": "abc 1234"})
+    assert vehicles.get(conn, car)["plate"] == "ABC 1234"
+    assert 'value="ABC 1234"' in signed_in.get(f"/vehicles/{car}/edit").text
+
+
 def test_edit_and_archive_a_car(signed_in, conn, car):
     signed_in.post(f"/vehicles/{car}/edit", data={"name": "Old wagon", "powertrain": "gas"})
     assert vehicles.get(conn, car)["name"] == "Old wagon"
