@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_forms.html" import input, textarea, message %}
+{% from "_line_editor.html" import lines as editor_lines, datalist %}
 {% block title %}{{ "Edit service" if event else "Log a service" }} · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -39,54 +40,9 @@
       <p class="field__hint">One line per item on the invoice. Tag each with the services it covers. That's what
         the maintenance schedule is checked against.</p>
 
-      <template x-for="(line, i) in lines" :key="line._id">
-        <div class="line">
-          <div class="field">
-            <label :for="'line-desc-' + line._id">Description</label>
-            <input :id="'line-desc-' + line._id" x-model="line.description" placeholder="e.g. Synthetic oil change">
-          </div>
-
-          <div class="field">
-            <label :for="'line-covers-' + line._id">Services covered</label>
-            <ul class="chips" x-show="line.covers.length">
-              <template x-for="code in line.covers" :key="code">
-                <li class="chip">
-                  <span x-text="typeName(code)"></span>
-                  <button type="button" class="chip__remove" @click="unpick(line, code)"
-                          :aria-label="'Remove ' + typeName(code)">×</button>
-                </li>
-              </template>
-            </ul>
-            <input :id="'line-covers-' + line._id" list="service-type-names" x-model="line.query"
-                   @input="picked($event, line)" @change="pick(line)" @keydown.enter.prevent="pick(line)"
-                   placeholder="Type to add, e.g. Engine oil" autocomplete="off">
-          </div>
-
-          <div class="line__meta">
-            <div class="field">
-              <label :for="'line-kind-' + line._id">Kind</label>
-              <select :id="'line-kind-' + line._id" x-model="line.kind">
-                {% for value, label in kinds.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-              </select>
-            </div>
-            <div class="field">
-              <label :for="'line-amount-' + line._id">Amount</label>
-              <input :id="'line-amount-' + line._id" x-model="line.amount" inputmode="decimal" class="mono" placeholder="0.00">
-            </div>
-            <label class="check">
-              <input type="checkbox" x-model="line.inspect_only"> Inspected only
-            </label>
-            <button type="button" class="btn btn--quiet line__remove" @click="remove(i)">Remove line</button>
-          </div>
-          <p class="field__error" x-show="errors[i]" x-text="errors[i]"></p>
-        </div>
-      </template>
-
-      <button type="button" class="btn btn--secondary" @click="add()">Add a line</button>
+      {{ editor_lines(kinds) }}
       {{ message("lines", errors, None) }}
-      <datalist id="service-type-names">
-        <template x-for="t in types" :key="t.code"><option :value="t.name"></option></template>
-      </datalist>
+      {{ datalist() }}
     </fieldset>
 
     <div class="fieldgrid">
@@ -96,12 +52,12 @@
         <input id="f-total" name="total" value="{{ raw.get('total', '') }}" inputmode="decimal" class="mono"
                {% if errors.get('total') %}aria-invalid="true" aria-describedby="f-total-error"{% else %}aria-describedby="f-total-hint"{% endif %}>
         {% if errors.get('total') %}<p class="field__error" id="f-total-error">{{ errors.total }}</p>
-        {% else %}<p class="field__hint" id="f-total-hint" x-text="sumHint"></p>{% endif %}
+        {% else %}<p class="field__hint" id="f-total-hint" x-text="sumHint()"></p>{% endif %}
       </div>
     </div>
 
     {{ textarea("notes", "Notes", raw, errors) }}
-    <input type="hidden" name="lines_json" :value="serialized">
+    <input type="hidden" name="lines_json" :value="serializedLines()">
   </div>
 
   <div class="form__actions">

@@ -3,66 +3,121 @@
 
 document.addEventListener("alpine:init", () => {
   let nextId = 1;
+  const withId = (row) => ({ ...row, covers: [...(row.covers || [])], query: "", touched: false, _id: nextId++ });
+  const strip = ({ query, touched, _id, ...row }) => row;
+  const blankLine = () => withId({ description: "", kind: "other", amount: "", covers: [], inspect_only: false,
+                                    part_number: "", quantity: "", covers_source: "you", from_read: false });
+  const blankRec = () => withId({ description: "", covers: [], amount: "" });
 
-  // The line editor on the service form. Every line travels to the server as
-  // one JSON field (lines_json), so rows, chips and checkboxes stay together
-  // however many are added or removed. `editor` is {lines, errors, types}.
-  Alpine.data("serviceLines", (editor, source) => ({
-    source,
-    types: editor.types,
-    errors: [...editor.errors],
-    lines: editor.lines.map((line) => ({ ...line, covers: [...line.covers], query: "", _id: nextId++ })),
+  // Rows with service-type chips — a service's lines, a receipt's lines and
+  // its recommendations. Every row travels to the server inside one JSON field,
+  // so rows, chips and checkboxes stay together however many are added or
+  // removed. `editor` is {lines, errors, types}. Methods, not getters: this
+  // object is spread into components, and spreading would freeze a getter.
+  function lineEditor(editor) {
+    return {
+      types: editor.types,
+      errors: [...editor.errors],
+      lines: editor.lines.map(withId),
 
-    typeName(code) {
-      const type = this.types.find((t) => t.code === code);
-      return type ? type.name : code;
+      typeName(code) {
+        const type = this.types.find((t) => t.code === code);
+        return type ? type.name : code;
+      },
+      // An exact name wins; otherwise a fragment that fits exactly one type
+      // ("oil fi" → Oil filter) is taken as that type. Ambiguous text is left
+      // in the box for the person to finish.
+      pick(row) {
+        const wanted = row.query.trim().toLowerCase();
+        if (!wanted) return;
+        let type = this.types.find((t) => t.name.toLowerCase() === wanted);
+        if (!type) {
+          const fits = this.types.filter((t) => t.name.toLowerCase().includes(wanted));
+          if (fits.length === 1) type = fits[0];
+        }
+        if (!type) return;
+        if (!row.covers.includes(type.code)) row.covers.push(type.code);
+        row.query = "";
+        row.touched = true;
+        row.covers_source = "you";
+      },
+      // Choosing from the browser's suggestion list arrives as an input event
+      // (insertReplacementText); while that list is open, Chrome keeps Enter
+      // for itself, so waiting for Enter or blur would leave the chip unadded.
+      picked(event, row) {
+        if (event.inputType === "insertReplacementText" || !event.inputType) this.pick(row);
+      },
+      unpick(row, code) {
+        row.covers = row.covers.filter((c) => c !== code);
+        row.touched = true;
+        row.covers_source = "you";
+      },
+      add() {
+        this.lines.push(blankLine());
+        this.errors.push(null);
+      },
+      remove(index) {
+        this.lines.splice(index, 1);
+        this.errors.splice(index, 1);
+        if (!this.lines.length) this.add();
+      },
+      sumHint() {
+        let cents = 0;
+        let counted = 0;
+        for (const line of this.lines) {
+          const value = parseFloat(String(line.amount).replace(/[$,\s]/g, ""));
+          if (!Number.isNaN(value)) { cents += Math.round(value * 100); counted += 1; }
+        }
+        if (!counted) return "Leave blank to add up the lines and tax.";
+        return `Lines add up to $${(cents / 100).toFixed(2)}. Leave blank to use that plus tax.`;
+      },
+      serializedLines() {
+        return JSON.stringify(this.lines.map(strip));
+      },
+    };
+  }
+
+  // The service form.
+  Alpine.data("serviceLines", (editor, source) => ({ ...lineEditor(editor), source }));
+
+  // The receipt review: lines and recommendations, and moving a row between
+  // them — a shop's "recommended" item that was in fact done, or the reverse.
+  // Lines still exactly as Claude read them are drawn as unconfirmed until
+  // touched (editor.reading is true until the receipt is first confirmed).
+  Alpine.data("receiptEditor", (editor) => ({
+    ...lineEditor(editor),
+    reading: editor.reading,
+    recs: editor.recs.map(withId),
+    recErrors: [...editor.recErrors],
+
+    unread(line) {
+      return this.reading && line.from_read && !line.touched;
     },
-    // An exact name wins; otherwise a fragment that fits exactly one type
-    // ("oil fi" → Oil filter) is taken as that type. Ambiguous text is left
-    // in the box for the person to finish.
-    pick(line) {
-      const wanted = line.query.trim().toLowerCase();
-      if (!wanted) return;
-      let type = this.types.find((t) => t.name.toLowerCase() === wanted);
-      if (!type) {
-        const fits = this.types.filter((t) => t.name.toLowerCase().includes(wanted));
-        if (fits.length === 1) type = fits[0];
-      }
-      if (!type) return;
-      if (!line.covers.includes(type.code)) line.covers.push(type.code);
-      line.query = "";
+    addRec() {
+      this.recs.push(blankRec());
+      this.recErrors.push(null);
     },
-    // Choosing from the browser's suggestion list arrives as an input event
-    // (insertReplacementText); while that list is open, Chrome keeps Enter
-    // for itself, so waiting for Enter or blur would leave the chip unadded.
-    picked(event, line) {
-      if (event.inputType === "insertReplacementText" || !event.inputType) this.pick(line);
+    removeRec(index) {
+      this.recs.splice(index, 1);
+      this.recErrors.splice(index, 1);
     },
-    unpick(line, code) {
-      line.covers = line.covers.filter((c) => c !== code);
-    },
-    add() {
-      this.lines.push({ description: "", kind: "other", amount: "", covers: [], inspect_only: false,
-                        part_number: "", quantity: "", query: "", _id: nextId++ });
-      this.errors.push(null);
-    },
-    remove(index) {
-      this.lines.splice(index, 1);
+    toRecommendation(index) {
+      const [line] = this.lines.splice(index, 1);
       this.errors.splice(index, 1);
+      this.recs.push(withId({ description: line.description, covers: line.covers, amount: line.amount }));
+      this.recErrors.push(null);
       if (!this.lines.length) this.add();
     },
-    get sumHint() {
-      let cents = 0;
-      let counted = 0;
-      for (const line of this.lines) {
-        const value = parseFloat(String(line.amount).replace(/[$,\s]/g, ""));
-        if (!Number.isNaN(value)) { cents += Math.round(value * 100); counted += 1; }
-      }
-      if (!counted) return "Leave blank to add up the lines and tax.";
-      return `Lines add up to $${(cents / 100).toFixed(2)}. Leave blank to use that plus tax.`;
+    toLine(index) {
+      const [rec] = this.recs.splice(index, 1);
+      this.recErrors.splice(index, 1);
+      const line = blankLine();
+      Object.assign(line, { description: rec.description, covers: [...rec.covers], amount: rec.amount, touched: true });
+      const empty = this.lines.length === 1 && !this.lines[0].description && !this.lines[0].covers.length && !this.lines[0].amount;
+      if (empty) { this.lines.splice(0, 1, line); } else { this.lines.push(line); this.errors.push(null); }
     },
-    get serialized() {
-      return JSON.stringify(this.lines.map(({ query, _id, ...line }) => line));
+    serializedRecs() {
+      return JSON.stringify(this.recs.map(strip));
     },
   }));
 
@@ -83,4 +138,13 @@ document.addEventListener("alpine:init", () => {
       scroller.scrollLeft = Math.max(0, x - scroller.clientWidth * 0.6);
     },
   }));
+});
+
+// On the receipt review, a field still holding what Claude read is drawn as
+// unconfirmed; once you change it, it's yours. data-read holds the reading.
+document.addEventListener("input", (event) => {
+  const field = event.target;
+  if (field instanceof HTMLElement && field.dataset.read !== undefined) {
+    field.classList.toggle("is-edited", field.value !== field.dataset.read);
+  }
 });

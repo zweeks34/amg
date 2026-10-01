@@ -22,6 +22,10 @@
     </a>
     <nav class="mainnav" aria-label="Main">
       <a href="/" {% if active == 'garage' %}aria-current="page"{% endif %}>Garage</a>
+      {% set to_check = receipts_to_check() %}
+      <a href="/receipts" {% if active == 'receipts' %}aria-current="page"{% endif %}>
+        Receipts{% if to_check %} <span class="badge" aria-label="{{ to_check }} to check">{{ to_check }}</span>{% endif %}
+      </a>
     </nav>
     <form class="signout" method="post" action="/logout">
       <button class="btn btn--quiet" type="submit">Sign out</button>

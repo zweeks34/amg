@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Receipts{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <h1 class="display">Receipts</h1>
+  <p class="pagehead__lede">Upload scans or phone photos of service receipts. AMG reads each one and you check what
+    it read. Nothing counts in a car's history until you confirm it.</p>
+</header>
+
+{% if just_confirmed %}
+<p class="notice notice--done" role="status">
+  Receipt confirmed{% if just_confirmed.vehicle %} for {{ just_confirmed.vehicle.name }}{% endif %}.
+  {% if just_confirmed.service_event_id %}<a href="/services/{{ just_confirmed.service_event_id }}">View the service</a>.{% endif %}
+  That was the last one to check.
+</p>
+{% endif %}
+{% if added %}
+<p class="notice notice--done" role="status">
+  {{ added }} file{{ "s" if added != 1 }} uploaded. AMG is reading {{ "them" if added != 1 else "it" }} now — this page
+  updates as each one is done, so you can start checking straight away.
+</p>
+{% endif %}
+{% for item in already or [] %}
+<p class="notice">{{ item.filename }} was uploaded before. <a href="/receipts/{{ item.receipt_id }}">Open that receipt</a>.</p>
+{% endfor %}
+{% if problems %}
+<div class="notice notice--gap" role="alert">
+  <ul class="notice__list">{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<form class="sheet form upload" method="post" action="/receipts/upload" enctype="multipart/form-data"
+      x-data="{ files: 0, photos: 0 }">
+  <h2 class="h3">Add receipts</h2>
+  <div class="upload__pick">
+    <label class="btn btn--secondary upload__button">
+      <input type="file" name="files" multiple
+             accept=".pdf,.png,.jpg,.jpeg,.gif,application/pdf,image/png,image/jpeg,image/gif"
+             @change="files = $el.files.length">
+      Choose files
+    </label>
+    <label class="btn btn--secondary upload__button upload__camera">
+      <input type="file" name="files" accept="image/*" capture="environment" @change="photos = $el.files.length">
+      Take a photo
+    </label>
+    <span class="upload__count" x-show="files + photos" x-text="(files + photos) + ((files + photos) === 1 ? ' file chosen' : ' files chosen')"></span>
+  </div>
+  <div class="fieldgrid">
+    <div class="field">
+      <label for="f-vehicle_id">Which car</label>
+      <select id="f-vehicle_id" name="vehicle_id">
+        <option value="">Let AMG work it out</option>
+        {% for car in cars %}<option value="{{ car.id }}">{{ car.name }}</option>{% endfor %}
+      </select>
+      <p class="field__hint">AMG matches each receipt by VIN, plate or model. You can change it on review.</p>
+    </div>
+    <label class="check upload__combine">
+      <input type="checkbox" name="combine" value="1">
+      These files are the pages of one receipt
+    </label>
+  </div>
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">Upload and read</button>
+    <span class="field__hint">PDF, PNG, JPG or GIF, up to 50 MB each. Reading costs about 6¢ a receipt.</span>
+  </div>
+</form>
+
+{% include "_receipt_list.html" %}
+{% endblock %}

@@ -42,8 +42,12 @@ def money(value: str | None) -> int | None:
     return -cents if negative else cents
 
 
-def day(value: str | None) -> str | None:
-    """'2016-08-15' (from a date picker) or '08/15/2016' → '2016-08-15'."""
+def day(value: str | None, allow_future: bool = False) -> str | None:
+    """'2016-08-15' (from a date picker) or '08/15/2016' → '2016-08-15'.
+
+    Dates of things that happened can't be in the future; a reminder of when
+    something is due can (``allow_future``).
+    """
     raw = text(value)
     if not raw:
         return None
@@ -52,7 +56,7 @@ def day(value: str | None) -> str | None:
             parsed = datetime.strptime(raw, pattern).date()
         except ValueError:
             continue
-        if parsed > date.today():
+        if parsed > date.today() and not allow_future:
             raise ValueError("That date is in the future.")
         if parsed.year < 1900:
             raise ValueError("Check the year.")

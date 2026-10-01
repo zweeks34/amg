@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% from "_forms.html" import message %}
+{% from "_line_editor.html" import lines as editor_lines, recommendations, datalist %}
+{% block title %}{{ (draft.shop if draft and draft.shop else document.filename) }} · Receipt{% endblock %}
+
+{#- One editable field of the draft. While the receipt is unconfirmed, data-read
+    holds what Claude read, and the field is drawn dashed until it differs. -#}
+{% macro field(name, label, type="text", hint=None, mono=False, attrs="") -%}
+{% set edited = read_raw is not none and raw.get(name, "") != read_raw.get(name, "") %}
+<div class="field">
+  <label for="f-{{ name }}">{{ label }}</label>
+  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ raw.get(name, '') }}" {{ attrs | safe }}
+         class="{{ 'mono' if mono }} {{ 'is-edited' if edited }}"
+         {%- if read_raw is not none %} data-read="{{ read_raw.get(name, '') }}"{% endif %}
+         {%- if errors.get(name) %} aria-invalid="true" aria-describedby="f-{{ name }}-error"
+         {%- elif hint %} aria-describedby="f-{{ name }}-hint"{% endif %}>
+  {{ message(name, errors, hint) }}
+</div>
+{%- endmacro %}
+
+{% block content %}
+{% set status = receipt.status %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/receipts">Receipts</a> · {{ document.filename }}</p>
+  <h1 class="display">
+    {%- if status == "read" %}Check this receipt
+    {%- elif status == "confirmed" %}{{ draft.shop or "Receipt" }}
+    {%- elif status == "failed" %}AMG couldn't read this
+    {%- elif status == "discarded" %}Discarded receipt
+    {%- else %}Reading this receipt…{% endif -%}
+  </h1>
+  {% if status == "confirmed" %}
+  <p class="pagehead__lede">Confirmed{% if car %} for {{ car.name }}{% endif %}.
+    {% if receipt.service_event_id %}<a href="/services/{{ receipt.service_event_id }}">View the service</a>.{% endif %}
+    Change anything below and save — the service is rewritten to match.</p>
+  {% endif %}
+</header>
+
+{% if just_confirmed %}
+<p class="notice notice--done" role="status">
+  Confirmed {{ just_confirmed.draft.shop if just_confirmed.draft else "the last receipt" }}{% if just_confirmed.vehicle %} for {{ just_confirmed.vehicle.name }}{% endif %}.
+  This is the next one to check.
+</p>
+{% endif %}
+{% if saved %}<p class="notice notice--done" role="status">Draft saved. It doesn't count until you confirm it.</p>{% endif %}
+
+{% if status in ("queued", "reading") %}
+<div class="sheet empty empty--small" hx-get="/receipts/{{ receipt.id }}" hx-trigger="every 3s" hx-select="main" hx-target="main" hx-swap="outerHTML">
+  <p>{{ "AMG is reading this receipt now." if status == "reading" else "Waiting its turn to be read." }}
+    This page updates when it's done.</p>
+  {% if receipt.stalled %}
+  <form method="post" action="/jobs/{{ receipt.job_id }}/carry-on">
+    <p class="notice notice--gap">The reader stopped, probably because the app restarted.</p>
+    <button class="btn btn--secondary" type="submit">Carry on reading</button>
+  </form>
+  {% endif %}
+</div>
+{% elif status == "failed" %}
+<div class="sheet empty empty--small">
+  <p class="field__error">{{ receipt.error }}</p>
+  <div class="form__actions">
+    <form method="post" action="/receipts/{{ receipt.id }}/read-again"><button class="btn btn--primary" type="submit">Try reading it again</button></form>
+    <form method="post" action="/receipts/{{ receipt.id }}/discard"><button class="btn btn--quiet" type="submit">Discard</button></form>
+  </div>
+</div>
+{% endif %}
+
+<div class="review{% if not draft %} review--scan-only{% endif %}">
+  <section class="review__scan" aria-label="The scan">
+    <details class="scan" open>
+      <summary class="scan__toggle">Scan · {{ document.page_count }} page{{ "s" if document.page_count != 1 }}</summary>
+      {% for n in range(1, document.page_count + 1) %}
+      <figure class="scan__page">
+        <a href="/documents/{{ document.id }}/pages/{{ n }}?size=full" target="_blank" rel="noopener">
+          <img src="/documents/{{ document.id }}/pages/{{ n }}" alt="Page {{ n }} of the receipt" loading="lazy">
+        </a>
+        <figcaption>Page {{ n }} of {{ document.page_count }} ·
+          <a href="/documents/{{ document.id }}/pages/{{ n }}?size=full" target="_blank" rel="noopener">open larger</a></figcaption>
+      </figure>
+      {% endfor %}
+      <p class="scan__file"><a href="/documents/{{ document.id }}/file" target="_blank" rel="noopener">Open the original file</a></p>
+    </details>
+  </section>
+
+  {% if draft %}
+  <form class="review__form sheet form" method="post" action="/receipts/{{ receipt.id }}"
+        x-data='receiptEditor({{ editor | tojson }})'>
+    {% if status == "read" %}
+    <p class="review__key"><span class="review__swatch" aria-hidden="true"></span>Dashed boxes still hold what AMG read.
+      Change anything that's wrong; confirming accepts the rest.</p>
+    {% endif %}
+
+    {% set notes = receipt.warnings + mismatches %}
+    {% if notes or duplicates %}
+    <div class="notice notice--due" role="note">
+      <p class="notice__title">Worth a look</p>
+      <ul class="notice__list">
+        {% for note in notes %}<li>{{ note }}</li>{% endfor %}
+        {% for dup in duplicates %}
+        <li>Same date and total as <a href="/receipts/{{ dup.id }}">{{ dup.filename }}</a> — the same receipt scanned twice?</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="form__body">
+      <div class="fieldgrid">
+        <div class="field">
+          <label for="f-vehicle_id">Car</label>
+          <select id="f-vehicle_id" name="vehicle_id"
+                  {% if errors.get('vehicle_id') %}aria-invalid="true" aria-describedby="f-vehicle_id-error"{% endif %}>
+            <option value="">Choose a car</option>
+            {% for option in cars %}
+            <option value="{{ option.id }}" {% if raw.get('vehicle_id') == option.id | string %}selected{% endif %}>
+              {{ option.name }}{% if option.archived_at %} (archived){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          {{ message("vehicle_id", errors, receipt.vehicle_reason if raw.get('vehicle_id') == receipt.vehicle_id | string else None) }}
+        </div>
+        <div class="field">
+          <label for="f-document_kind">What this is</label>
+          <select id="f-document_kind" name="document_kind">
+            {% for value, label in document_kinds.items() %}
+            <option value="{{ value }}" {% if raw.get('document_kind') == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          {% if raw.get('document_kind', 'invoice') != 'invoice' %}
+          <p class="field__hint">Confirm it only if the work was actually done.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="fieldgrid">
+        {{ field("performed_on", "Date", type="date") }}
+        {{ field("odometer", "Odometer", mono=True, attrs='inputmode="numeric"') }}
+        {{ field("shop", "Shop") }}
+        {{ field("invoice_number", "Invoice number", mono=True) }}
+      </div>
+
+      <fieldset class="field field--wide lines">
+        <legend>Work done</legend>
+        {{ editor_lines(kinds, receipt=True) }}
+        {{ message("lines", errors, None) }}
+      </fieldset>
+
+      <fieldset class="field field--wide lines">
+        <legend>Recommended, not done</legend>
+        <p class="field__hint">Work the shop suggested or you declined. Kept with the receipt; it doesn't count as done.</p>
+        {{ recommendations() }}
+      </fieldset>
+      {{ datalist() }}
+
+      <div class="fieldgrid">
+        {{ field("tax", "Tax", mono=True, attrs='inputmode="decimal"') }}
+        <div class="field">
+          {% set edited = read_raw is not none and raw.get("total", "") != read_raw.get("total", "") %}
+          <label for="f-total">Total</label>
+          <input id="f-total" name="total" value="{{ raw.get('total', '') }}" inputmode="decimal"
+                 class="mono {{ 'is-edited' if edited }}"{% if read_raw is not none %} data-read="{{ read_raw.get('total', '') }}"{% endif %}
+                 {% if errors.get('total') %}aria-invalid="true" aria-describedby="f-total-error"{% else %}aria-describedby="f-total-hint"{% endif %}>
+          {% if errors.get('total') %}<p class="field__error" id="f-total-error">{{ errors.total }}</p>
+          {% else %}<p class="field__hint" id="f-total-hint" x-text="sumHint()"></p>{% endif %}
+        </div>
+      </div>
+
+      <details class="printed" {% if mismatches or errors.get('printed_vin') or errors.get('delivery_date') or errors.get('next_service_date') %}open{% endif %}>
+        <summary>As printed on the receipt</summary>
+        <p class="field__hint">The car's details as the shop wrote them, kept as evidence. They never change the car itself.</p>
+        <div class="fieldgrid">
+          {{ field("printed_vin", "VIN", mono=True, attrs='autocapitalize="characters" spellcheck="false"') }}
+          {{ field("printed_plate", "Plate", mono=True, attrs='autocapitalize="characters" spellcheck="false"') }}
+          {{ field("printed_vehicle", "Vehicle") }}
+          {{ field("delivery_date", "Delivered new on", type="date") }}
+          {{ field("next_service_date", "Next service due", type="date") }}
+          {{ field("next_service_miles", "…or at", mono=True, attrs='inputmode="numeric"', hint="Miles") }}
+        </div>
+      </details>
+
+      {% if offers %}
+      <fieldset class="field field--wide">
+        <legend>Fill in the car from this receipt</legend>
+        {% for offer in offers %}
+        <label class="check">
+          <input type="checkbox" name="{{ offer.name }}" value="1"> {{ offer.label }}
+        </label>
+        {% if offer.hint %}<p class="field__hint offer__hint">{{ offer.hint }}</p>{% endif %}
+        {{ message(offer.name, errors, None) }}
+        {% endfor %}
+      </fieldset>
+      {% endif %}
+
+      <div class="field field--wide">
+        <label for="f-notes">Notes</label>
+        <textarea id="f-notes" name="notes" rows="2">{{ raw.get('notes', '') }}</textarea>
+      </div>
+
+      <input type="hidden" name="lines_json" :value="serializedLines()">
+      <input type="hidden" name="recs_json" :value="serializedRecs()">
+    </div>
+
+    <div class="form__actions review__actions">
+      {% if status == "read" %}
+      <button class="btn btn--primary" type="submit" name="action" value="confirm">Confirm receipt</button>
+      <button class="btn btn--secondary" type="submit" name="action" value="save">Save draft</button>
+      <button class="btn btn--quiet" type="submit" formaction="/receipts/{{ receipt.id }}/read-again">Read it again</button>
+      <button class="btn btn--quiet" type="submit" formaction="/receipts/{{ receipt.id }}/discard">Discard</button>
+      {% elif status == "confirmed" %}
+      <button class="btn btn--primary" type="submit" name="action" value="confirm">Save changes</button>
+      {% if receipt.service_event_id %}<a class="btn btn--quiet" href="/services/{{ receipt.service_event_id }}">View the service</a>{% endif %}
+      {% elif status == "discarded" %}
+      <button class="btn btn--secondary" type="submit" formaction="/receipts/{{ receipt.id }}/restore">Restore receipt</button>
+      {% endif %}
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

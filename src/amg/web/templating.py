@@ -62,7 +62,20 @@ STATUS_WORDS = {
     "later": "Later",
 }
 
+def receipts_to_check() -> int:
+    """For the nav badge: receipts read and waiting for you."""
+    from .. import db
+    from ..repo import receipts
+
+    conn = db.connect()
+    try:
+        return receipts.count_to_check(conn)
+    finally:
+        conn.close()
+
+
 templates.env.globals["asset"] = asset
+templates.env.globals["receipts_to_check"] = receipts_to_check
 templates.env.globals["axis"] = axis
 templates.env.globals["status_words"] = STATUS_WORDS
 templates.env.filters["miles"] = miles

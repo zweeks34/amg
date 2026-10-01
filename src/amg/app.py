@@ -18,7 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 
 from . import db
-from .web import guard, routes_auth, routes_design, routes_garage, routes_services, routes_vehicles
+from .web import guard, routes_auth, routes_design, routes_garage, routes_receipts, routes_services, routes_vehicles
 from .web.templating import STATIC_DIR, asset, render
 
 
@@ -39,6 +39,7 @@ app.include_router(routes_auth.router)
 app.include_router(routes_garage.router)
 app.include_router(routes_vehicles.router)
 app.include_router(routes_services.router)
+app.include_router(routes_receipts.router)
 app.include_router(routes_design.router)
 
 

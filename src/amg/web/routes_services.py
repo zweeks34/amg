@@ -1,8 +1,8 @@
 """Services typed in by hand, and the catalogue of service types they map to.
 
-The line editor on the form is an Alpine component that posts every line as
-one JSON field (``lines_json``), which keeps rows, their service-type chips
-and their checkboxes together however many are added or removed.
+A service that came from a receipt is edited on the receipt instead — the
+draft there is the record it was written from — so its edit link goes to the
+receipt, and deleting it sends the receipt back to be checked.
 """
 
 from __future__ import annotations
@@ -14,8 +14,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import RedirectResponse, Response
 
-from ..repo import odometer, services
-from . import forms
+from ..ingest.drafts import Draft
+from ..repo import odometer, receipts, services
+from . import forms, line_editor
 from .deps import get_conn
 from .routes_vehicles import POWERTRAIN_LABELS, vehicle_or_404
 from .templating import render
@@ -35,16 +36,16 @@ _FIELDS = ("performed_on", "odometer", "source", "shop", "invoice_number", "tax"
 def new_service(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     car = vehicle_or_404(conn, vehicle_id)
     raw = {"performed_on": date.today().isoformat(), "source": "shop"}
-    return _form(request, conn, car, raw=raw, lines=[_blank_line()], errors={})
+    return _form(request, conn, car, raw=raw, lines=[line_editor.blank_line()], errors={})
 
 
 @router.post("/vehicles/{vehicle_id}/services")
 async def create_service(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     car = vehicle_or_404(conn, vehicle_id)
-    raw, lines_raw = await _raw(request)
-    event, errors, line_errors = _read(conn, vehicle_id, raw, lines_raw)
+    raw, rows = await _raw(request)
+    event, errors, line_errors = _read(conn, vehicle_id, raw, rows)
     if errors or any(line_errors):
-        return _form(request, conn, car, raw, lines_raw, errors, line_errors, status_code=422)
+        return _form(request, conn, car, raw, rows, errors, line_errors, status_code=422)
     event_id = services.create_event(conn, vehicle_id, event)
     return RedirectResponse(f"/services/{event_id}", status_code=303)
 
@@ -53,12 +54,17 @@ async def create_service(request: Request, vehicle_id: int, conn: sqlite3.Connec
 def service_page(request: Request, event_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     event = _event_or_404(conn, event_id)
     car = vehicle_or_404(conn, event["vehicle_id"])
+    receipt = receipts.for_event(conn, event_id)
+    draft = Draft.from_dict(json.loads(receipt["draft_json"])) if receipt and receipt["draft_json"] else None
     return render(
         request,
         "service.html",
         active="garage",
         car=car,
         event=event,
+        receipt=receipt,
+        draft=draft,
+        type_names={row["code"]: row["name"] for row in services.list_types(conn)},
         sources=SOURCE_LABELS,
         kinds=KIND_LABELS,
         actions=ACTION_LABELS,
@@ -68,6 +74,8 @@ def service_page(request: Request, event_id: int, conn: sqlite3.Connection = Dep
 @router.get("/services/{event_id}/edit")
 def edit_service(request: Request, event_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     event = _event_or_404(conn, event_id)
+    if receipt := receipts.for_event(conn, event_id):
+        return RedirectResponse(f"/receipts/{receipt['id']}", status_code=303)
     car = vehicle_or_404(conn, event["vehicle_id"])
     raw = {
         "performed_on": event["performed_on"],
@@ -75,33 +83,24 @@ def edit_service(request: Request, event_id: int, conn: sqlite3.Connection = Dep
         "source": event["source"],
         "shop": event["shop"],
         "invoice_number": event["invoice_number"],
-        "tax": _dollars(event["tax_cents"]),
-        "total": _dollars(event["total_cents"]),
+        "tax": line_editor.dollars(event["tax_cents"]),
+        "total": line_editor.dollars(event["total_cents"]),
         "notes": event["notes"],
     }
-    lines = [
-        {
-            "description": line["description"],
-            "kind": line["kind"],
-            "amount": _dollars(line["amount_cents"]),
-            "covers": [c["code"] for c in line["covers"]],
-            "inspect_only": bool(line["covers"]) and all(c["action"] == "inspect" for c in line["covers"]),
-            "part_number": line["part_number"],
-            "quantity": "" if line["quantity"] is None else f"{line['quantity']:g}",
-        }
-        for line in event["lines"]
-    ] or [_blank_line()]
-    return _form(request, conn, car, raw, lines, errors={}, event=event)
+    rows = line_editor.rows_from_draft(event["lines"]) or [line_editor.blank_line()]
+    return _form(request, conn, car, raw, rows, errors={}, event=event)
 
 
 @router.post("/services/{event_id}/edit")
 async def update_service(request: Request, event_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     existing = _event_or_404(conn, event_id)
+    if receipt := receipts.for_event(conn, event_id):
+        return RedirectResponse(f"/receipts/{receipt['id']}", status_code=303)
     car = vehicle_or_404(conn, existing["vehicle_id"])
-    raw, lines_raw = await _raw(request)
-    event, errors, line_errors = _read(conn, car["id"], raw, lines_raw, event_id=event_id)
+    raw, rows = await _raw(request)
+    event, errors, line_errors = _read(conn, car["id"], raw, rows, event_id=event_id)
     if errors or any(line_errors):
-        return _form(request, conn, car, raw, lines_raw, errors, line_errors, event=existing, status_code=422)
+        return _form(request, conn, car, raw, rows, errors, line_errors, event=existing, status_code=422)
     services.update_event(conn, event_id, event)
     return RedirectResponse(f"/services/{event_id}", status_code=303)
 
@@ -109,6 +108,7 @@ async def update_service(request: Request, event_id: int, conn: sqlite3.Connecti
 @router.post("/services/{event_id}/delete")
 def delete_service(event_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     event = _event_or_404(conn, event_id)
+    receipts.release_event(conn, event_id)
     services.delete_event(conn, event_id)
     return RedirectResponse(f"/vehicles/{event['vehicle_id']}", status_code=303)
 
@@ -140,6 +140,16 @@ async def add_service_type(request: Request, conn: sqlite3.Connection = Depends(
 
 
 # ---------- Helpers ----------
+
+
+def editor_types(conn: sqlite3.Connection, powertrain: str | None = None, in_use: set[str] | None = None) -> list[dict]:
+    """The service types the editor offers: those for the powertrain, plus any already chosen."""
+    in_use = in_use or set()
+    return [
+        {"code": row["code"], "name": row["name"], "category": row["category"]}
+        for row in services.list_types(conn)
+        if powertrain is None or powertrain in row["powertrains"].split(",") or row["code"] in in_use
+    ]
 
 
 def _event_or_404(conn: sqlite3.Connection, event_id: int) -> dict:
@@ -186,11 +196,6 @@ def _form(
     status_code: int = 200,
 ) -> Response:
     in_use = {code for line in lines for code in line.get("covers", [])}
-    types = [
-        {"code": row["code"], "name": row["name"], "category": row["category"]}
-        for row in services.list_types(conn)
-        if car["powertrain"] in row["powertrains"].split(",") or row["code"] in in_use
-    ]
     return render(
         request,
         "service_form.html",
@@ -200,7 +205,11 @@ def _form(
         event=event,
         raw=raw,
         errors=errors,
-        editor={"lines": lines, "errors": line_errors or [None] * len(lines), "types": types},
+        editor={
+            "lines": lines,
+            "errors": line_errors or [None] * len(lines),
+            "types": editor_types(conn, car["powertrain"], in_use),
+        },
         sources=SOURCE_LABELS,
         kinds=KIND_LABELS,
     )
@@ -209,33 +218,14 @@ def _form(
 async def _raw(request: Request) -> tuple[dict[str, str], list[dict]]:
     form = await request.form()
     raw = {key: forms.text(form.get(key)) for key in _FIELDS}
-    try:
-        lines = json.loads(form.get("lines_json") or "[]")
-        if not isinstance(lines, list):
-            raise ValueError
-    except ValueError:
-        lines = []
-    cleaned = []
-    for item in lines:
-        if not isinstance(item, dict):
-            continue
-        cleaned.append({
-            "description": forms.text(str(item.get("description", ""))),
-            "kind": str(item.get("kind", "other")),
-            "amount": forms.text(str(item.get("amount", ""))),
-            "covers": [str(c) for c in item.get("covers", []) if isinstance(c, str)],
-            "inspect_only": bool(item.get("inspect_only")),
-            "part_number": forms.text(str(item.get("part_number", ""))),
-            "quantity": forms.text(str(item.get("quantity", ""))),
-        })
-    return raw, cleaned or [_blank_line()]
+    return raw, line_editor.clean_lines(form.get("lines_json")) or [line_editor.blank_line()]
 
 
 def _read(
     conn: sqlite3.Connection,
     vehicle_id: int,
     raw: dict,
-    lines_raw: list[dict],
+    rows: list[dict],
     event_id: int | None = None,
 ) -> tuple[services.EventInput, dict, list[str | None]]:
     errors: dict[str, str] = {}
@@ -263,31 +253,7 @@ def _read(
             errors["odometer"] = clash.message()
 
     types = {row["code"]: row for row in services.list_types(conn)}
-    lines: list[services.LineInput] = []
-    line_errors: list[str | None] = []
-    for item in lines_raw:
-        covers = [code for code in dict.fromkeys(item["covers"]) if code in types]
-        try:
-            amount = forms.money(item["amount"])
-            qty = forms.quantity(item["quantity"])
-        except ValueError as err:
-            line_errors.append(str(err))
-            continue
-        if not item["description"] and not covers and amount is None:
-            line_errors.append(None)  # an empty row: ignored
-            continue
-        line_errors.append(None)
-        lines.append(services.LineInput(
-            description=item["description"] or ", ".join(types[c]["name"] for c in covers) or "Unnamed item",
-            kind=item["kind"] if item["kind"] in services.KINDS else "other",
-            part_number=item["part_number"],
-            quantity=qty,
-            amount_cents=amount,
-            covers=[
-                services.Coverage(code, "inspect" if item["inspect_only"] else types[code]["default_action"])
-                for code in covers
-            ],
-        ))
+    lines, line_errors, _ = line_editor.parse_lines(rows, types)
     if not lines and not any(line_errors):
         errors["lines"] = "Add at least one thing that was done."
 
@@ -306,11 +272,3 @@ def _read(
         lines=lines,
     )
     return event, errors, line_errors
-
-
-def _blank_line() -> dict:
-    return {"description": "", "kind": "other", "amount": "", "covers": [], "inspect_only": False, "part_number": "", "quantity": ""}
-
-
-def _dollars(cents: int | None) -> str:
-    return "" if cents is None else f"{cents / 100:.2f}"

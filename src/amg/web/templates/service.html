@@ -41,6 +41,31 @@
   </div>
 </section>
 
+{% if draft and draft.recommendations %}
+<section class="block" aria-labelledby="recs-heading">
+  <h2 class="h3" id="recs-heading">Recommended, not done</h2>
+  <ul class="lineitems sheet sheet--flush">
+    {% for rec in draft.recommendations %}
+    <li class="lineitems__row">
+      <div class="lineitems__desc">
+        <p>{{ rec.description }}</p>
+        {% if rec.codes %}
+        <ul class="chips">{% for code in rec.codes %}<li class="chip chip--inspect">{{ type_names.get(code, code) }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+      <span class="lineitems__kind">Quoted</span>
+      <span class="lineitems__amount mono">{{ rec.quoted_cents | money if rec.quoted_cents is not none else "" }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if receipt %}
+<p class="notice block">Read from a receipt.
+  <a href="/receipts/{{ receipt.id }}">Open the receipt</a> to see the scan or correct anything.</p>
+{% endif %}
+
 {% if event.notes %}
 <section class="block" aria-labelledby="notes-heading">
   <h2 class="h3" id="notes-heading">Notes</h2>
@@ -49,10 +74,14 @@
 {% endif %}
 
 <div class="pagehead__actions" x-data="{ confirming: false }">
+  {% if receipt %}
+  <a class="btn btn--secondary" href="/receipts/{{ receipt.id }}">Edit on the receipt</a>
+  {% else %}
   <a class="btn btn--secondary" href="/services/{{ event.id }}/edit">Edit service</a>
+  {% endif %}
   <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true">Delete service</button>
   <form method="post" action="/services/{{ event.id }}/delete" class="confirm" x-show="confirming" x-cloak>
-    <span>Delete this service and its line items?</span>
+    <span>{% if receipt %}Delete this service? The receipt goes back to be checked.{% else %}Delete this service and its line items?{% endif %}</span>
     <button class="btn btn--danger" type="submit">Delete service</button>
     <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>
   </form>
