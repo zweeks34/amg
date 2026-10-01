@@ -75,12 +75,12 @@ cookie is rejected; every page but `/login` redirects when logged out.
 **For:** getting your cars and some history in by hand, and finding out early
 whether receipt extraction is good enough to build a UI around.
 
-- [ ] Vehicles: add / edit / archive; VIN decode via NHTSA vPIC fills year/make/model/trim/powertrain
-- [ ] Odometer readings: manual entry; every reading keeps its source
-- [ ] Service-type catalogue seeded (oil, filters, rotation, fluids, plugs, brakes, 12V battery, hybrid inverter coolant, EV battery coolant, …) with categories
-- [ ] Service entry by hand (DIY or a receipt typed in): date, odometer, shop, line items, each line mapped to service types
-- [ ] Service history per vehicle
-- [ ] `scripts/try_receipt.py <file>` — local text/OCR → Claude → JSON printed. Run on ~10 real scans in `samples/`
+- [x] Vehicles: add / edit / archive; VIN decode via NHTSA vPIC fills year/make/model/trim/powertrain
+- [x] Odometer readings: manual entry; every reading keeps its source (the `odometer_points` view unions typed readings, services and the acquired mileage); a reading that runs backwards is refused
+- [x] Service-type catalogue seeded (oil, filters, rotation, fluids, plugs, brakes, 12V battery, hybrid inverter coolant, EV battery coolant, …) with categories — 45 types, plus your own from `/service-types`
+- [x] Service entry by hand (DIY or a receipt typed in): date, odometer, shop, line items, each line mapped to service types with an action (replace / inspect / perform)
+- [x] Service history per vehicle
+- [x] `scripts/try_receipt.py <file>` — local text/OCR → Claude → JSON printed, in `text`, `vision` or `both` mode. Run on all 14 scans in `samples/` (findings below)
 
 **Data owned:** `vehicles`, `odometer_readings`, `service_types`,
 `service_events`, `line_items`, `line_item_services`.
@@ -95,6 +95,38 @@ types; deleting a vehicle is an archive, not a cascade.
 **Done when:** two cars exist with hand-entered history, and the trial output
 on real scans looks usable.
 
+### Trial findings (2026-09-30)
+
+All 14 receipts in `samples/` (2016–2024, five shops, two cars, three of them
+handwritten or phone-scanned) were read both ways with `claude-opus-5-5` at
+medium effort; two were checked line by line against the paper.
+
+| | Text (the PDF's own text layer, else Tesseract) | Vision (page images) |
+|---|---|---|
+| Date right | 11 / 14 | 14 / 14 |
+| Total right | 11 / 14 | 14 / 14 |
+| Odometer, where printed | 10 / 12 | 12 / 12 |
+| Line amounts right | 7 / 14 | 12 / 14 — one flagged for review, one estimate's items filed as recommendations |
+| Cost per receipt | 4.0¢ | 5.6¢ |
+| Time per receipt | ~15 s | ~13 s |
+
+- **The scanner's own text layer is the problem.** Epson Scan's searchable-PDF
+  layer is present on 12 of the 14 receipts, and is often garbled — letters
+  swapped, columns interleaved, one invoice's layer holds only its header —
+  with no confidence score to tell good from bad. Text mode failed outright on
+  the handwritten receipts and on that header-only page.
+- **Vision read everything,** including two handwritten receipts (it took the
+  $20 line as Virginia's state inspection, which is right), a warranty battery
+  at $0, and six declined items on a tire invoice, kept apart as
+  recommendations.
+- **It caught a document type nobody planned for:** one scan is stamped "not an
+  invoice — an estimate showing a deposit", yet shows full payment and the work
+  done the same day.
+
+**Decision for phase 2:** every receipt is read with vision. Local text
+extraction stays, but only to make receipts searchable; it no longer decides
+anything. The extra cost is about 1.6¢ a receipt.
+
 ---
 
 ## Phase 2 — Receipt ingestion
@@ -102,12 +134,14 @@ on real scans looks usable.
 **For:** getting the backlog of scanned receipts in with one review pass each.
 
 - [ ] Upload: several files at once, PDF/PNG/JPG/GIF, phone camera capture; stored by sha256 so a re-upload is recognised
-- [ ] Text: PDF text layer first, Tesseract otherwise; OCR confidence recorded
-- [ ] Claude: strict JSON schema → shop, date, odometer, VIN/plate, line items (parts/labour, qty, price), tax, total, suggested service types. Image sent instead of text when OCR confidence is low
+- [ ] Text for search only: PDF text layer first, Tesseract otherwise (the trial showed it can't be trusted to read from)
+- [ ] Claude reads every page as an image (`receipts.read_receipt(..., mode="vision")`): shop, date, odometer, VIN, line items, tax, total, suggested service types, recommendations kept apart from work done
+- [ ] Schema additions from the trial: **document kind** (invoice / estimate or quote / deposit / inspection report) with the items kept as lines whatever the kind, so you decide whether an estimate records work done; **licence plate** (two handwritten receipts carry only a plate) — vehicles gain a plate field; **delivery date** (dealer invoices print it) offered as the car's in-service date; **next-service reminder** (date and/or miles) when one is written on
+- [ ] Match each receipt to a car by VIN, then plate, then year/make/model; ask when it's ambiguous
 - [ ] Learned aliases: a confirmed mapping of line-item text to service types is reused without asking Claude again
 - [ ] Review screen: scan beside the fields; AI-read values styled as unconfirmed until you confirm; fix any field; assign to a vehicle
 - [ ] Background jobs for multi-file uploads, with progress and a stalled-job "carry on"
-- [ ] `scripts/eval_receipts.py` — per-field accuracy against hand-labelled samples
+- [ ] `scripts/eval_receipts.py` — per-field accuracy against hand-labelled samples (start from the two receipts checked by hand in the trial)
 
 **Data owned:** `documents`, `document_pages`, `extractions`, `service_aliases`,
 `jobs`.
