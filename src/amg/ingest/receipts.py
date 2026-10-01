@@ -89,7 +89,8 @@ due" reminders, multi-point inspection checklists, coupons and warranty boilerpl
 and charges of this visit go in `lines`. Work the document marks as recommended, declined, deferred \
 or "due next time" goes in `recommendations`. A multi-point inspection is one line covering \
 multipoint_inspection; the checklist's individual findings are not separate lines. A handwritten or \
-printed "next service due" date or mileage goes in next_service_date and next_service_miles.
+printed "next service due" date or mileage goes in next_service_date and next_service_miles only — \
+a reminder of when to come back is not a recommendation.
 
 Vehicle details. Copy the VIN, plate and vehicle exactly as printed, even if they look inconsistent \
 with each other — shops make mistakes, and the owner sorts them out.

@@ -19,9 +19,21 @@
 {% macro lines(kinds, receipt=False) -%}
 <template x-for="(line, i) in lines" :key="line._id">
   <div class="line" {% if receipt %}:class="{ 'line--read': unread(line) }" @input="line.touched = true"{% endif %}>
-    <div class="field">
-      <label :for="'line-desc-' + line._id">Description</label>
-      <input :id="'line-desc-' + line._id" x-model="line.description" placeholder="e.g. Synthetic oil change">
+    <div class="line__top">
+      <div class="field">
+        <label :for="'line-desc-' + line._id">Description</label>
+        <input :id="'line-desc-' + line._id" x-model="line.description" placeholder="e.g. Synthetic oil change">
+      </div>
+      <div class="field">
+        <label :for="'line-kind-' + line._id">Kind</label>
+        <select :id="'line-kind-' + line._id" x-model="line.kind">
+          {% for value, label in kinds.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label :for="'line-amount-' + line._id">Amount</label>
+        <input :id="'line-amount-' + line._id" x-model="line.amount" inputmode="decimal" class="mono" placeholder="0.00">
+      </div>
     </div>
 
     <div class="field">
@@ -33,22 +45,12 @@
     </div>
 
     <div class="line__meta">
-      <div class="field">
-        <label :for="'line-kind-' + line._id">Kind</label>
-        <select :id="'line-kind-' + line._id" x-model="line.kind">
-          {% for value, label in kinds.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="field">
-        <label :for="'line-amount-' + line._id">Amount</label>
-        <input :id="'line-amount-' + line._id" x-model="line.amount" inputmode="decimal" class="mono" placeholder="0.00">
-      </div>
       <label class="check">
         <input type="checkbox" x-model="line.inspect_only"> Inspected only
       </label>
       <div class="line__actions">
-        {% if receipt %}<button type="button" class="btn btn--quiet" @click="toRecommendation(i)">Not done: move to recommendations</button>{% endif %}
-        <button type="button" class="btn btn--quiet" @click="remove(i)">Remove line</button>
+        {% if receipt %}<button type="button" class="btn btn--quiet" @click="toRecommendation(i)" aria-label="Wasn't done: move this line to recommendations">Wasn't done</button>{% endif %}
+        <button type="button" class="btn btn--quiet" @click="remove(i)">Remove</button>
       </div>
     </div>
     <p class="field__error" x-show="errors[i]" x-text="errors[i]"></p>
@@ -60,21 +62,23 @@
 {% macro recommendations() -%}
 <template x-for="(rec, j) in recs" :key="rec._id">
   <div class="line line--rec">
-    <div class="field">
-      <label :for="'rec-desc-' + rec._id">Description</label>
-      <input :id="'rec-desc-' + rec._id" x-model="rec.description">
+    <div class="line__top line__top--rec">
+      <div class="field">
+        <label :for="'rec-desc-' + rec._id">Description</label>
+        <input :id="'rec-desc-' + rec._id" x-model="rec.description">
+      </div>
+      <div class="field">
+        <label :for="'rec-amount-' + rec._id">Quoted</label>
+        <input :id="'rec-amount-' + rec._id" x-model="rec.amount" inputmode="decimal" class="mono" placeholder="0.00">
+      </div>
     </div>
     <div class="field">
       <label :for="'covers-' + rec._id">Services it would cover</label>
       {{ chips("rec") }}
     </div>
     <div class="line__meta">
-      <div class="field">
-        <label :for="'rec-amount-' + rec._id">Quoted</label>
-        <input :id="'rec-amount-' + rec._id" x-model="rec.amount" inputmode="decimal" class="mono" placeholder="0.00">
-      </div>
       <div class="line__actions">
-        <button type="button" class="btn btn--quiet" @click="toLine(j)">It was done: move to work done</button>
+        <button type="button" class="btn btn--quiet" @click="toLine(j)" aria-label="Was done: move this to work done">Was done</button>
         <button type="button" class="btn btn--quiet" @click="removeRec(j)">Remove</button>
       </div>
     </div>

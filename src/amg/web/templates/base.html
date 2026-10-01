@@ -39,6 +39,9 @@
 
   {% block colophon %}
   <footer class="colophon">
+    <form class="colophon__signout" method="post" action="/logout">
+      <button class="btn btn--quiet" type="submit">Sign out</button>
+    </form>
     <a href="/service-types">Service types</a>
     &nbsp;·&nbsp;
     <a href="/design" {% if active == 'design' %}aria-current="page"{% endif %}>Design reference</a>
