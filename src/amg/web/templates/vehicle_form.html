@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit " ~ vehicle.name if vehicle else "Add a car" }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  {% if vehicle %}<p class="eyebrow"><a href="/vehicles/{{ vehicle.id }}">{{ vehicle.name }}</a></p>{% endif %}
+  <h1 class="display">{{ "Edit car" if vehicle else "Add a car" }}</h1>
+</header>
+
+<form class="sheet form" method="post" action="{{ '/vehicles/%d/edit' % vehicle.id if vehicle else '/vehicles' }}">
+  {% include "_vehicle_fields.html" %}
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">{{ "Save changes" if vehicle else "Add car" }}</button>
+    <a class="btn btn--quiet" href="{{ '/vehicles/%d' % vehicle.id if vehicle else '/' }}">Cancel</a>
+  </div>
+</form>
+
+{% if vehicle %}
+<section class="sheet zone" aria-labelledby="archive-heading">
+  {% if vehicle.archived_at %}
+  <h2 class="h3" id="archive-heading">Archived</h2>
+  <p>This car is archived: it's off the garage page, and its history is kept.</p>
+  <form method="post" action="/vehicles/{{ vehicle.id }}/restore">
+    <button class="btn btn--secondary" type="submit">Restore car</button>
+  </form>
+  {% else %}
+  <h2 class="h3" id="archive-heading">Sold it?</h2>
+  <p>Archiving takes the car off the garage page and keeps its full history. You can restore it any time.</p>
+  <form method="post" action="/vehicles/{{ vehicle.id }}/archive">
+    <button class="btn btn--secondary" type="submit">Archive car</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_forms.html" import input, message %}
+{% block title %}Service types{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <h1 class="display">Service types</h1>
+  <p class="pagehead__lede">The names AMG uses to match what a receipt says was done against what the maintenance
+    schedule asks for. Each car only offers the types that fit its powertrain.</p>
+</header>
+
+{% for category, rows in grouped.items() %}
+<section class="block" aria-labelledby="cat-{{ loop.index }}">
+  <h2 class="h3" id="cat-{{ loop.index }}">{{ category }}</h2>
+  <ul class="typelist sheet sheet--flush">
+    {% for row in rows %}
+    <li class="typelist__row">
+      <span class="typelist__name">{{ row.name }}{% if row.is_custom %} <span class="chip chip--small">Yours</span>{% endif %}</span>
+      <span class="typelist__applies muted">
+        {%- if row.powertrains.split(",") | length < 3 -%}
+        {% for p in row.powertrains.split(",") %}{{ powertrains[p] }}{% if not loop.last %}, {% endif %}{% endfor %} only
+        {%- endif -%}
+      </span>
+      <span class="typelist__action muted">Usually {{ actions[row.default_action] | lower }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endfor %}
+
+<section class="block" id="custom" aria-labelledby="custom-heading">
+  <h2 class="h3" id="custom-heading">Add your own</h2>
+  <form class="sheet form" method="post" action="/service-types">
+    <div class="fieldgrid">
+      {{ input("name", "Name", raw, errors, hint="e.g. Throttle body cleaning") }}
+      <div class="field">
+        <label for="f-category">Category</label>
+        <select id="f-category" name="category">
+          {% for category in grouped %}
+          <option {% if raw.get('category') == category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+        {{ message("category", errors, None) }}
+      </div>
+      <div class="field">
+        <label for="f-default_action">Usually</label>
+        <select id="f-default_action" name="default_action">
+          {% for value, label in actions.items() %}
+          <option value="{{ value }}" {% if raw.get('default_action', 'replace') == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form__actions">
+      <button class="btn btn--primary" type="submit">Add service type</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

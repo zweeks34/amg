@@ -11,13 +11,15 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import PlainTextResponse, RedirectResponse, Response
 
 from . import db
-from .web import guard, routes_auth, routes_design, routes_garage
-from .web.templating import STATIC_DIR, asset
+from .web import guard, routes_auth, routes_design, routes_garage, routes_services, routes_vehicles
+from .web.templating import STATIC_DIR, asset, render
 
 
 @asynccontextmanager
@@ -35,7 +37,16 @@ app.middleware("http")(guard.require_login)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(routes_auth.router)
 app.include_router(routes_garage.router)
+app.include_router(routes_vehicles.router)
+app.include_router(routes_services.router)
 app.include_router(routes_design.router)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def not_found(request: Request, exc: StarletteHTTPException) -> Response:
+    if exc.status_code == 404 and not request.url.path.startswith("/static/"):
+        return render(request, "not_found.html", status_code=404)
+    return await http_exception_handler(request, exc)
 
 
 @app.get("/healthz", include_in_schema=False)

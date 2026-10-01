@@ -1,0 +1,50 @@
+{% from "_forms.html" import input, textarea, described, message %}
+{#- Swapped whole by the VIN lookup, so it holds every field of the car form. -#}
+<div id="vehicle-fields" class="form__body">
+  <div class="field field--wide">
+    <label for="f-vin">VIN</label>
+    <div class="inline">
+      <input id="f-vin" name="vin" class="mono" value="{{ raw.get('vin', '') }}" autocomplete="off"
+             autocapitalize="characters" spellcheck="false" maxlength="24"{{ described('vin', errors, 'On the dashboard by the windshield, the door jamb, or any service receipt.') }}>
+      <button class="btn btn--secondary" type="button"
+              hx-post="/vehicles/vin-lookup" hx-include="closest form" hx-target="#vehicle-fields" hx-swap="outerHTML">
+        Look up
+      </button>
+    </div>
+    {{ message('vin', errors, 'On the dashboard by the windshield, the door jamb, or any service receipt.') }}
+    {% if notice %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+  </div>
+
+  {{ input("name", "Name", raw, errors, hint="What you call it — “Outback”, “Dad's truck”.", cls="field--wide") }}
+
+  <div class="fieldgrid">
+    {{ input("year", "Year", raw, errors, attrs='inputmode="numeric" maxlength="4"') }}
+    {{ input("make", "Make", raw, errors) }}
+    {{ input("model", "Model", raw, errors) }}
+    {{ input("trim", "Trim", raw, errors) }}
+    {{ input("engine", "Engine", raw, errors) }}
+  </div>
+
+  <fieldset class="field field--wide">
+    <legend>Powertrain</legend>
+    <div class="choices">
+      {% for value, label in powertrains.items() %}
+      <label class="choice">
+        <input type="radio" name="powertrain" value="{{ value }}" {% if raw.get('powertrain', 'gas') == value %}checked{% endif %}>
+        {{ label }}
+      </label>
+      {% endfor %}
+    </div>
+    {{ message('powertrain', errors, None) }}
+  </fieldset>
+
+  <div class="fieldgrid">
+    {{ input("in_service_date", "In service since", raw, errors, type="date",
+             hint="The date it was first sold new. Schedules count from here.") }}
+    {{ input("acquired_date", "You got it on", raw, errors, type="date",
+             hint="Leave blank if you bought it new. Nothing before this counts as missed.") }}
+    {{ input("acquired_miles", "Odometer when you got it", raw, errors, attrs='inputmode="numeric" class="mono"') }}
+  </div>
+
+  {{ textarea("notes", "Notes", raw, errors) }}
+</div>

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Service on {{ event.performed_on }} · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a> · {{ sources[event.source] }}</p>
+  <h1 class="display">{{ event.shop or "Your own work" }}</h1>
+  <dl class="facts">
+    <div><dt>Date</dt><dd class="mono">{{ event.performed_on }}</dd></div>
+    <div><dt>Odometer</dt><dd class="mono">{{ event.odometer | miles }}</dd></div>
+    {% if event.invoice_number %}<div><dt>Invoice</dt><dd class="mono">{{ event.invoice_number }}</dd></div>{% endif %}
+  </dl>
+</header>
+
+<section class="block" aria-labelledby="lines-heading">
+  <h2 class="h3" id="lines-heading">What was done</h2>
+  <div class="sheet sheet--flush">
+    <ol class="lineitems">
+      {% for line in event.lines %}
+      <li class="lineitems__row">
+        <div class="lineitems__desc">
+          <p>{{ line.description }}{% if line.part_number %} <span class="mono muted">{{ line.part_number }}</span>{% endif %}</p>
+          {% if line.covers %}
+          <ul class="chips">
+            {% for cover in line.covers %}
+            <li class="chip{% if cover.action == 'inspect' %} chip--inspect{% endif %}">{{ cover.name }}
+              {% if cover.action == "inspect" %}<span class="chip__note">inspected</span>{% endif %}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        <span class="lineitems__kind">{{ kinds[line.kind] }}{% if line.quantity %} × {{ "%g" | format(line.quantity) }}{% endif %}</span>
+        <span class="lineitems__amount mono">{{ line.amount_cents | money if line.amount_cents is not none else "" }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+    <dl class="totals">
+      {% if event.tax_cents is not none %}<div><dt>Tax</dt><dd class="mono">{{ event.tax_cents | money }}</dd></div>{% endif %}
+      <div class="totals__grand"><dt>Total</dt><dd class="mono">{{ event.total_cents | money }}</dd></div>
+    </dl>
+  </div>
+</section>
+
+{% if event.notes %}
+<section class="block" aria-labelledby="notes-heading">
+  <h2 class="h3" id="notes-heading">Notes</h2>
+  <p class="sheet prose">{{ event.notes }}</p>
+</section>
+{% endif %}
+
+<div class="pagehead__actions" x-data="{ confirming: false }">
+  <a class="btn btn--secondary" href="/services/{{ event.id }}/edit">Edit service</a>
+  <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true">Delete service</button>
+  <form method="post" action="/services/{{ event.id }}/delete" class="confirm" x-show="confirming" x-cloak>
+    <span>Delete this service and its line items?</span>
+    <button class="btn btn--danger" type="submit">Delete service</button>
+    <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>
+  </form>
+</div>
+{% endblock %}

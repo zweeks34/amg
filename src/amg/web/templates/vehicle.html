@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% from "_forms.html" import input %}
+{% block title %}{{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow">{{ [car.year, car.make, powertrains[car.powertrain]] | select | join(" · ") }}</p>
+  <h1 class="display">{{ car.name }}</h1>
+  <dl class="facts">
+    {% if car.model or car.trim %}<div><dt>Model</dt><dd>{{ [car.model, car.trim] | select | join(" ") }}</dd></div>{% endif %}
+    {% if car.engine %}<div><dt>Engine</dt><dd>{{ car.engine }}</dd></div>{% endif %}
+    {% if car.vin %}<div><dt>VIN</dt><dd class="mono">{{ car.vin }}</dd></div>{% endif %}
+    <div>
+      <dt>Odometer</dt>
+      <dd class="mono">{% if latest %}{{ latest.miles | miles }} <span class="muted">on {{ latest.read_on }}</span>{% else %}<span class="muted">No readings yet</span>{% endif %}</dd>
+    </div>
+  </dl>
+  <div class="pagehead__actions">
+    <a class="btn btn--primary" href="/vehicles/{{ car.id }}/services/new">Log a service</a>
+    <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/edit">Edit car</a>
+  </div>
+  {% if car.archived_at %}
+  <p class="notice">This car is archived. <a href="/vehicles/{{ car.id }}/edit">Restore it</a> to put it back in the garage.</p>
+  {% endif %}
+</header>
+
+<section class="block" aria-labelledby="history-heading">
+  <h2 class="h3" id="history-heading">Service history</h2>
+  {% if history %}
+  <ol class="ledger sheet sheet--flush">
+    {% for event in history %}
+    <li>
+      <a class="ledger__row" href="/services/{{ event.id }}">
+        <span class="ledger__date mono">{{ event.performed_on }}</span>
+        <span class="ledger__miles mono">{{ event.odometer | miles if event.odometer is not none else "" }}</span>
+        <span class="ledger__who">{{ event.shop or "Your own work" }}</span>
+        <span class="ledger__what">
+          {% for item in event.covered %}<span class="chip{% if item.inspected_only %} chip--inspect{% endif %}">{{ item.name }}{% if item.inspected_only %} <span class="chip__note">inspected</span>{% endif %}</span>{% endfor %}
+        </span>
+        <span class="ledger__total mono">{{ event.total_cents | money if event.total_cents is not none else "" }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="sheet empty empty--small">
+    <p>No services logged yet. Log one from a receipt, or a job you did yourself.</p>
+  </div>
+  {% endif %}
+</section>
+
+<section class="block" id="odometer" aria-labelledby="odometer-heading" x-data="{ adding: {{ 'true' if reading_errors else 'false' }} }">
+  <div class="block__head">
+    <h2 class="h3" id="odometer-heading">Odometer readings</h2>
+    <button class="btn btn--quiet" type="button" x-show="!adding" @click="adding = true; $nextTick(() => $refs.miles.focus())">Add a reading</button>
+  </div>
+
+  <form class="sheet form form--inline" method="post" action="/vehicles/{{ car.id }}/odometer" x-show="adding" x-cloak>
+    <div class="fieldgrid">
+      {{ input("read_on", "Date", reading, reading_errors, type="date") }}
+      {{ input("miles", "Miles", reading, reading_errors, attrs='inputmode="numeric" class="mono" x-ref="miles"') }}
+      {{ input("note", "Note", reading, reading_errors) }}
+    </div>
+    <div class="form__actions">
+      <button class="btn btn--primary" type="submit">Save reading</button>
+      <button class="btn btn--quiet" type="button" @click="adding = false">Cancel</button>
+    </div>
+  </form>
+
+  {% if points %}
+  <ol class="points sheet sheet--flush">
+    {% for point in points | reverse %}
+    <li class="points__row">
+      <span class="mono">{{ point.read_on }}</span>
+      <span class="mono">{{ point.miles | miles }}</span>
+      <span class="points__from">
+        {% if point.source == "service" %}<a href="/services/{{ point.source_id }}">From a service</a>
+        {% elif point.source == "acquired" %}When you got it
+        {% else %}Typed in{% endif %}
+      </span>
+      {% if point.source == "manual" %}
+      <form method="post" action="/odometer/{{ point.source_id }}/delete">
+        <button class="btn btn--quiet" type="submit" aria-label="Delete the {{ point.miles | miles }} reading from {{ point.read_on }}">Delete</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="muted">No readings yet. Every service you log with an odometer adds one.</p>
+  {% endif %}
+</section>
+{% endblock %}
