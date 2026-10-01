@@ -95,8 +95,10 @@ def _print(read: receipts.ReceiptRead) -> None:
     cost = f"${u.cost_usd:.3f}" if u.cost_usd is not None else "?"
     print(f"== {read.path.name} [{read.mode}]  {len(read.pages)} page(s): {sources}")
     print(f"   {u.input_tokens + u.cache_read_tokens + u.cache_write_tokens:,} in / {u.output_tokens:,} out, {cost}, {u.seconds}s")
-    print(f"   {e.date or '?'}  {e.odometer if e.odometer is not None else '?':>7} mi  {e.shop_name or '?'}"
-          f"  #{e.invoice_number or '-'}  {e.vehicle or ''}  VIN {e.vin or '-'}")
+    print(f"   {e.document_kind}  {e.date or '?'}  {e.odometer if e.odometer is not None else '?':>7} mi  {e.shop_name or '?'}"
+          f"  #{e.invoice_number or '-'}  {e.vehicle or ''}  VIN {e.vin or '-'}  plate {e.plate or '-'}")
+    if e.delivery_date or e.next_service_date or e.next_service_miles:
+        print(f"   delivered {e.delivery_date or '-'}  next service {e.next_service_date or '-'} / {e.next_service_miles or '-'} mi")
     for line in e.lines:
         amount = f"{line.amount:>9,.2f}" if line.amount is not None else " " * 9
         codes = ",".join(line.service_codes) or "-"

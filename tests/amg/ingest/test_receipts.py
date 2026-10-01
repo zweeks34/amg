@@ -21,8 +21,10 @@ def _line(description="Oil change", amount=40.0, codes=("engine_oil",)):
 
 def _extraction(**overrides):
     fields = dict(
-        is_service_record=True, shop_name="Corner Garage", invoice_number="1", date="2020-06-25",
-        odometer=33_698, vin=None, vehicle=None, lines=[_line(), _line("Filter", 6.95, ["oil_filter"])],
+        document_kind="invoice", shop_name="Corner Garage", invoice_number="1", date="2020-06-25",
+        odometer=33_698, vin=None, plate=None, vehicle=None, delivery_date=None,
+        next_service_date=None, next_service_miles=None,
+        lines=[_line(), _line("Filter", 6.95, ["oil_filter"])],
         recommendations=[], subtotal=46.95, tax=0.0, total=46.95, uncertain="",
     )
     fields.update(overrides)
@@ -63,6 +65,20 @@ def test_unknown_codes_are_dropped_and_reported():
 def test_totals_that_dont_add_up_are_flagged():
     warnings = receipts.checks(_extraction(subtotal=None, total=99.0), KNOWN)
     assert any("add up to $46.95" in w for w in warnings)
+
+
+def test_estimates_are_flagged_not_dropped():
+    extraction = _extraction(document_kind="deposit")
+    warnings = receipts.checks(extraction, KNOWN)
+    assert "This looks like a deposit receipt, not an invoice. Record it only if the work was done." in warnings
+    assert len(extraction.lines) == 2
+
+
+def test_malformed_dates_are_cleared():
+    extraction = _extraction(date="06/25/2020", delivery_date="March 2016")
+    warnings = receipts.checks(extraction, KNOWN)
+    assert extraction.date is None and extraction.delivery_date is None
+    assert any("YYYY-MM-DD" in w for w in warnings)
 
 
 def test_missing_basics_and_bad_vin_are_flagged():

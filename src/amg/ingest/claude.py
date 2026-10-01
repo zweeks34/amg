@@ -82,11 +82,16 @@ def parse(
     content: list[dict],
     effort: str = "medium",
     max_tokens: int = 16_000,
+    timeout: float = 180.0,
 ) -> tuple[T, Usage]:
-    """Ask Claude for ``schema`` given ``content``; the system prompt is cached."""
+    """Ask Claude for ``schema`` given ``content``; the system prompt is cached.
+
+    ``timeout`` is per attempt (the SDK retries twice), so a stuck call can't
+    hold a background job for the SDK's default ten minutes.
+    """
     started = time.monotonic()
     try:
-        response = client().beta.messages.parse(
+        response = client().with_options(timeout=timeout).beta.messages.parse(
             model=model(),
             max_tokens=max_tokens,
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
@@ -96,6 +101,8 @@ def parse(
             betas=[FALLBACK_BETA],
             fallbacks="default",
         )
+    except anthropic.APITimeoutError as err:
+        raise ClaudeError("Claude took too long to answer. Try reading it again.") from err
     except anthropic.AuthenticationError as err:
         raise ClaudeError("Claude rejected the API key. Check ANTHROPIC_API_KEY in .env.") from err
     except anthropic.RateLimitError as err:

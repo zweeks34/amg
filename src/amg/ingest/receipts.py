@@ -50,16 +50,24 @@ class Recommendation(BaseModel):
     quoted_amount: float | None
 
 
+DocumentKind = Literal["invoice", "estimate", "deposit", "inspection_report", "other"]
+DOCUMENT_KINDS: tuple[str, ...] = ("invoice", "estimate", "deposit", "inspection_report", "other")
+
+
 class ReceiptExtraction(BaseModel):
-    is_service_record: bool = Field(description="True if this documents work done on a vehicle. False for quotes, estimates, parts-counter sales with no work, or anything unrelated.")
+    document_kind: DocumentKind = Field(description="invoice: a bill or receipt for work done. estimate: a quote or estimate. deposit: a receipt for a deposit or prepayment. inspection_report: an inspection checklist with no charges. other: anything else.")
     shop_name: str | None
     invoice_number: str | None
     date: str | None = Field(description="The date the work was done, or the invoice date, as YYYY-MM-DD.")
     odometer: int | None = Field(description="The vehicle's mileage for this visit, in whole miles. Prefer mileage out, else mileage in.")
     vin: str | None = Field(description="The 17-character VIN if printed. VINs never contain I, O or Q, so read those as 1, 0 and 0.")
+    plate: str | None = Field(description="The licence plate as printed, letters and digits only, without the state.")
     vehicle: str | None = Field(description="Year, make and model as printed, e.g. '2016 Subaru Outback'.")
-    lines: list[ReceiptLine] = Field(description="Work actually performed and items actually charged on this visit, in invoice order.")
-    recommendations: list[Recommendation] = Field(description="Work recommended, declined, deferred or quoted for later — not done on this visit.")
+    delivery_date: str | None = Field(description="The date the vehicle was first delivered or sold new, if printed (dealer invoices often show it as Delivery Date or In-Service Date), as YYYY-MM-DD.")
+    next_service_date: str | None = Field(description="When the shop says the next service is due, if written on the document, as YYYY-MM-DD.")
+    next_service_miles: int | None = Field(description="The mileage at which the shop says the next service is due, if written on the document.")
+    lines: list[ReceiptLine] = Field(description="The document's work items and charges, in order. For an estimate or deposit, the items it lists.")
+    recommendations: list[Recommendation] = Field(description="Work the document itself marks as recommended, declined, deferred or due next time.")
     subtotal: float | None
     tax: float | None
     total: float | None = Field(description="The total the customer paid or owes for this visit.")
@@ -72,11 +80,19 @@ You read automobile service receipts and invoices for a car owner's personal mai
 Report what the document says, not what is typical: if a value isn't printed, use null. Never invent \
 amounts, dates or mileage.
 
+What kind of document it is. Most are invoices. Some are estimates, quotes or deposit receipts — \
+often marked as such, sometimes stamped "not an invoice". Say which in `document_kind`, and still \
+list the document's items in `lines`: the owner decides whether the work was done.
+
 Work done versus not done. Dealer invoices often mix in recommended or declined work, "next service \
-due" reminders, multi-point inspection checklists, coupons and warranty boilerplate. Only work \
-actually performed on this visit goes in `lines`. Recommended, declined, deferred or "due next time" \
-work goes in `recommendations`. A multi-point inspection is one line covering multipoint_inspection; \
-the checklist's individual findings are not separate lines.
+due" reminders, multi-point inspection checklists, coupons and warranty boilerplate. Only the work \
+and charges of this visit go in `lines`. Work the document marks as recommended, declined, deferred \
+or "due next time" goes in `recommendations`. A multi-point inspection is one line covering \
+multipoint_inspection; the checklist's individual findings are not separate lines. A handwritten or \
+printed "next service due" date or mileage goes in next_service_date and next_service_miles.
+
+Vehicle details. Copy the VIN, plate and vehicle exactly as printed, even if they look inconsistent \
+with each other — shops make mistakes, and the owner sorts them out.
 
 Amounts are dollars as printed. A line's amount is its extended price (quantity times unit price). \
 `total` is what the customer paid or owes for the visit; when warranty or a coupon covers work, \
@@ -180,12 +196,19 @@ def read_receipt(path: Path | str, types: list[Mapping], mode: str = "vision", e
 def checks(extraction: ReceiptExtraction, known_codes: set[str]) -> list[str]:
     """Problems worth flagging on the review screen. Unknown codes are removed in place."""
     warnings: list[str] = []
-    if not extraction.is_service_record:
-        warnings.append("This doesn't look like a record of work done.")
+    if extraction.document_kind != "invoice":
+        kind = {"estimate": "an estimate or quote", "deposit": "a deposit receipt",
+                "inspection_report": "an inspection report"}.get(extraction.document_kind, "something other than an invoice")
+        warnings.append(f"This looks like {kind}, not an invoice. Record it only if the work was done.")
     if not extraction.date:
         warnings.append("No date found.")
     elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}", extraction.date):
         warnings.append(f"The date {extraction.date!r} isn't in YYYY-MM-DD form.")
+        extraction.date = None
+    for name in ("delivery_date", "next_service_date"):
+        value = getattr(extraction, name)
+        if value and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            setattr(extraction, name, None)
     if extraction.odometer is None:
         warnings.append("No odometer reading found.")
     if extraction.vin:

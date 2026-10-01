@@ -30,16 +30,23 @@ def fake_client(monkeypatch):
             calls.append(kwargs)
             return self.response
 
-    client = SimpleNamespace(beta=SimpleNamespace(messages=Messages()))
+    client = SimpleNamespace(beta=SimpleNamespace(messages=Messages()), options=[])
+
+    def with_options(**options):
+        client.options.append(options)
+        return client
+
+    client.with_options = with_options
     monkeypatch.setattr(claude, "client", lambda: client)
     return client, calls
 
 
 def test_parse_returns_the_object_and_usage(fake_client, monkeypatch):
     monkeypatch.delenv("AMG_CLAUDE_MODEL", raising=False)
-    _, calls = fake_client
-    answer, usage = claude.parse(Answer, "system", [{"type": "text", "text": "hi"}], effort="low")
+    client, calls = fake_client
+    answer, usage = claude.parse(Answer, "system", [{"type": "text", "text": "hi"}], effort="low", timeout=60)
     assert answer.value == "ok"
+    assert client.options == [{"timeout": 60}]
     assert calls[0]["model"] == "claude-opus-5-5"
     assert calls[0]["fallbacks"] == "default" and calls[0]["betas"] == [claude.FALLBACK_BETA]
     assert calls[0]["output_config"] == {"effort": "low"}
