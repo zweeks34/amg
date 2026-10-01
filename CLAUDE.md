@@ -32,7 +32,7 @@ The Automobile Maintenance Genie (AMG) is an automobile maintenance manager.
 - Prefer stdlib/native over new dependencies; ask before adding one
 - Money is integer cents; distance is integer miles; energy is kWh / US gallons as REAL; dates are ISO-8601 text
 - Settings and paths are resolved inside functions (never bound as default arguments) so tests can redirect them
-- Nothing an AI extracted counts in history or schedules until the user confirms it
+- Nothing an AI extracted counts in history or schedules until the user confirms it — and every field stays correctable, before and after confirming, with the source scan alongside. Printed details (VIN, vehicle) are evidence, not truth: shops get them wrong
 - UI copy: sentence case, plain verbs, buttons say what happens ("Confirm receipt", not "Submit")
 
 ## Workflow

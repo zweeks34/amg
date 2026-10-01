@@ -97,9 +97,11 @@ on real scans looks usable.
 
 ### Trial findings (2026-09-30)
 
-All 14 receipts in `samples/` (2016–2024, five shops, two cars, three of them
+All 14 receipts in `samples/` (2016–2024, five shops, one car, three of them
 handwritten or phone-scanned) were read both ways with `claude-opus-5-5` at
-medium effort; two were checked line by line against the paper.
+medium effort; two were checked line by line against the paper. Two of the
+receipts print a 2016 Forester's VIN and description: the shop's mistake —
+the work was on the Outback.
 
 | | Text (the PDF's own text layer, else Tesseract) | Vision (page images) |
 |---|---|---|
@@ -137,23 +139,30 @@ anything. The extra cost is about 1.6¢ a receipt.
 - [ ] Text for search only: PDF text layer first, Tesseract otherwise (the trial showed it can't be trusted to read from)
 - [ ] Claude reads every page as an image (`receipts.read_receipt(..., mode="vision")`): shop, date, odometer, VIN, line items, tax, total, suggested service types, recommendations kept apart from work done
 - [ ] Schema additions from the trial: **document kind** (invoice / estimate or quote / deposit / inspection report) with the items kept as lines whatever the kind, so you decide whether an estimate records work done; **licence plate** (two handwritten receipts carry only a plate) — vehicles gain a plate field; **delivery date** (dealer invoices print it) offered as the car's in-service date; **next-service reminder** (date and/or miles) when one is written on
-- [ ] Match each receipt to a car by VIN, then plate, then year/make/model; ask when it's ambiguous
+- [ ] **You can correct anything AMG read.** On the review screen every field is editable beside the scan — car, shop, date, odometer, VIN, each line, its amount and service tags, totals, document kind — and lines can be added, removed or moved between work done and recommendations. A confirmed receipt stays editable the same way, with its scan alongside; confirming is never a one-way door
+- [ ] The car is a suggestion, never a decision. Suggested by VIN, then plate, then VINs printed on receipts already confirmed for a car — so a shop that keeps printing the wrong car is recognised the next time — then year/make/model. A printed VIN or vehicle that disagrees with the car you pick is shown as a note on the receipt, not an error, and never changes the car's own details
+- [ ] Both versions are kept: what Claude read, and what you confirmed. Every correction becomes a labelled example for `scripts/eval_receipts.py`
 - [ ] Learned aliases: a confirmed mapping of line-item text to service types is reused without asking Claude again
-- [ ] Review screen: scan beside the fields; AI-read values styled as unconfirmed until you confirm; fix any field; assign to a vehicle
+- [ ] Review screen: scan beside the fields; AI-read values styled as unconfirmed until you confirm them
 - [ ] Background jobs for multi-file uploads, with progress and a stalled-job "carry on"
 - [ ] `scripts/eval_receipts.py` — per-field accuracy against hand-labelled samples (start from the two receipts checked by hand in the trial)
 
 **Data owned:** `documents`, `document_pages`, `extractions`, `service_aliases`,
 `jobs`.
 
-**Can go wrong:** a receipt spans two cars → split on review. A receipt
-without an odometer → the event is saved; the odometer model interpolates. The
-same receipt scanned twice at different resolutions → hash dedupe misses it,
-so also warn on same shop + date + total.
+**Can go wrong:** the shop prints another car's details (seen in the trial:
+two Outback receipts carry a Forester's VIN) → the car you pick wins; the
+printed details stay on the receipt as a note. A receipt spans two cars →
+split on review. A receipt without an odometer → the event is saved; the
+odometer model interpolates. The same receipt scanned twice at different
+resolutions → hash dedupe misses it, so also warn on same shop + date + total.
 
 **Tests pin:** dedupe; the Claude response is validated against the schema and
 a malformed one becomes a review error, not a crash; nothing counts in history
-until confirmed; alias learning.
+until confirmed; every extracted field can be overridden, before and after
+confirming, and the original read is kept; a receipt whose printed VIN belongs
+to no car (or another car) can be assigned to any car, and the next receipt
+with that VIN is suggested for the same one; alias learning.
 
 **Done when:** the backlog imports and each receipt takes one review pass.
 
