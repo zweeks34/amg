@@ -58,7 +58,7 @@
               </template>
             </ul>
             <input :id="'line-covers-' + line._id" list="service-type-names" x-model="line.query"
-                   @change="pick(line)" @keydown.enter.prevent="pick(line)"
+                   @input="picked($event, line)" @change="pick(line)" @keydown.enter.prevent="pick(line)"
                    placeholder="Type to add, e.g. Engine oil" autocomplete="off">
           </div>
 

@@ -17,13 +17,26 @@ document.addEventListener("alpine:init", () => {
       const type = this.types.find((t) => t.code === code);
       return type ? type.name : code;
     },
+    // An exact name wins; otherwise a fragment that fits exactly one type
+    // ("oil fi" → Oil filter) is taken as that type. Ambiguous text is left
+    // in the box for the person to finish.
     pick(line) {
       const wanted = line.query.trim().toLowerCase();
       if (!wanted) return;
-      const type = this.types.find((t) => t.name.toLowerCase() === wanted);
+      let type = this.types.find((t) => t.name.toLowerCase() === wanted);
+      if (!type) {
+        const fits = this.types.filter((t) => t.name.toLowerCase().includes(wanted));
+        if (fits.length === 1) type = fits[0];
+      }
       if (!type) return;
       if (!line.covers.includes(type.code)) line.covers.push(type.code);
       line.query = "";
+    },
+    // Choosing from the browser's suggestion list arrives as an input event
+    // (insertReplacementText); while that list is open, Chrome keeps Enter
+    // for itself, so waiting for Enter or blur would leave the chip unadded.
+    picked(event, line) {
+      if (event.inputType === "insertReplacementText" || !event.inputType) this.pick(line);
     },
     unpick(line, code) {
       line.covers = line.covers.filter((c) => c !== code);

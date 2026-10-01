@@ -273,13 +273,13 @@ code, pre, .mono { font-family: var(--mono); font-size: 0.9375em; }
 .btn--quiet:hover { color: var(--ink); text-decoration: underline; }
 .btn--block { width: 100%; }
 
-.field { display: grid; gap: 0.375rem; }
+.field { display: grid; gap: 0.375rem; align-content: start; }
 .field label {
   font: 600 0.9375rem/1.2 var(--display);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.field input,
+.field input:not([type="radio"], [type="checkbox"]),
 .field select,
 .field textarea {
   width: 100%;
