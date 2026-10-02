@@ -193,6 +193,16 @@ def test_edit_then_delete_a_service(signed_in, conn, car):
     assert services.get_event(conn, event_id) is None
 
 
+def test_part_number_and_quantity_are_kept_and_editable(signed_in, conn, car):
+    line = {**_line("Oil filter", ["oil_filter"], "18.98", "part"), "part_number": "15208-AA15A", "quantity": "2"}
+    created = signed_in.post(f"/vehicles/{car}/services", data=_service_form([line]), follow_redirects=False)
+    event = services.get_event(conn, int(created.headers["location"].rsplit("/", 1)[1]))
+    assert (event["lines"][0]["part_number"], event["lines"][0]["quantity"]) == ("15208-AA15A", 2.0)
+
+    form_page = signed_in.get(created.headers["location"] + "/edit").text
+    assert "15208-AA15A" in form_page and ">Part number</label>" in form_page and ">Quantity</label>" in form_page
+
+
 def test_vehicle_page_shows_history(signed_in, car):
     signed_in.post(f"/vehicles/{car}/services", data=_service_form([_line("Oil", ["engine_oil"], "50")]))
     page = signed_in.get(f"/vehicles/{car}").text

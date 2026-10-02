@@ -36,6 +36,17 @@
       </div>
     </div>
 
+    <div class="line__detail">
+      <div class="field">
+        <label :for="'line-part-' + line._id">Part number</label>
+        <input :id="'line-part-' + line._id" x-model="line.part_number" class="mono" autocomplete="off">
+      </div>
+      <div class="field">
+        <label :for="'line-qty-' + line._id">Quantity</label>
+        <input :id="'line-qty-' + line._id" x-model="line.quantity" inputmode="decimal" class="mono">
+      </div>
+    </div>
+
     <div class="field">
       <label :for="'covers-' + line._id">
         Services covered
