@@ -8,6 +8,8 @@
 #   amg restore /tmp/FILE.zip --replace
 #   amg migrate
 set -e
+# A shell from `pct enter` has a bare PATH; don't depend on the caller's.
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
 AMG_DATA_DIR="${AMG_DATA_DIR:-/var/lib/amg}"
 export AMG_DATA_DIR
 if [ "$(id -u)" -eq 0 ]; then

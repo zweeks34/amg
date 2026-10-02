@@ -30,6 +30,8 @@ app can't write — can't happen, and there's no `chown` step.
 Commands are marked with where they run: **Proxmox host** (the `pve` shell in
 the web UI), **WSL** (Ubuntu on your PC, in `/mnt/c/projects/amg`), **LXC 302**
 or **LXC 300** (`pct enter 302` from the host, or `ssh root@<amg-ip>`).
+A `pct enter` shell leaves `/usr/local/bin` off its `PATH`, which is where the
+`amg` command lives. Step 3 fixes that for root's shell; `ssh` never needed it.
 
 ---
 
@@ -117,6 +119,9 @@ install -d -o amg -g amg -m 750 /var/lib/amg
 # The code and its Python, owned by root.
 install -d -m 755 /opt/amg /opt/amg/app
 python3 -m venv /opt/amg/venv
+
+# So `pct enter` shells find the `amg` command (installed by the first deploy).
+echo 'export PATH="/usr/local/sbin:/usr/local/bin:$PATH"' >> /root/.bashrc
 exit
 ```
 
@@ -390,6 +395,7 @@ your newest full backup as in step 9.
 | A receipt fails: "No Anthropic API key is set" | No `.env`, or the key is empty | Step 5, then **Try reading it again** on the receipt |
 | A receipt fails: "Couldn't reach Claude" | The container can't reach the internet | **LXC 302:** `curl -sI https://api.anthropic.com` |
 | A receipt stuck reading, marked stopped | A restart or deploy during the read | **Carry on reading** |
+| `amg: command not found` (`/usr/local/bin` is not included in the PATH) | A `pct enter` shell's bare `PATH` | Once: `echo 'export PATH="/usr/local/sbin:/usr/local/bin:$PATH"' >> /root/.bashrc`, then `exit` and `pct enter 302` again. Or run `/usr/local/bin/amg …` |
 | "attempt to write a readonly database", or Permission denied under `/var/lib/amg` | Something ran as root against the data | `chown -R amg:amg /var/lib/amg`, restart; use the `amg` command, which refuses to run as root there |
 | New services default to tomorrow's date late in the evening | The container isn't on Eastern time | `pct set 302 --timezone America/New_York`, then `pct reboot 302` |
 | `deploy.sh`: "Permission denied (publickey)" | The key isn't in the container | Step 2 |

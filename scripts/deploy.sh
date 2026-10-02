@@ -58,7 +58,7 @@ fi
 # The database as it was before the restart, which is when new migrations run.
 # Database only, so it's small; the last ten are kept.
 if [ -f /var/lib/amg/amg.sqlite3 ]; then
-    amg backup --no-files --out "/var/lib/amg/backups/before-deploy-$(date +%Y-%m-%d-%H%M%S).zip" >/dev/null
+    /usr/local/bin/amg backup --no-files --out "/var/lib/amg/backups/before-deploy-$(date +%Y-%m-%d-%H%M%S).zip" >/dev/null
     ls -1t /var/lib/amg/backups/before-deploy-*.zip | tail -n +11 | xargs -r rm --
 fi
 
