@@ -8,6 +8,8 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from starlette.responses import Response
 
+from ..backup import size_label
+
 HERE = Path(__file__).parent
 STATIC_DIR = HERE / "static"
 
@@ -81,6 +83,7 @@ templates.env.globals["status_words"] = STATUS_WORDS
 templates.env.filters["miles"] = miles
 templates.env.filters["dollars"] = dollars
 templates.env.filters["money"] = money
+templates.env.filters["filesize"] = size_label
 
 
 def render(request: Request, name: str, status_code: int = 200, **context) -> Response:

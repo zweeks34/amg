@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Back up{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <h1 class="display">Back up your data</h1>
+  <p class="pagehead__lede">Everything AMG knows is in its database and the receipts you uploaded.
+    Download both now and then, and keep the zip somewhere other than the server.</p>
+</header>
+
+<section class="block" aria-labelledby="holds-heading">
+  <h2 class="h3" id="holds-heading">What a backup holds</h2>
+  <div class="sheet form__body">
+    <dl class="facts">
+      <div><dt>Cars</dt><dd class="mono">{{ summary.counts.cars }}</dd></div>
+      <div><dt>Services</dt><dd class="mono">{{ summary.counts.services }}</dd></div>
+      <div><dt>Stored files</dt><dd class="mono">{{ summary.counts.files }} · {{ summary.files_bytes | filesize }}</dd></div>
+      <div><dt>Database</dt><dd class="mono">{{ summary.database_bytes | filesize }}</dd></div>
+    </dl>
+    <div class="form__actions">
+      <a class="btn btn--primary" href="/backup/download" download>Download a backup</a>
+      <a class="btn btn--quiet" href="/backup/download?files=0" download>Database only</a>
+    </div>
+    <p class="field__hint">The database only is small, but it can't bring back the scans themselves.
+      Your Anthropic key isn't in either: it lives in the server's settings file.</p>
+  </div>
+</section>
+
+<section class="block" aria-labelledby="restore-heading">
+  <h2 class="h3" id="restore-heading">Restoring</h2>
+  <p>Restoring replaces everything, so it's done on the server rather than here.
+    Copy the zip to the server's <span class="mono">/tmp</span>, then run:</p>
+  <pre class="code">systemctl stop amg
+amg restore /tmp/amg-backup-….zip --replace
+systemctl start amg</pre>
+  <p class="muted">The database it replaces is moved aside, not deleted. The zip's README says the same, and
+    <span class="mono">docs/DEPLOY-proxmox.md</span> covers rebuilding the server from nothing.</p>
+</section>
+{% endblock %}
