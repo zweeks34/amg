@@ -39,7 +39,7 @@ class ReceiptLine(BaseModel):
     kind: Literal["labor", "part", "fee", "other"]
     part_number: str | None = Field(description="Part number if printed on this line.")
     quantity: float | None
-    amount: float | None = Field(description="This line's extended amount in dollars, as printed. Negative for discounts. Null if no amount is printed for it.")
+    amount: float | None = Field(description="This line's extended amount in dollars, as printed. Negative for discounts and credits, including amounts printed in parentheses, such as (35.11). Null if no amount is printed for it.")
     service_codes: list[str] = Field(description="Codes from the catalogue that this line's work covers. Empty if none fit.")
     action: Literal["replace", "inspect", "perform"] = Field(description="replace: new part or fluid installed. inspect: only checked. perform: a procedure such as a rotation or alignment.")
 

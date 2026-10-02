@@ -32,6 +32,16 @@ def test_bad_money(raw):
         forms.money(raw)
 
 
+@pytest.mark.parametrize(("raw", "expected"), [("2", 2.0), ("1.5", 1.5), ("-1", -1.0), ("", None), (None, None)])
+def test_quantity(raw, expected):
+    assert forms.quantity(raw) == expected
+
+
+def test_bad_quantity():
+    with pytest.raises(ValueError):
+        forms.quantity("two")
+
+
 @pytest.mark.parametrize(("raw", "expected"), [("2016-08-15", "2016-08-15"), ("08/15/2016", "2016-08-15"), ("8/15/16", "2016-08-15")])
 def test_day(raw, expected):
     assert forms.day(raw) == expected

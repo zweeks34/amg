@@ -164,6 +164,20 @@ def test_confirm_with_corrections(signed_in, conn, reads, outback):
     assert receipt["draft"].recommendations == []
 
 
+def test_confirm_a_credit_read_with_a_negative_quantity(signed_in, conn, reads, outback):
+    credit = fx.line("COOPER ENDEAVOR+ manufacturer warranty credit", -35.11, (), "perform", "other")
+    reads.append(fx.extraction(lines=[fx.line(), credit.model_copy(update={"quantity": -1.0})], total=34.80))
+    _upload(signed_in, ("a.pdf", _pdf()))
+    receipt_id = _only_receipt(conn)
+    page = signed_in.get(f"/receipts/{receipt_id}").text
+    response = signed_in.post(f"/receipts/{receipt_id}", data=_form(page, receipt_id, vehicle_id=str(outback),
+                                                                     total="34.80"), follow_redirects=False)
+    assert response.status_code == 303
+
+    event = services.get_event(conn, receipts.get(conn, receipt_id)["service_event_id"])
+    assert [(line["quantity"], line["amount_cents"]) for line in event["lines"]] == [(None, 6715), (-1.0, -3511)]
+
+
 def test_confirm_needs_a_car(signed_in, conn, reads):
     vehicles.create(conn, vehicles.VehicleFields(name="One"))
     vehicles.create(conn, vehicles.VehicleFields(name="Two"))

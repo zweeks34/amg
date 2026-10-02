@@ -74,13 +74,12 @@ def year(value: str | None) -> int | None:
 
 
 def quantity(value) -> float | None:
+    """'2' / '1.5' / '-1' → a number. Receipts print -1 on credits and returns,
+    such as a manufacturer's warranty credit against a tire."""
     raw = text(str(value) if value is not None else "")
     if not raw:
         return None
     try:
-        number = float(raw)
+        return float(raw)
     except ValueError:
         raise ValueError("Enter a number.") from None
-    if number < 0:
-        raise ValueError("Quantity can't be negative.")
-    return number
