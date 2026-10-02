@@ -38,7 +38,16 @@ def fake_client(monkeypatch):
 
     client.with_options = with_options
     monkeypatch.setattr(claude, "client", lambda: client)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")  # the server's .env may not exist yet
     return client, calls
+
+
+def test_no_api_key_is_a_plain_error_not_a_crash(fake_client, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    with pytest.raises(claude.ClaudeError, match="ANTHROPIC_API_KEY"):
+        claude.parse(Answer, "system", [{"type": "text", "text": "hi"}])
+    assert fake_client[1] == []  # never called
 
 
 def test_parse_returns_the_object_and_usage(fake_client, monkeypatch):

@@ -89,6 +89,10 @@ def parse(
     ``timeout`` is per attempt (the SDK retries twice), so a stuck call can't
     hold a background job for the SDK's default ten minutes.
     """
+    if not configured():
+        # The SDK would raise a bare TypeError here; say what to do about it instead.
+        raise ClaudeError("No Anthropic API key is set, so AMG can't read receipts. Add ANTHROPIC_API_KEY "
+                          "to the .env file, restart the app, then read this again.")
     started = time.monotonic()
     try:
         response = client().with_options(timeout=timeout).beta.messages.parse(
