@@ -20,6 +20,7 @@ before the next begins.
 | Storage | SQLite through stdlib `sqlite3`, WAL mode, numbered SQL migrations | AMG's data is relational (vehicle → service → line item ↔ schedule item) and reports are queries. One file to back up. No multi-worker stale-file problem |
 | Baseline schedule | Owner's-manual PDF → AI extraction → you verify. Fallback: AI draft from year/make/model (VIN decoded by NHTSA vPIC), *unverified* until confirmed. Templates to start from | The manual is the authority; the draft covers cars whose manual you don't have |
 | Receipts | Local first (PDF text layer → Tesseract), then Claude structures the text into line items, reading the image itself when OCR is poor. **Every receipt is confirmed before it counts** | Free where it can be, accurate where it matters, and never silently wrong |
+| Line kinds | Labor, part, fee or other: what the line *is*, not who paid for it. No warranty kind. Work done under warranty keeps its real kind and its services, at $0 or whatever you paid; a warranty you bought (road hazard, extended) is a fee covering no services; a warranty credit against a charged line is other, negative | A battery replaced under warranty is still a battery replacement the schedule needs to see, and calling warranty lines labor would inflate labor spend in reports. Who paid can become its own field if it's ever needed |
 | Claude model | `AMG_CLAUDE_MODEL`, default `claude-opus-5-5` | ≈5¢/receipt page. Sonnet 5.5 (≈2¢) or Haiku 4.5 (≈1¢) is a one-line change |
 | Vehicles | Gasoline, hybrid, EV | EVs log kWh and mi/kWh instead of gallons and MPG |
 | Units | Miles, US gallons, USD, kWh | |
@@ -286,8 +287,12 @@ last one is rejected; EV and gas cars side by side.
 
 **Data owned:** `price_book`.
 
+**Can go wrong:** work done under warranty or as goodwill is a $0 line (see
+*Line kinds* above) → it would drag the median toward zero, so lines at $0 or
+with no amount aren't prices and are skipped when estimating.
+
 **Tests pin:** the estimate fallback order; inflation adjustment; an occurrence
-beyond the horizon is excluded.
+beyond the horizon is excluded; a $0 warranty line doesn't lower the estimate.
 
 ---
 
