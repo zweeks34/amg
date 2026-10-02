@@ -1,0 +1,37 @@
+# AMG's systemd unit. scripts/deploy.sh installs it as
+# /etc/systemd/system/amg.service on every deploy, so change it here, not there.
+
+[Unit]
+Description=AMG, the Automobile Maintenance Genie
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=amg
+Group=amg
+WorkingDirectory=/opt/amg/app
+# The database and stored receipts. Outside the code directory, so no deploy
+# can reach them. The `amg` command (deploy/amg) points at the same place.
+Environment=AMG_DATA_DIR=/var/lib/amg
+# Secrets and preferences come from /opt/amg/app/.env, which the app reads itself.
+
+# Two worker processes, managed by uvicorn itself.
+#   Receipts are read on threads inside whichever worker took the upload, so a
+#   restart stops any read in progress; its receipt page then offers
+#   "Carry on reading".
+#   --timeout-keep-alive outlasts nginx's 60s upstream keepalive, so nginx never
+#   reuses a connection uvicorn has just closed (an occasional 502 otherwise).
+#   --forwarded-allow-ips trusts X-Forwarded-For only from the nginx container,
+#   so the log shows the phone's address rather than nginx's.
+ExecStart=/opt/amg/venv/bin/uvicorn amg.app:app \
+    --host 0.0.0.0 --port 8000 \
+    --workers 2 \
+    --timeout-keep-alive 75 \
+    --proxy-headers --forwarded-allow-ips <nginx-ip>
+
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

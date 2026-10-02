@@ -21,7 +21,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27"]
-server = ["gunicorn>=22"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

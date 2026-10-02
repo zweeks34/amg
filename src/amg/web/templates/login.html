@@ -26,8 +26,9 @@
   {% else %}
   <section class="sheet login__form" aria-labelledby="setup-heading">
     <h1 class="h3" id="setup-heading">Set a password first</h1>
-    <p>AMG doesn't have a login password yet. On the machine running AMG, run:</p>
-    <pre class="code">python -m amg.cli set-password</pre>
+    <p>AMG doesn't have a login password yet. On the server, run:</p>
+    <pre class="code">amg set-password</pre>
+    <p class="muted">In a development checkout it's <span class="mono">python -m amg.cli set-password</span>.</p>
     <p>Then reload this page.</p>
   </section>
   {% endif %}

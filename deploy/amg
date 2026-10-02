@@ -1,0 +1,16 @@
+#!/bin/sh
+# AMG's command-line tasks on the server, run as the app's own user so that
+# every file they create in the data directory stays writable by the app.
+# scripts/deploy.sh installs this as /usr/local/bin/amg.
+#
+#   amg set-password
+#   amg backup                      # into /var/lib/amg/backups/
+#   amg restore /tmp/FILE.zip --replace
+#   amg migrate
+set -e
+AMG_DATA_DIR="${AMG_DATA_DIR:-/var/lib/amg}"
+export AMG_DATA_DIR
+if [ "$(id -u)" -eq 0 ]; then
+    exec runuser -u amg -- env AMG_DATA_DIR="$AMG_DATA_DIR" /opt/amg/venv/bin/python -m amg.cli "$@"
+fi
+exec /opt/amg/venv/bin/python -m amg.cli "$@"
