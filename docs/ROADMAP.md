@@ -31,7 +31,8 @@ before the next begins.
 
 **Dependencies** (approved with the plan): `fastapi`, `uvicorn[standard]`,
 `jinja2`, `python-multipart`, `anthropic`, `python-dotenv`, `pymupdf`,
-`pytesseract`, `pillow`; `gunicorn` on the server; `pytest`, `httpx` for tests.
+`pytesseract`, `pillow`; `pytest`, `httpx` for tests. (`gunicorn` was on this
+list for the server; phase 3 dropped it — see there.)
 htmx, Alpine.js and the fonts are vendored into `static/` — no CDN at runtime.
 Everything else is the standard library. Adding anything beyond this list
 needs asking first (CLAUDE.md).
@@ -176,17 +177,37 @@ so the data lands where it will live.*
 **For:** your real data living on the server from here on, reachable from the
 phone.
 
-- [ ] `docs/DEPLOY-proxmox.md`, adapted from paint-decoder's guide: app LXC (2 GB RAM for OCR), Tesseract via apt, venv, systemd unit (gunicorn + uvicorn workers, raised timeout), `amg` server block on the existing nginx LXC (`client_max_body_size`, `proxy_read_timeout`)
-- [ ] rsync deploy that excludes `data/` wholesale
-- [ ] Backup and restore: `python -m amg.cli backup` (SQLite online backup + files) and the in-app download
-- [ ] `.env.example` listing every setting
+- [x] `docs/DEPLOY-proxmox.md`, adapted from paint-decoder's guide: LXC 302 at <amg-ip> (2 GB, 16 GB disk, New York time zone), Tesseract via apt, venv, systemd unit, an `amg` site on the existing nginx LXC 300 at `amg.home.arpa` — and on `:8080` for devices that can't resolve home names over the VPN. Paint-decoder's site becomes nginx's explicit `default_server`, or adding `amg` would take over its address
+- [x] **uvicorn runs its own two workers; gunicorn is gone.** Gunicorn's uvicorn worker class is deprecated, and uvicorn's own process manager now restarts dead workers. Timeouts are 300s rather than 600s, because no request waits on Claude or OCR any more
+- [x] `scripts/deploy.sh` (run from WSL): rsync with `--delete` and fixed permissions, a dependency install only when `pyproject.toml` changed, the unit and the `amg` command installed from `deploy/`, a database-only snapshot before each restart (last ten kept), then a health check
+- [x] **The data lives in `/var/lib/amg`**, outside the code (`AMG_DATA_DIR`, set by the unit and the `amg` command), so no deploy can reach it. The code is root-owned and read-only to the app, which removes paint-decoder's `chown` step
+- [x] Backup and restore: `amg backup` / `python -m amg.cli backup` (SQLite online backup + every stored file + a README; `--no-files` for the database alone), the **Back up** page's download, and `amg restore FILE --replace`. A restore checks the zip first: only the names a backup holds, an integrity-checked database, nothing newer than the code. It moves the database it replaces aside and brings an older one up to date
+- [x] `.env.example` listing every setting
+- [x] Found by the rehearsal: with no API key, reading a receipt failed with "Something went wrong (TypeError)". It now says the key is missing and where to put it
 
-**Can go wrong:** rsync as root leaves files the app user can't write →
-`chown` step in the guide. OCR on a big PDF outlives a timeout → background
-jobs, and the timeouts raised as paint-decoder's are.
+**Can go wrong:** a CLI task run as root creates database files the app can't
+write → the `amg` command runs tasks as the app's user, and the CLI refuses to
+run as root against data that user owns. A deploy restarts the app mid-read →
+the receipt shows as stopped with "Carry on reading". A migration succeeds but
+damages data → the before-deploy snapshot, restored after deploying the
+previous commit (the guide says why in that order). nginx and uvicorn
+disagreeing about keepalive → occasional 502s, so uvicorn keeps connections
+75s, longer than nginx's 60s.
+
+**Tests pin:** a backup holds the snapshot, the files and a README, and backs up
+a database older than the code; a restore into an empty directory serves the
+same data; a restore refuses an existing database without `--replace`, a zip
+with unexpected names, a damaged database and one from a newer AMG — each
+leaving nothing behind; the CLI refuses root on the app user's data; the
+download leaves no temp file. Rehearsed in WSL (Ubuntu 24.04, Python 3.12,
+SQLite 3.45 — the container's versions): the deploy's rsync rules, the editable
+install, the whole test suite, two workers, and a restored copy served
+alongside the original.
 
 **Done when:** the app is reachable over NordVPN from the phone, and a backup
-restores cleanly into a fresh container.
+restores cleanly into a fresh container. *Built and rehearsed in WSL
+(2026-10-01). Creating LXC 302, the nginx site, the DNS name and the phone
+check are yours to run, with the guide's steps 1–9.*
 
 ---
 

@@ -19,13 +19,16 @@ The Automobile Maintenance Genie (AMG) is an automobile maintenance manager.
 - Run dev: `.venv\Scripts\python -m uvicorn amg.app:app --reload` → http://127.0.0.1:8000
 - Set the login password: `.venv\Scripts\python -m amg.cli set-password`
 - Test: `.venv\Scripts\python -m pytest` (run before declaring any task done)
+- Back up / restore: `python -m amg.cli backup` (→ `data/backups/`), `python -m amg.cli restore FILE.zip --replace`
+- Deploy (from WSL, in `/mnt/c/projects/amg`): `bash scripts/deploy.sh` — first-time setup and day-to-day ops are in `docs/DEPLOY-proxmox.md`
 
 ## Layout
 - `src/` app code; `tests/` mirrors `src/`
 - `src/amg/repo/` — all SQL lives here; routes never write SQL
 - `src/amg/engine/` — pure functions (odometer model, gaps, forecast): no DB, no I/O
 - `src/amg/web/` — routes, `templates/`, `static/`
-- `data/` — runtime data (database, stored files); gitignored and owned by the server — never rsync over it
+- `data/` — runtime data (database, stored files, backups); gitignored. On the server it's `/var/lib/amg` (`AMG_DATA_DIR`), outside the code
+- `deploy/` — the systemd unit and the server's `amg` command; `scripts/deploy.sh` installs both on every deploy
 - `samples/` — real receipt/manual scans for extraction trials; gitignored (personal information)
 
 ## Conventions
@@ -41,4 +44,6 @@ The Automobile Maintenance Genie (AMG) is an automobile maintenance manager.
 
 ## Gotchas
 - Tesseract on this Windows machine is at `C:\Program Files\Tesseract-OCR\tesseract.exe` and is NOT on PATH — `amg.ingest.ocr` must fall back to that path
-- `.env` holds real API keys — never commit it, print it, or copy values into code
+- `.env` holds real API keys — never commit it, print it, or copy values into code. `.env.example` lists every setting; add new ones there
+- On the server, CLI tasks run as `amg <command>` (as the `amg` user). Run as root against `/var/lib/amg`, they leave files the app can't write, so the CLI refuses
+- `deploy/*` and `*.sh` must stay LF (`.gitattributes`): they run on Linux as-is
