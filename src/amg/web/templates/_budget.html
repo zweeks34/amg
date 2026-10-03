@@ -1,0 +1,78 @@
+{#- The budget's pieces: how far ahead to look, the month bars, and the month list.
+
+    The bars are maintenance a month, against a strip of safety tape at what's
+    put aside each month: a bar above the tape is a month the savings pay for.
+    Fuel is left off them — it's steady, and paid as you go — and is in the list. -#}
+{% from "_chart.html" import mark %}
+
+{% macro horizon_switch(count, horizons, url) -%}
+<nav class="horizon" aria-label="How far ahead">
+  {%- for months, words in horizons.items() %}
+  <a href="{{ url }}{% if months != 12 %}?months={{ months }}{% endif %}"{% if months == count %} aria-current="page"{% endif %}>{{ words }}</a>
+  {%- endfor %}
+</nav>
+{%- endmacro %}
+
+{% macro bars(chart) -%}
+<figure class="mbars{% if chart.dense %} mbars--dense{% endif %}" style="--count: {{ chart.bars | length }}">
+  <div class="mbars__frame">
+    <div class="mbars__axis" aria-hidden="true">
+      {% for tick in chart.ticks %}<span style="--y: {{ tick.y }}">{{ tick.label }}</span>{% endfor %}
+    </div>
+    <div class="mbars__plot" role="img"
+         aria-label="Maintenance each month, against putting aside {{ chart.per_month | dollars }} a month. The months are listed below.">
+      {% for tick in chart.ticks %}<span class="mbars__grid" style="--y: {{ tick.y }}"></span>{% endfor %}
+      <ol class="mbars__bars">
+        {% for bar in chart.bars %}<li class="mbars__bar" style="--h: {{ bar.h }}; --i: {{ loop.index0 }}" title="{{ bar.title }}"></li>{% endfor %}
+      </ol>
+      <span class="mbars__tape" style="--y: {{ chart.line }}"></span>
+    </div>
+  </div>
+  <div class="mbars__labels" aria-hidden="true">
+    {%- for bar in chart.bars %}<span>{% if chart.dense %}{{ bar.label }}{% else %}{{ bar.label[:1] }}<span class="mbars__rest">{{ bar.label[1:] }}</span>{% endif %}</span>{% endfor -%}
+  </div>
+  <figcaption class="trend__caption">
+    <span class="trend__legend"><span class="mbars__key" aria-hidden="true"></span>Maintenance each month</span>
+    <span class="trend__legend"><span class="mbars__tape mbars__tape--key" aria-hidden="true"></span>Put aside {{ chart.per_month | dollars }} a month</span>
+  </figcaption>
+</figure>
+{%- endmacro %}
+
+{% macro month_list(months, fuel_title) -%}
+<ol class="months">
+  {% for month in months %}
+  <li class="month{% if not month.jobs %} month--quiet{% endif %}">
+    <p class="month__head">
+      <span class="month__name">{{ month.label }}{% if month.note %} <span class="month__note">{{ month.note }}</span>{% endif %}</span>
+      <span class="month__total mono">{{ month.total | dollars }}</span>
+    </p>
+    {% if month.jobs %}
+    <ul class="bitems">
+      {% for job in month.jobs %}
+      <li class="bitem">
+        {{ mark(job.status, status_words[job.status]) }}
+        <span class="bitem__name">{{ job.name }}</span>
+        <span class="bitem__cost mono">{{ job.cost | dollars if job.cost is not none else "—" }}</span>
+        <span class="bitem__meta">
+          <span class="bitem__when mono">{{ job.when }}</span>
+          <span class="bitem__source{% if job.claude %} is-claude{% elif job.unpriced %} is-unpriced{% endif %}">{{ job.source }}</span>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if month.fuel is not none %}
+    <p class="month__fuel">
+      <span>{{ fuel_title }} <span class="muted mono">~{{ month.fuel_miles | miles }}</span></span>
+      <span class="mono">{{ month.fuel | dollars }}</span>
+    </p>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{%- endmacro %}
+
+{% macro inflation_note() -%}
+<p class="aside">What you paid in past years is brought up to today's prices at 4% a year, about what US car
+  maintenance and repair prices have risen over the last ten years. Every figure is an estimate in today's money.</p>
+{%- endmacro %}

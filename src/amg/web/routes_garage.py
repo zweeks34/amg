@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from starlette.responses import Response
 
 from ..repo import schedules, vehicles
+from . import budget
 from . import status as car_status
 from .deps import get_conn
 from .routes_vehicles import POWERTRAIN_LABELS
@@ -27,5 +28,6 @@ def garage(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Re
         active="garage",
         vehicles=active,
         archived=archived,
+        budget=budget.strip(budget.garage(conn, active)),
         powertrains=POWERTRAIN_LABELS,
     )

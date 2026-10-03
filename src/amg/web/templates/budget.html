@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "_budget.html" import horizon_switch, bars, inflation_note %}
+{% block title %}Budget{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/">Garage</a></p>
+  <h1 class="display">Budget</h1>
+  <p class="pagehead__lede">Every car in the garage together: what its maintenance will cost, month by month, and how
+    much to put aside for it.</p>
+  {{ horizon_switch(count, horizons, "/budget") }}
+</header>
+
+{% if not plans %}
+<div class="sheet empty empty--small">
+  <p>No cars yet. <a href="/vehicles/new">Add a car</a>, and its schedule and receipts give the budget.</p>
+</div>
+{% else %}
+<dl class="figures sheet{% if strip and strip.due_now %} figures--four{% endif %}">
+  <div class="figure">
+    <dt>Put aside</dt>
+    <dd class="figure__value mono">{{ (strip.per_month if strip else 0) | dollars }}<span class="figure__unit"> a month</span></dd>
+    <dd class="figure__note">for maintenance{% if strip and strip.due_now %} still to come{% endif %}</dd>
+  </div>
+  {% if strip and strip.due_now %}
+  <div class="figure">
+    <dt>Due now</dt>
+    <dd class="figure__value mono">{{ strip.due_now | dollars }}</dd>
+    <dd class="figure__note">for overdue jobs</dd>
+  </div>
+  {% endif %}
+  <div class="figure">
+    <dt>Maintenance</dt>
+    <dd class="figure__value mono">{{ (strip.maintenance if strip else 0) | dollars }}</dd>
+    <dd class="figure__note">next {{ horizons[count] }}{% if strip and strip.unpriced %}, {{ strip.unpriced }} not priced{% endif %}</dd>
+  </div>
+  <div class="figure">
+    <dt>{{ fuel_word }}</dt>
+    <dd class="figure__value mono">{{ (strip.fuel if strip else none) | dollars }}</dd>
+    <dd class="figure__note">next {{ horizons[count] }}</dd>
+  </div>
+</dl>
+
+{% if chart %}
+<section class="block" aria-labelledby="bars-heading">
+  <h2 class="h3" id="bars-heading">Month by month</h2>
+  <div class="sheet">{{ bars(chart) }}</div>
+</section>
+{% endif %}
+
+<section class="block" aria-labelledby="cars-heading">
+  <h2 class="h3" id="cars-heading">By car</h2>
+  <ul class="bcars sheet sheet--flush">
+    {% for row in per_car %}
+    <li>
+      <a class="bcars__row" href="/vehicles/{{ row.car.id }}/budget{% if count != 12 %}?months={{ count }}{% endif %}">
+        <span class="bcars__name">{{ row.car.name }}</span>
+        <span class="bcars__figure"><span class="bcars__label">Maintenance</span> <span class="mono">{{ row.maintenance | dollars }}</span></span>
+        <span class="bcars__figure"><span class="bcars__label">{{ row.fuel_word }}</span> <span class="mono">{{ row.fuel | dollars }}</span></span>
+        <span class="bcars__figure"><span class="bcars__label">A month</span> <span class="mono">{{ row.per_month | dollars }}</span></span>
+        {% if row.unpriced %}<span class="bcars__note">{{ row.unpriced }} job{{ "s" if row.unpriced != 1 }} not priced</span>{% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="block" aria-labelledby="table-heading">
+  <h2 class="h3" id="table-heading">Each month</h2>
+  <ol class="msum sheet sheet--flush">
+    <li class="msum__row msum__row--head" aria-hidden="true">
+      <span>Month</span><span>Maintenance</span><span>{{ fuel_word }}</span><span>Total</span>
+    </li>
+    {% for month in months %}
+    <li class="msum__row">
+      <span class="msum__month">{{ month.label }}{% if month.note %} <span class="month__note">{{ month.note }}</span>{% endif %}</span>
+      <span class="mono"><span class="msum__label">Maintenance </span>{{ month.maintenance | dollars }}</span>
+      <span class="mono"><span class="msum__label">{{ fuel_word }} </span>{{ month.fuel | dollars }}</span>
+      <span class="mono msum__total"><span class="msum__label">Total </span>{{ month.total | dollars }}</span>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+{{ inflation_note() }}
+{% endif %}
+{% endblock %}

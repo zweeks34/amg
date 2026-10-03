@@ -11,7 +11,7 @@ from starlette.responses import RedirectResponse, Response
 
 from ..ingest import vin as vins
 from ..repo import odometer, schedules, services, vehicles
-from . import forms
+from . import budget, forms
 from . import fuel_status
 from . import status as car_status
 from .deps import get_conn
@@ -162,6 +162,7 @@ def delete_reading(reading_id: int, conn: sqlite3.Connection = Depends(get_conn)
 def _page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_code: int = 200, **extra) -> Response:
     car = vehicle_or_404(conn, vehicle_id)
     state = car_status.load(conn, car)
+    plan = budget.load(conn, car, 12, state=state)
     return render(
         request,
         "vehicle.html",
@@ -173,7 +174,8 @@ def _page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_co
         history=services.history(conn, vehicle_id),
         schedule_count=schedules.count(conn, vehicle_id),
         state=state,
-        upcoming=car_status.next_up(state),
+        upcoming=car_status.next_up(state, costs=plan.item_costs()),
+        plan=plan,
         missed=car_status.missed(state),
         chart=car_status.chart(state, car["name"]),
         fuel=fuel_status.summary(fuel_status.load(conn, car)),

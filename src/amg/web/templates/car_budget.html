@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "_budget.html" import horizon_switch, bars, month_list, inflation_note %}
+{% block title %}Budget · {{ car.name }}{% endblock %}
+
+{% block content %}
+{# While Claude prices this car's jobs, the page asks for itself again and swaps in what's changed. #}
+<div {% if plan.busy and not plan.stalled %}hx-get="/vehicles/{{ car.id }}/budget{% if count != 12 %}?months={{ count }}{% endif %}"
+     hx-trigger="every 3s" hx-select="main" hx-target="main" hx-swap="outerHTML"{% endif %}>
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
+  <h1 class="display">Budget</h1>
+  {{ horizon_switch(count, horizons, "/vehicles/" ~ car.id ~ "/budget") }}
+</header>
+
+<dl class="figures sheet{% if plan.due_now %} figures--four{% endif %}">
+  <div class="figure">
+    <dt>Put aside</dt>
+    <dd class="figure__value mono">{{ plan.per_month | dollars }}<span class="figure__unit"> a month</span></dd>
+    <dd class="figure__note">for maintenance{% if plan.due_now %} still to come{% endif %}</dd>
+  </div>
+  {% if plan.due_now %}
+  <div class="figure">
+    <dt>Due now</dt>
+    <dd class="figure__value mono">{{ plan.due_now | dollars }}</dd>
+    <dd class="figure__note">{{ plan.overdue }} overdue job{{ "s" if plan.overdue != 1 }}</dd>
+  </div>
+  {% endif %}
+  <div class="figure">
+    <dt>Maintenance</dt>
+    <dd class="figure__value mono">{{ plan.maintenance | dollars }}</dd>
+    <dd class="figure__note">next {{ horizons[count] }}{% if plan.unpriced %}, {{ plan.unpriced }} not priced{% endif %}</dd>
+  </div>
+  <div class="figure">
+    <dt>{{ plan.units.title }}</dt>
+    <dd class="figure__value mono">{{ plan.fuel | dollars }}</dd>
+    <dd class="figure__note">{{ fuel_words }}</dd>
+  </div>
+</dl>
+
+{% if not plan.jobs %}
+<p class="notice budget__notice">{{ car.name }} has no maintenance schedule yet, so only {{ plan.units.title | lower }} is budgeted.
+  <a href="/vehicles/{{ car.id }}/schedule">Set up the schedule</a>.</p>
+{% elif plan.unpriced %}
+<p class="notice budget__notice">{{ plan.unpriced }} upcoming job{{ "s have" if plan.unpriced != 1 else " has" }} no price yet, so the totals
+  leave {{ "them" if plan.unpriced != 1 else "it" }} out. <a href="#prices">Price {{ "them" if plan.unpriced != 1 else "it" }}</a>.</p>
+{% endif %}
+
+<section class="block" aria-labelledby="months-heading">
+  <h2 class="h3" id="months-heading">Month by month</h2>
+  {% if chart %}<div class="sheet">{{ bars(chart) }}</div>{% endif %}
+  <div class="sheet sheet--flush">{{ month_list(months, plan.units.title) }}</div>
+</section>
+
+{% if prices %}
+<section class="block" id="prices" aria-labelledby="prices-heading">
+  <h2 class="h3" id="prices-heading">Prices</h2>
+  <p class="pagehead__lede">What one visit costs for each job in the schedule. A price you set is used instead of
+    AMG's: the median of what you've paid, a shop's quote, what your other cars paid, or Claude's estimate.</p>
+
+  {% set waiting = prices | selectattr("asking") | list %}
+  {% if waiting %}
+  <p class="notice notice--due" role="status">Claude is pricing {{ waiting | length }} job{{ "s" if waiting | length != 1 }}…
+    This page fills them in when it's done.</p>
+  {% elif plan.stalled %}
+  <p class="notice notice--due" role="status">Pricing stopped part-way, probably because the app restarted. Ask Claude again
+    below.</p>
+  {% endif %}
+  {% if plan.to_ask %}
+  <form class="sheet askclaude" method="post" action="/vehicles/{{ car.id }}/prices/ask">
+    <input type="hidden" name="months" value="{{ count }}">
+    <p>{{ plan.to_ask | length }} job{{ "s" if plan.to_ask | length != 1 }} here {{ "have" if plan.to_ask | length != 1 else "has" }}
+      no price from your receipts. Claude can estimate {{ "them" if plan.to_ask | length != 1 else "it" }} for a few cents,
+      and you can change any price it gives.</p>
+    <p><button class="btn btn--secondary" type="submit">Ask Claude to price {{ plan.to_ask | length }} job{{ "s" if plan.to_ask | length != 1 }}</button></p>
+  </form>
+  {% endif %}
+
+  <ul class="prices sheet sheet--flush">
+    {% for p in prices %}
+    {% set error = errors.get(p.key) %}
+    <li class="price" x-data="{ editing: {{ 'true' if error else 'false' }} }">
+      <div class="price__row">
+        <span class="price__name">{{ p.name }}</span>
+        <span class="price__cost mono">{{ p.cost | dollars if p.cost is not none else "—" }}</span>
+        <span class="price__source{% if p.claude %} is-claude{% elif p.unpriced and not p.failed and not p.asking %} is-unpriced{% endif %}">
+          {%- if p.asking %}Claude is pricing this…{% elif p.failed %}Claude couldn't price this. {{ p.failed }}{% else %}{{ p.source }}{% if p.note %} · {{ p.note }}{% endif %}{% endif -%}
+        </span>
+        <button class="btn btn--quiet price__edit" type="button" x-show="!editing"
+                @click="editing = true; $nextTick(() => $refs.price.focus())"
+                aria-label="{{ 'Change' if p.yours is not none else 'Set' }} your price for {{ p.name }}">{{ "Change" if p.yours is not none else "Set price" }}</button>
+      </div>
+      <form class="price__form" method="post" action="/vehicles/{{ car.id }}/prices" x-show="editing" x-cloak>
+        <input type="hidden" name="codes" value="{{ p.codes }}">
+        <input type="hidden" name="action" value="{{ p.action }}">
+        <input type="hidden" name="name" value="{{ p.name }}">
+        <input type="hidden" name="months" value="{{ count }}">
+        <div class="field">
+          <label for="price-{{ loop.index }}">Your price for {{ p.name | lower }}</label>
+          <input id="price-{{ loop.index }}" name="price" class="mono" inputmode="decimal" autocomplete="off" x-ref="price"
+                 value="{{ raw.price if error else ('%.2f' % (p.yours / 100) if p.yours is not none else '') }}"
+                 aria-describedby="price-{{ loop.index }}-{{ 'error' if error else 'hint' }}"{% if error %} aria-invalid="true"{% endif %}>
+          {% if error %}<p class="field__error" id="price-{{ loop.index }}-error">{{ error }}</p>
+          {% else %}<p class="field__hint" id="price-{{ loop.index }}-hint">What one visit costs, tax included.</p>{% endif %}
+        </div>
+        <div class="form__actions">
+          <button class="btn btn--primary" type="submit" name="do" value="save">Save price</button>
+          {% if p.yours is not none %}<button class="btn btn--quiet" type="submit" name="do" value="remove">Use AMG's estimate</button>{% endif %}
+          <button class="btn btn--quiet" type="button" @click="editing = false">Cancel</button>
+        </div>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{{ inflation_note() }}
+</div>
+{% endblock %}

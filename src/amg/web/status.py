@@ -47,8 +47,8 @@ def _day(value: str | None) -> date | None:
     return date.fromisoformat(value) if value else None
 
 
-def load(conn: sqlite3.Connection, car, today: date | None = None) -> CarStatus:
-    """Run the gap engine over one car's schedule and confirmed services."""
+def load(conn: sqlite3.Connection, car, today: date | None = None, until: date | None = None) -> CarStatus:
+    """Run the gap engine over one car's schedule and confirmed services, looking ahead to ``until``."""
     today = today or date.today()
     rows = schedules.items(conn, car["id"])
     items = [
@@ -66,7 +66,7 @@ def load(conn: sqlite3.Connection, car, today: date | None = None) -> CarStatus:
     vehicle = Car(_day(car["in_service_date"]), _day(car["acquired_date"]), car["acquired_miles"],
                   bool(car["severe_service"]))
     estimate = odo.miles_on(today)
-    return CarStatus(car["id"], {row["id"]: row for row in rows}, assess(items, done, odo, vehicle, today), odo,
+    return CarStatus(car["id"], {row["id"]: row for row in rows}, assess(items, done, odo, vehicle, today, until), odo,
                      today, None if estimate is None else round(estimate))
 
 
@@ -115,8 +115,8 @@ def attest_url(vehicle_id: int, item_id: int, occurrence: Occurrence | None = No
     return f"{url}?due={occurrence.due_day.isoformat()}" if occurrence is not None and occurrence.status == "gap" else url
 
 
-def next_up(status: CarStatus, limit: int = NEXT_UP) -> list[dict]:
-    """Overdue first (longest overdue at the top), then due soon, then the next few later."""
+def next_up(status: CarStatus, limit: int = NEXT_UP, costs: dict[int, int] | None = None) -> list[dict]:
+    """Overdue first (longest overdue at the top), then due soon, then the next few later; each with its cost if known."""
     rank = {"overdue": 0, "due": 1, "later": 2}
     current = sorted(
         ((s, s.current) for s in status.statuses if s.current),
@@ -131,6 +131,7 @@ def next_up(status: CarStatus, limit: int = NEXT_UP) -> list[dict]:
             "status": occurrence.status,
             "when": when(occurrence, status),
             "attest_url": attest_url(status.vehicle_id, item_status.item.id) if occurrence.status == "overdue" else None,
+            "cost": (costs or {}).get(item_status.item.id),
         }
         for item_status, occurrence in chosen
     ]

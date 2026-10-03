@@ -106,6 +106,12 @@ def _span(state: FuelStatus) -> tuple[date | None, str]:
     return None, "all time"
 
 
+def cost_a_mile(state: FuelStatus) -> tuple[float | None, str]:
+    """Cents a mile over the last 12 months, else all time, and which: what the budget runs fuel at."""
+    since, span = _span(state)
+    return engine.cost_per_mile(state.stretches, since=since), span
+
+
 def summary(state: FuelStatus) -> dict:
     """The car page's block: economy and cost a mile over the last year (or all time), and the last fill."""
     since, span = _span(state)

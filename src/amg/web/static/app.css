@@ -1326,6 +1326,249 @@ p.notice, div.notice { margin-bottom: 1rem; }
   .fuellog__econ { grid-area: econ; text-align: right; }
 }
 
+/* ---------- Budget ---------- */
+
+/* How far ahead: three choices as one control. */
+.horizon {
+  display: inline-flex;
+  justify-self: start;
+  margin-top: 0.5rem;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.horizon a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.875rem;
+  font: 600 0.9375rem/1 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink-2);
+}
+.horizon a + a { border-left: 1px solid var(--ink); }
+.horizon a:hover { background: var(--band); color: var(--ink); }
+.horizon a[aria-current="page"] { background: var(--ink); color: var(--on-ink); }
+
+/* The garage's line: what to put aside, the year's totals, the way in. */
+.bstrip {
+  display: grid;
+  gap: 0.375rem 1.5rem;
+  margin-bottom: 1.5rem;
+  text-decoration: none;
+}
+.bstrip:hover { border-color: var(--ink); }
+.bstrip__lead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+.bstrip__label {
+  font: 600 0.75rem/1.2 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.bstrip__value { font-size: 1.5rem; font-weight: 500; line-height: 1.1; }
+.bstrip__unit { color: var(--ink-2); }
+.bstrip__detail { color: var(--ink-2); font-size: 0.9375rem; }
+.bstrip__go {
+  font: 600 1rem/1 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+@media (min-width: 48rem) {
+  .bstrip { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
+}
+
+.budgetline { font-size: 0.9375rem; color: var(--ink-2); }
+@media (min-width: 48rem) {
+  .figures--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.budget__notice { margin-top: 1rem; }
+
+/* The month bars: maintenance a month, and the safety tape at what's put aside
+   each month. The tape is yellow and near-black stripes, so it reads both over
+   the bars and over the sheet, in either theme. */
+.mbars { display: grid; gap: 0.375rem; margin: 0; }
+.mbars__frame { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: 0.5rem; }
+.mbars__axis { position: relative; }
+.mbars__axis span {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--y) * 1%);
+  transform: translateY(50%);
+  font: 400 0.75rem/1 var(--mono);
+  color: var(--steel);
+}
+.mbars__plot { position: relative; height: 10rem; border-bottom: 2px solid var(--ink); }
+.mbars__grid { position: absolute; left: 0; right: 0; bottom: calc(var(--y) * 1%); border-top: 1px solid var(--rule-soft); }
+.mbars__bars {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+  align-items: end;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mbars--dense .mbars__bars { gap: 2px; }
+.mbars__bar {
+  height: calc(var(--h) * 1%);
+  border-radius: 2px 2px 0 0;
+  background: var(--ink);
+  transform-origin: bottom;
+  animation: mbars-rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 22ms);
+}
+.mbars__tape {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  bottom: calc(var(--y) * 1%);
+  height: 6px;
+  transform: translateY(50%);
+  border-radius: 1px;
+  background: repeating-linear-gradient(-45deg, var(--due) 0 5px, var(--on-due) 5px 10px);
+}
+.mbars__tape--key { position: static; display: inline-block; flex: none; width: 1.5rem; transform: none; }
+.mbars__key { display: inline-block; flex: none; width: 0.75rem; height: 0.75rem; border-radius: 2px; background: var(--ink); }
+.mbars__labels {
+  display: grid;
+  grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+  gap: 4px;
+  margin-left: 3.25rem;
+  font: 400 0.6875rem/1 var(--mono);
+  color: var(--steel);
+}
+.mbars__labels span { overflow: visible; white-space: nowrap; text-align: center; }
+.mbars--dense .mbars__labels { gap: 2px; }
+.mbars--dense .mbars__labels span { text-align: left; }
+/* Twelve "Oct"s don't fit across a phone; their initials do. */
+@media (max-width: 40rem) {
+  .mbars__rest { display: none; }
+}
+@keyframes mbars-rise { from { transform: scaleY(0); } }
+
+/* The months: what falls due, at its price and where that came from, then fuel. */
+.months { margin: 0; padding: 0; list-style: none; }
+.month { padding: 1rem var(--gutter); }
+.month + .month { border-top: 1px solid var(--rule); }
+.month--quiet { padding-block: 0.625rem; }
+.month__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.month__name {
+  font: 600 1rem/1.2 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.month__note { font: 400 0.8125rem/1.2 var(--body); letter-spacing: 0; text-transform: none; color: var(--steel); }
+.month__total { font-weight: 600; }
+.month--quiet .month__name, .month--quiet .month__total { color: var(--ink-2); font-weight: 500; }
+.bitems { display: grid; margin: 0.5rem 0 0; padding: 0; list-style: none; }
+.bitem {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  grid-template-areas: "mark name cost" "mark meta meta";
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.125rem;
+  padding: 0.5rem 0;
+}
+.bitem + .bitem { border-top: 1px solid var(--rule-soft); }
+.bitem > .mark { grid-area: mark; justify-self: center; }
+.bitem__name { grid-area: name; font: 600 1.125rem/1.15 var(--display); }
+.bitem__cost { grid-area: cost; font-weight: 500; }
+.bitem__meta { grid-area: meta; display: flex; flex-wrap: wrap; gap: 0.125rem 0.75rem; font-size: 0.8125rem; }
+.bitem__when { color: var(--ink-2); }
+.bitem__source { color: var(--steel); }
+/* Claude's estimate: dashed, as anything Claude read is until you change it. */
+.is-claude {
+  padding: 0 0.375rem;
+  border: 1px dashed var(--steel);
+  border-radius: var(--radius-sm);
+  background: var(--band);
+  color: var(--ink-2);
+}
+.is-unpriced { font-weight: 600; color: var(--ink-2); }
+.month__fuel {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+.month:not(.month--quiet) .month__fuel { padding-top: 0.5rem; border-top: 1px dashed var(--rule); }
+
+/* Prices: every job in the schedule, what it costs, and your own price. */
+.askclaude { display: grid; gap: 0.75rem; border-style: dashed; }
+.prices { margin: 0; padding: 0; list-style: none; }
+.price { padding: 0.75rem var(--gutter); }
+.price + .price { border-top: 1px solid var(--rule-soft); }
+.price__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "name cost edit" "source source edit";
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.125rem;
+}
+.price__name { grid-area: name; font-weight: 600; }
+.price__cost { grid-area: cost; font-weight: 500; }
+.price__source { grid-area: source; justify-self: start; font-size: 0.8125rem; color: var(--steel); }
+.price__edit { grid-area: edit; min-height: 2.25rem; font-size: 0.9375rem; }
+.price__form { display: grid; gap: 0.75rem; max-width: 26rem; margin-top: 0.75rem; }
+
+/* All cars: one row a car, then each month's totals. */
+.bcars { margin: 0; padding: 0; list-style: none; }
+.bcars li + li { border-top: 1px solid var(--rule-soft); }
+.bcars__row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem 1rem;
+  padding: 0.875rem var(--gutter);
+  text-decoration: none;
+}
+.bcars__row:hover { background: var(--band); }
+.bcars__name { grid-column: 1 / -1; font: 700 1.5rem/1 var(--display); }
+.bcars__figure { display: grid; gap: 0.125rem; }
+.bcars__label, .msum__row--head {
+  font: 600 0.75rem/1.2 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.bcars__note { grid-column: 1 / -1; font-size: 0.8125rem; color: var(--steel); }
+@media (min-width: 48rem) {
+  .bcars__row { grid-template-columns: minmax(0, 1fr) repeat(3, 8rem); align-items: center; }
+  .bcars__name { grid-column: auto; }
+  .bcars__figure { justify-items: end; }
+}
+
+.msum { margin: 0; padding: 0; list-style: none; }
+.msum__row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas: "month month month" "m f t";
+  gap: 0.25rem 1rem;
+  padding: 0.625rem var(--gutter);
+  font-size: 0.9375rem;
+}
+.msum__row + .msum__row { border-top: 1px solid var(--rule-soft); }
+.msum__month { grid-area: month; font-weight: 600; }
+.msum__label { font: 600 0.6875rem/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--steel); }
+.msum__total { font-weight: 600; }
+.msum__row--head { display: none; }
+@media (min-width: 48rem) {
+  .msum__row { grid-template-columns: minmax(0, 1fr) repeat(3, 8rem); grid-template-areas: none; }
+  .msum__row > span:not(.msum__month) { text-align: right; }
+  .msum__month { grid-area: auto; }
+  .msum__row--head { display: grid; }
+  .msum__label { display: none; }
+}
+
 /* ---------- Motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {

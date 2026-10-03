@@ -90,6 +90,11 @@ def garage(conn: sqlite3.Connection) -> tuple[list[dict], list[dict]]:
     return active, archived
 
 
+def names(conn: sqlite3.Connection) -> dict[int, str]:
+    """Every car's name by id, archived ones included."""
+    return {row["id"]: row["name"] for row in conn.execute("SELECT id, name FROM vehicles")}
+
+
 def powertrains(conn: sqlite3.Connection) -> set[str]:
     """The powertrains of the cars in the garage (archived ones aside)."""
     return {row[0] for row in conn.execute("SELECT DISTINCT powertrain FROM vehicles WHERE archived_at IS NULL")}
