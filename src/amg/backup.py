@@ -108,7 +108,8 @@ def _counts(conn: sqlite3.Connection) -> dict[str, int]:
     def count(table: str) -> int:
         return conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] if table in tables else 0
 
-    return {"cars": count("vehicles"), "services": count("service_events"), "files": count("documents")}
+    return {"cars": count("vehicles"), "services": count("service_events"), "fills": count("fuel_logs"),
+            "files": count("documents")}
 
 
 def _stored(conn: sqlite3.Connection) -> list[str]:
@@ -201,10 +202,11 @@ def _readme(name: str, counts: dict[str, int], version: int, include_files: bool
 ==========
 
 Taken {datetime.now():%Y-%m-%d %H:%M} · database version {version}
-{counts['cars']} car(s), {counts['services']} service(s), {counts['files']} stored file(s).
+{counts['cars']} car(s), {counts['services']} service(s), {counts['fills']} fill-up(s) and charge(s),
+{counts['files']} stored file(s).
 
-amg.sqlite3   the database: cars, services, receipts, settings and
-              your login password
+amg.sqlite3   the database: cars, services, receipts, schedules, fill-ups,
+              settings and your login password
 {files_line}
 {missing_note}
 Not in here: the server's .env, which holds your Anthropic key. Keep a

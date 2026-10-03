@@ -104,7 +104,8 @@ def _backup(out: Path | None, include_files: bool) -> int:
         return 1
     counts = written.counts
     what = f"{written.files} stored file(s)" if include_files else "no stored files (database only)"
-    print(f"Backed up {counts['cars']} car(s), {counts['services']} service(s) and {what}.")
+    print(f"Backed up {counts['cars']} car(s), {counts['services']} service(s), {counts['fills']} fill-up(s) "
+          f"and {what}.")
     print(f"{written.path} ({backup.size_label(written.bytes)})")
     if written.missing:
         print(f"{len(written.missing)} stored file(s) were already missing from {config.data_dir()} "
@@ -119,8 +120,8 @@ def _restore(source: Path, replace: bool) -> int:
         print(f"{err}\nNothing was changed.", file=sys.stderr)
         return 1
     counts = restored.counts
-    print(f"Restored {counts['cars']} car(s), {counts['services']} service(s) and "
-          f"{counts['files']} stored file(s) from {source.name}.")
+    print(f"Restored {counts['cars']} car(s), {counts['services']} service(s), {counts['fills']} fill-up(s) "
+          f"and {counts['files']} stored file(s) from {source.name}.")
     if restored.replaced:
         print(f"The database it replaced is in {restored.replaced}.")
     if restored.migrated:

@@ -1,8 +1,8 @@
 """Odometer readings, and the check that keeps them in order.
 
-A reading can come from three places — typed in here, a service, or the
-mileage when you got the car — and all three meet in the ``odometer_points``
-view. ``conflict`` is how every one of them is checked before it is saved: a
+A reading can come from four places — typed in here, a service, a fill-up or
+charge, or the mileage when you got the car — and all of them meet in the
+``odometer_points`` view. ``conflict`` is how every one of them is checked before it is saved: a
 reading lower than one from an earlier date (or higher than one from a later
 date) is almost always a typo, and left in it would bend every projection the
 odometer model makes. Readings on the same day are never compared.
@@ -24,7 +24,8 @@ class Conflict:
     later: bool  # True: the conflicting reading is from a later date
 
     def message(self) -> str:
-        where = {"manual": "a reading", "service": "a service", "acquired": "when you got the car"}.get(self.source, "a reading")
+        where = {"manual": "a reading", "service": "a service", "acquired": "when you got the car",
+                 "fill": "a fill-up", "charge": "a charge"}.get(self.source, "a reading")
         if self.later:
             return f"That's higher than the {self.miles:,} mi recorded later, on {self.read_on} ({where})."
         return f"That's lower than the {self.miles:,} mi recorded earlier, on {self.read_on} ({where})."

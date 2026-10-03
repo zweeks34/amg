@@ -55,7 +55,7 @@ def test_backup_holds_the_database_the_stored_files_and_a_readme(conn, tmp_path)
         assert copy.execute("PRAGMA journal_mode").fetchone()[0] == "delete"  # one file, not three
     finally:
         copy.close()
-    assert written.counts == {"cars": 1, "services": 0, "files": 2}
+    assert written.counts == {"cars": 1, "services": 0, "fills": 0, "files": 2}
     assert written.files == 2 and not written.missing
 
 
@@ -83,7 +83,7 @@ def test_there_is_nothing_to_back_up_before_the_database_exists(tmp_path):
 def test_summary_counts_what_a_backup_would_hold(conn, data_dir):
     stored = _garage(conn)
     summary = backup.summary(conn)
-    assert summary.counts == {"cars": 1, "services": 0, "files": 2}
+    assert summary.counts == {"cars": 1, "services": 0, "fills": 0, "files": 2}
     assert summary.files_bytes == sum((data_dir / name).stat().st_size for name in stored)
     assert summary.database_bytes > 0
 
@@ -106,7 +106,7 @@ def test_a_backup_restores_into_an_empty_data_directory(conn, monkeypatch, tmp_p
 
     restored = backup.restore(zipped)
 
-    assert restored.counts == {"cars": 1, "services": 0, "files": 2}
+    assert restored.counts == {"cars": 1, "services": 0, "fills": 0, "files": 2}
     assert restored.files_written == 2 and restored.replaced is None
     assert restored.migrated == [] and restored.missing == []
     assert all((fresh / name).read_bytes() for name in stored)
