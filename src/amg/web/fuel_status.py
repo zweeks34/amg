@@ -7,6 +7,7 @@ is filled up in gallons; an electric car is charged in kWh.
 
 from __future__ import annotations
 
+import math
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -98,19 +99,93 @@ def quantity_words(quantity: float, units: Units) -> str:
     return f"{quantity:.3f}".rstrip("0").rstrip(".") + " kWh"
 
 
+def _span(state: FuelStatus) -> tuple[date | None, str]:
+    """The last 12 months when a stretch ended in them, else all time: (since, its words)."""
+    if engine.economy(state.stretches, since=state.year_ago) is not None:
+        return state.year_ago, "last 12 months"
+    return None, "all time"
+
+
 def summary(state: FuelStatus) -> dict:
     """The car page's block: economy and cost a mile over the last year (or all time), and the last fill."""
-    recent = engine.economy(state.stretches, since=state.year_ago)
-    span = "last 12 months" if recent is not None else "all time"
-    since = state.year_ago if recent is not None else None
-    last = state.rows[0] if state.rows else None
+    since, span = _span(state)
     return {
         "units": state.units,
         "count": len(state.rows),
         "economy": economy_words(engine.economy(state.stretches, since=since), state.units),
         "cost_a_mile": cents_a_mile(engine.cost_per_mile(state.stretches, since=since)),
         "span": span,
-        "last": last,
+        "last": state.rows[0] if state.rows else None,
+    }
+
+
+def _figure(label: str, words: str | None, note: str | None = None) -> dict:
+    """A figure, its unit split off to be set small: "3.29 mi/kWh" → 3.29 + mi/kWh, "$3.459/gal" → $3.459 + /gal."""
+    number, unit = words or "—", None
+    if " " in number:
+        number, unit = number.split(" ", 1)
+    elif "/" in number:
+        number, rest = number.split("/", 1)
+        unit = "/" + rest
+    return {"label": label, "value": number, "unit": unit, "note": note}
+
+
+def figures(state: FuelStatus) -> list[dict]:
+    """The fuel page's figures: economy three ways, then what it costs."""
+    units, found, year = state.units, state.stretches, state.year_ago
+    since, span = _span(state)
+    shown = []
+    if found:
+        shown += [
+            _figure(units.last, economy_words(found[-1].economy, units), found[-1].end.day.isoformat()),
+            _figure("Last 12 months", economy_words(engine.economy(found, since=year), units)),
+            _figure("All time", economy_words(engine.economy(found), units)),
+        ]
+        if (cost := engine.cost_per_mile(found, since=since)) is not None:
+            shown.append(_figure("Cost a mile", cents_a_mile(cost), span))
+    if state.fills:
+        shown.append(_figure("Spent", money(engine.spent(state.fills, since=year)), "last 12 months"))
+        if (price := engine.unit_price(state.fills, since=year)) is not None:
+            shown.append(_figure("Price paid", price_words(price, units), "average, last 12 months"))
+    return shown
+
+
+# Gridline steps for the trend chart: mpg in whole numbers, mi/kWh in tenths.
+_STEPS = {"gal": (1, 2, 5, 10, 20), "kWh": (0.1, 0.2, 0.5, 1, 2)}
+
+
+def trend(state: FuelStatus) -> dict | None:
+    """Economy for each stretch over time, with the average as a line: positions as 0–100 for the SVG."""
+    found = state.stretches
+    if len(found) < 2:
+        return None
+    units = state.units
+    since, span = _span(state)
+    average = engine.economy(found, since=since)
+    values = [s.economy for s in found] + [average]
+    low, high = min(values), max(values)
+    steps = _STEPS[units.quantity]
+    step = next((s for s in steps if (high - low) / s <= 4), steps[-1])
+    bottom = math.floor(low / step) * step
+    top = max(math.ceil(high / step) * step, bottom + step)
+
+    def y(value: float) -> float:
+        return round(100 - (value - bottom) / (top - bottom) * 100, 3)
+
+    first, last = found[0].end.day, found[-1].end.day
+    days = max(1, (last - first).days)
+    flagged = engine.unusual(found)
+    count = round((top - bottom) / step)
+    decimals = 0 if units.quantity == "gal" else 1
+    return {
+        "unit": units.economy,
+        "points": [{"x": round((s.end.day - first).days / days * 100, 3), "y": y(s.economy),
+                    "label": f"{s.end.day.isoformat()}: {economy_words(s.economy, units)}",
+                    "unusual": s.end.id in flagged} for s in found],
+        "ticks": [{"y": y(bottom + i * step), "label": f"{bottom + i * step:.{decimals}f}"} for i in range(count + 1)],
+        "average": {"y": y(average), "label": f"{economy_words(average, units)} average, {span}"},  # type: ignore[arg-type]
+        "first": f"{first:%b %Y}",
+        "last": f"{last:%b %Y}",
     }
 
 

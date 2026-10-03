@@ -12,9 +12,9 @@
 <form class="sheet form fuelform" method="post" action="{{ '/fuel/%d/edit' % fill.id if fill else '/vehicles/%d/fuel' % car.id }}"
       x-data='fuelForm({{ options | tojson }})'>
   <div class="form__body">
-    <div class="fieldgrid">
+    <div class="fuelform__grid">
       {{ input("odometer", "Odometer", raw, errors, attrs='inputmode="numeric" class="mono" autocomplete="off"',
-               hint=("Last reading: " ~ (latest.miles | miles) ~ " on " ~ latest.read_on ~ ".") if latest else None) }}
+               hint=("Last: " ~ (latest.miles | miles) ~ " on " ~ latest.read_on) if latest else None) }}
       {{ input("quantity", "Gallons" if units.quantity == "gal" else "kWh", raw, errors,
                attrs='inputmode="decimal" class="mono" autocomplete="off" x-model="quantity" @input="fillCost()"') }}
       <div class="field">

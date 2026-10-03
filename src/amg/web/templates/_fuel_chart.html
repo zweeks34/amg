@@ -1,0 +1,32 @@
+{#- Economy over time: one dot a tank (or charge), joined, with the average as
+    a dashed line. The SVG draws in a 0–100 box stretched to fit; strokes and
+    dots keep their size whatever the stretch (non-scaling strokes, and each
+    dot a zero-length round-capped line). Labels are HTML, so they stay
+    readable at any width. The log below lists the same figures. -#}
+
+{% macro trend_chart(t) -%}
+<figure class="trend">
+  <div class="trend__frame">
+    <div class="trend__axis" aria-hidden="true">
+      {% for tick in t.ticks %}<span style="--y: {{ tick.y }}">{{ tick.label }}</span>{% endfor %}
+    </div>
+    <div class="trend__plot">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img"
+           aria-label="{{ t.unit }} for each {{ 'tank' if t.unit == 'mpg' else 'charge' }}, {{ t.first }} to {{ t.last }}; {{ t.average.label }}">
+        {% for tick in t.ticks %}<line class="trend__grid" x1="0" x2="100" y1="{{ tick.y }}" y2="{{ tick.y }}"/>{% endfor %}
+        <line class="trend__avg" x1="0" x2="100" y1="{{ t.average.y }}" y2="{{ t.average.y }}"/>
+        <polyline class="trend__line" points="{% for p in t.points %}{{ p.x }},{{ p.y }} {% endfor %}"/>
+        {% for p in t.points %}
+        {% if p.unusual %}<path class="trend__ring" d="M{{ p.x }},{{ p.y }}h0"/>{% endif %}
+        <path class="trend__dot{% if p.unusual %} trend__dot--unusual{% endif %}" d="M{{ p.x }},{{ p.y }}h0"><title>{{ p.label }}{% if p.unusual %}, unusual{% endif %}</title></path>
+        {% endfor %}
+      </svg>
+    </div>
+  </div>
+  <div class="trend__dates" aria-hidden="true"><span>{{ t.first }}</span><span>{{ t.last }}</span></div>
+  <figcaption class="trend__caption">
+    <span class="trend__legend"><span class="trend__key" aria-hidden="true"></span>{{ t.unit }} each {{ 'tank' if t.unit == 'mpg' else 'charge' }}</span>
+    <span class="trend__legend"><span class="trend__key trend__key--avg" aria-hidden="true"></span>{{ t.average.label }}</span>
+  </figcaption>
+</figure>
+{%- endmacro %}

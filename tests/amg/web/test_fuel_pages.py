@@ -141,3 +141,63 @@ def test_a_fill_up_moves_todays_estimated_odometer(conn, car):
 def test_the_backup_page_counts_fill_ups(signed_in, conn, car):
     fuel.create(conn, car, fuel.FillInput("2026-09-28", 64_300, "gas", 11.482))
     assert "Fill-ups" in signed_in.get("/backup").text
+
+
+def _steady(conn, car, last_odometer=31_200):
+    """Five fills 10 days apart, $35.00 each: 25, 25, 25 mpg, then 45 (unusual) with the default last odometer."""
+    for days_ago, miles in ((40, 30_000), (30, 30_250), (20, 30_500), (10, 30_750), (1, last_odometer)):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", 10.0, 3_500))
+
+
+def test_the_fuel_page_shows_the_figures_the_trend_and_the_odd_one_out(signed_in, conn, car):
+    _steady(conn, car)
+    from amg.web import fuel_status
+
+    shown = fuel_status.figures(fuel_status.load(conn, vehicles.get(conn, car)))
+    assert [(f["label"], f["value"], f["unit"], f["note"]) for f in shown] == [
+        ("Last tank", "45.0", "mpg", _days_ago(1)),
+        ("Last 12 months", "30.0", "mpg", None),
+        ("All time", "30.0", "mpg", None),
+        ("Cost a mile", "11.7¢", None, "last 12 months"),        # $140.00 over 1,200 mi
+        ("Spent", "$175.00", None, "last 12 months"),
+        ("Price paid", "$3.500", "/gal", "average, last 12 months"),
+    ]
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert "<dt>Last tank</dt>" in page and '45.0<span class="figure__unit"> mpg</span>' in page
+    assert '$3.500<span class="figure__unit">/gal</span>' in page
+    assert 'class="trend"' in page and "Unusual, check it" in page and "trend__dot--unusual" in page
+
+
+def test_the_trend_scale(conn, car):
+    _steady(conn, car)
+    from amg.web import fuel_status
+
+    chart = fuel_status.trend(fuel_status.load(conn, vehicles.get(conn, car)))
+    assert [t["label"] for t in chart["ticks"]] == ["25", "30", "35", "40", "45"]
+    assert [(p["x"], p["y"], p["unusual"]) for p in chart["points"]] == [
+        (0.0, 100.0, False), (34.483, 100.0, False), (68.966, 100.0, False), (100.0, 0.0, True)]   # 10, 20, 29 days on
+    assert chart["average"] == {"y": 75.0, "label": "30.0 mpg average, last 12 months"}
+
+
+def test_one_stretch_has_no_trend_yet(signed_in, conn, car):
+    fuel.create(conn, car, fuel.FillInput(_days_ago(10), 30_000, "gas", 10.0))
+    fuel.create(conn, car, fuel.FillInput(_days_ago(1), 30_300, "gas", 10.0))
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert "30.0 mpg" in page and 'class="trend"' not in page and "Cost a mile" not in page
+
+
+def test_an_ev_is_worded_in_kwh(signed_in, conn, ev):
+    for days_ago, miles, kwh, cents in ((20, 12_000, 40.0, 600), (10, 12_130, 39.0, 624), (1, 12_262, 40.0, 640)):
+        fuel.create(conn, ev, fuel.FillInput(_days_ago(days_ago), miles, "electric", kwh, cents, place="home"))
+    page = signed_in.get(f"/vehicles/{ev}/fuel").text
+    assert "<h1 class=\"display\">Charging</h1>" in page and "Last charge" in page and "3.30 mi/kWh" in page
+    assert "16.0¢/kWh" in page and "40 kWh" in page and "Home" in page
+
+
+def test_the_readings_list_folds_after_six(signed_in, conn, car):
+    _steady(conn, car)
+    fuel.create(conn, car, fuel.FillInput(_days_ago(0), 31_500, "gas", 10.0))
+    fuel.create(conn, car, fuel.FillInput(_days_ago(0), 31_510, "gas", 0.5))
+    page = signed_in.get(f"/vehicles/{car}").text
+    assert "<summary>1 older</summary>" in page
+    assert page.index("31,510 mi") < page.index("<summary>1 older</summary>") < page.index("30,000 mi")

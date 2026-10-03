@@ -1,6 +1,28 @@
 {% extends "base.html" %}
 {% from "_forms.html" import input %}
 {% from "_chart.html" import interval_chart, next_up as next_up_list %}
+
+{% macro reading_rows(rows) %}
+<ol class="points">
+  {% for point in rows %}
+  <li class="points__row">
+    <span class="mono">{{ point.read_on }}</span>
+    <span class="mono">{{ point.miles | miles }}</span>
+    <span class="points__from">
+      {% if point.source == "service" %}<a href="/services/{{ point.source_id }}">From a service</a>
+      {% elif point.source in ("fill", "charge") %}<a href="/fuel/{{ point.source_id }}/edit">From a {{ "fill-up" if point.source == "fill" else "charge" }}</a>
+      {% elif point.source == "acquired" %}When you got it
+      {% else %}Typed in{% endif %}
+    </span>
+    {% if point.source == "manual" %}
+    <form method="post" action="/odometer/{{ point.source_id }}/delete">
+      <button class="btn btn--quiet" type="submit" aria-label="Delete the {{ point.miles | miles }} reading from {{ point.read_on }}">Delete</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{%- endmacro %}
 {% block title %}{{ car.name }}{% endblock %}
 
 {% block content %}
@@ -154,27 +176,19 @@
   </form>
 
   {% if points %}
-  <ol class="points sheet sheet--flush">
-    {% for point in points | reverse %}
-    <li class="points__row">
-      <span class="mono">{{ point.read_on }}</span>
-      <span class="mono">{{ point.miles | miles }}</span>
-      <span class="points__from">
-        {% if point.source == "service" %}<a href="/services/{{ point.source_id }}">From a service</a>
-        {% elif point.source in ("fill", "charge") %}<a href="/fuel/{{ point.source_id }}/edit">From a {{ "fill-up" if point.source == "fill" else "charge" }}</a>
-        {% elif point.source == "acquired" %}When you got it
-        {% else %}Typed in{% endif %}
-      </span>
-      {% if point.source == "manual" %}
-      <form method="post" action="/odometer/{{ point.source_id }}/delete">
-        <button class="btn btn--quiet" type="submit" aria-label="Delete the {{ point.miles | miles }} reading from {{ point.read_on }}">Delete</button>
-      </form>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ol>
+  {# Every fill-up is a reading, so the list grows by the week: the latest six, the rest folded. #}
+  {% set newest = points | reverse | list %}
+  <div class="sheet sheet--flush">
+  {{ reading_rows(newest[:6]) }}
+  {% if newest | length > 6 %}
+  <details class="points__more">
+    <summary>{{ newest | length - 6 }} older</summary>
+    {{ reading_rows(newest[6:]) }}
+  </details>
+  {% endif %}
+  </div>
   {% else %}
-  <p class="muted">No readings yet. Every service you log with an odometer adds one.</p>
+  <p class="muted">No readings yet. Every service or fill-up you log with an odometer adds one.</p>
   {% endif %}
 </section>
 {% endblock %}

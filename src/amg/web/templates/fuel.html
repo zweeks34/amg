@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_fuel_chart.html" import trend_chart %}
 {% block title %}{{ units.title }} · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -11,6 +12,25 @@
 </header>
 
 {% if saved %}<p class="notice notice--done" role="status">{{ saved }}</p>{% endif %}
+
+{% if figures %}
+<dl class="figures sheet">
+  {% for f in figures %}
+  <div class="figure">
+    <dt>{{ f.label }}</dt>
+    <dd class="figure__value mono">{{ f.value }}{% if f.unit %}<span class="figure__unit">{{ " " if f.unit[0] != "/" }}{{ f.unit }}</span>{% endif %}</dd>
+    {% if f.note %}<dd class="figure__note">{{ f.note }}</dd>{% endif %}
+  </div>
+  {% endfor %}
+</dl>
+{% endif %}
+
+{% if trend %}
+<section class="block" aria-labelledby="trend-heading">
+  <h2 class="h3" id="trend-heading">Over time</h2>
+  <div class="sheet">{{ trend_chart(trend) }}</div>
+</section>
+{% endif %}
 
 <section class="block" aria-labelledby="log-heading">
   <h2 class="h3" id="log-heading">The log</h2>
@@ -26,11 +46,11 @@
         <span class="fuellog__total mono">{{ row.total or "" }}</span>
         <span class="fuellog__econ">
           {%- if row.economy %}<span class="mono">{{ row.economy }}</span>
-          {%- elif row.partial %}<span class="muted">Partial</span>{% endif %}
-          {%- if row.unusual %} <span class="fuellog__flag">Unusual, check it</span>{% endif %}
+          {%- elif row.partial %}<span class="muted">Partial</span>{% endif -%}
         </span>
-        {% if row.place or row.missed_before or row.note %}
+        {% if row.unusual or row.place or row.missed_before or row.note %}
         <span class="fuellog__more">
+          {%- if row.unusual %}<span class="fuellog__flag">Unusual, check it</span> {% endif -%}
           {{- [row.place, "After one not logged" if row.missed_before else "", row.note] | select | join(" · ") -}}
         </span>
         {% endif %}
