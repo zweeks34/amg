@@ -18,6 +18,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from ..engine.schedule import in_effect  # noqa: F401  (pages ask a draft's items the same question)
 from ..repo.schedules import APPLIES, ItemInput
 from .manuals import ScheduleExtraction, TableColumn
 
@@ -242,11 +243,6 @@ def from_items(items: Iterable[Mapping], origin: str = "copy", keep_ids: bool = 
 
 
 # ---------- Reading an item ----------
-
-
-def in_effect(item: Mapping, severe_service: bool) -> bool:
-    """Whether an item counts for a car following normal or severe service."""
-    return item["applies"] == "always" or (item["applies"] == "severe") == bool(severe_service)
 
 
 def _months(months: int) -> str:
