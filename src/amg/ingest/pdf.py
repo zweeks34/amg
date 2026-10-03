@@ -37,6 +37,11 @@ def is_supported(path: Path | str) -> bool:
     return Path(path).suffix.lower() in SUPPORTED
 
 
+def page_count(path: Path | str) -> int:
+    with pymupdf.open(path) as doc:
+        return doc.page_count
+
+
 def pages(path: Path | str) -> list[Page]:
     with pymupdf.open(path) as doc:
         return [Page(page.number + 1, page.get_text().strip()) for page in doc]

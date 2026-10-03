@@ -19,6 +19,7 @@ from functools import lru_cache
 from typing import TypeVar
 
 import anthropic
+import httpx2  # the SDK's HTTP library; a streamed answer's read timeout surfaces as its exception
 from pydantic import BaseModel
 
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -83,35 +84,48 @@ def parse(
     effort: str = "medium",
     max_tokens: int = 16_000,
     timeout: float = 180.0,
+    stream: bool = False,
 ) -> tuple[T, Usage]:
     """Ask Claude for ``schema`` given ``content``; the system prompt is cached.
 
     ``timeout`` is per attempt (the SDK retries twice), so a stuck call can't
     hold a background job for the SDK's default ten minutes.
+
+    ``stream`` is for long answers — a manual's whole schedule at high effort.
+    The answer arrives as it's written, so ``timeout`` bounds a silence rather
+    than the whole call, and a long read isn't mistaken for a stuck one.
     """
     if not configured():
         # The SDK would raise a bare TypeError here; say what to do about it instead.
-        raise ClaudeError("No Anthropic API key is set, so AMG can't read receipts. Add ANTHROPIC_API_KEY "
+        raise ClaudeError("No Anthropic API key is set, so AMG can't read documents. Add ANTHROPIC_API_KEY "
                           "to the .env file, restart the app, then read this again.")
     started = time.monotonic()
+    request = dict(
+        model=model(),
+        max_tokens=max_tokens,
+        system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+        messages=[{"role": "user", "content": content}],
+        output_format=schema,
+        output_config={"effort": effort},
+        betas=[FALLBACK_BETA],
+        fallbacks="default",
+    )
+    messages = client().with_options(timeout=timeout).beta.messages
     try:
-        response = client().with_options(timeout=timeout).beta.messages.parse(
-            model=model(),
-            max_tokens=max_tokens,
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": content}],
-            output_format=schema,
-            output_config={"effort": effort},
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
-        )
-    except anthropic.APITimeoutError as err:
+        if stream:
+            with messages.stream(**request) as live:
+                response = live.get_final_message()
+                request_id = live.request_id
+        else:
+            response = messages.parse(**request)
+            request_id = getattr(response, "_request_id", None)
+    except (anthropic.APITimeoutError, httpx2.TimeoutException) as err:
         raise ClaudeError("Claude took too long to answer. Try reading it again.") from err
     except anthropic.AuthenticationError as err:
         raise ClaudeError("Claude rejected the API key. Check ANTHROPIC_API_KEY in .env.") from err
     except anthropic.RateLimitError as err:
         raise ClaudeError("Claude is rate-limiting requests. Try again in a minute.") from err
-    except anthropic.APIConnectionError as err:
+    except (anthropic.APIConnectionError, httpx2.TransportError) as err:
         raise ClaudeError("Couldn't reach Claude. Check the server's internet connection.") from err
     except anthropic.APIStatusError as err:
         raise ClaudeError(f"Claude returned an error ({err.status_code}): {err.message}") from err
@@ -124,7 +138,7 @@ def parse(
         cache_write_tokens=usage.cache_creation_input_tokens or 0,
         cache_read_tokens=usage.cache_read_input_tokens or 0,
         seconds=round(time.monotonic() - started, 1),
-        request_id=getattr(response, "_request_id", None),
+        request_id=request_id,
     )
     if response.stop_reason == "refusal":
         raise ClaudeError("Claude declined to read this document.")
