@@ -191,6 +191,37 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
+  // The fill-up form: the price a gallon (or kWh) as you type, and for a home
+  // charge, the cost at your last home rate until you type a cost yourself.
+  Alpine.data("fuelForm", (options) => ({
+    quantity: options.quantity,
+    cost: options.cost,
+    place: options.place,
+    typed: options.cost !== "",
+
+    number(text) {
+      const value = parseFloat(String(text).replace(/[$,\s]/g, ""));
+      return Number.isFinite(value) ? value : null;
+    },
+    fillCost() {
+      if (this.typed || !options.rate) return;
+      const kwh = this.number(this.quantity);
+      this.cost = this.place === "home" && kwh ? ((kwh * options.rate) / 100).toFixed(2) : "";
+    },
+    costHint() {
+      const quantity = this.number(this.quantity);
+      const cost = this.number(this.cost);
+      if (quantity && cost !== null) {
+        const cents = (cost * 100) / quantity;
+        const price = options.unit === "gal" ? `$${(cents / 100).toFixed(3)}/gal` : `${cents.toFixed(1)}¢/kWh`;
+        return !this.typed && this.place === "home" ? `${price}, your last home rate. Change it if it's moved.` : price;
+      }
+      return options.rate && this.place === "home"
+        ? `Fills in at your last home rate, ${options.rate.toFixed(1)}¢/kWh.`
+        : "If you know it.";
+    },
+  }));
+
   // The interval chart opens scrolled so today's odometer line is in view —
   // on a phone the chart is wider than the screen and would otherwise open at
   // zero miles, showing only the car's distant past.

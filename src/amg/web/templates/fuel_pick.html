@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ fill_word() }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <h1 class="display">Which car?</h1>
+</header>
+
+{% if cars %}
+<ul class="pick">
+  {% for entry in cars %}
+  <li>
+    <a class="pick__car sheet" href="/vehicles/{{ entry.car.id }}/fuel/new">
+      <span class="pick__name">{{ entry.car.name }}</span>
+      <span class="muted">{% if entry.car.last_filled %}Last {{ entry.units.fill }} {{ entry.car.last_filled }}{% else %}No {{ entry.units.fill }}s yet{% endif %}</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="sheet empty empty--small">
+  <p>Add a car first, then log its fill-ups or charges here.</p>
+  <p><a class="btn btn--primary" href="/vehicles/new">Add a car</a></p>
+</div>
+{% endif %}
+{% endblock %}

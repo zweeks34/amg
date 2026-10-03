@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_forms.html" import input, textarea, described, message %}
+{% set verb = "Edit" if fill else "Log" %}
+{% block title %}{{ verb }} a {{ units.fill }} · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
+  <h1 class="display">{{ verb }} a {{ units.fill }}</h1>
+</header>
+
+<form class="sheet form fuelform" method="post" action="{{ '/fuel/%d/edit' % fill.id if fill else '/vehicles/%d/fuel' % car.id }}"
+      x-data='fuelForm({{ options | tojson }})'>
+  <div class="form__body">
+    <div class="fieldgrid">
+      {{ input("odometer", "Odometer", raw, errors, attrs='inputmode="numeric" class="mono" autocomplete="off"',
+               hint=("Last reading: " ~ (latest.miles | miles) ~ " on " ~ latest.read_on ~ ".") if latest else None) }}
+      {{ input("quantity", "Gallons" if units.quantity == "gal" else "kWh", raw, errors,
+               attrs='inputmode="decimal" class="mono" autocomplete="off" x-model="quantity" @input="fillCost()"') }}
+      <div class="field">
+        <label for="f-cost">Total cost</label>
+        <input id="f-cost" name="cost" value="{{ raw.get('cost', '') }}" inputmode="decimal" class="mono" autocomplete="off"
+               x-model="cost" @input="typed = true"{{ described("cost", errors, True) }}>
+        {% if errors.get("cost") %}{{ message("cost", errors, None) }}
+        {% else %}<p class="field__hint" id="f-cost-hint" x-text="costHint()">If you know it.</p>{% endif %}
+      </div>
+      {{ input("filled_on", "Date", raw, errors, type="date") }}
+    </div>
+
+    {% if units.energy == "electric" %}
+    <fieldset class="field field--wide">
+      <legend>Where</legend>
+      <div class="choices">
+        {% for value, label in (("home", "Home"), ("public", "Public")) %}
+        <label class="choice">
+          <input type="radio" name="place" value="{{ value }}" x-model="place" @change="fillCost()"> {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+      {{ message("place", errors, None) }}
+    </fieldset>
+    {% endif %}
+
+    <label class="check"><input type="checkbox" name="full" value="1" {% if raw.get("full") %}checked{% endif %}> {{ units.full }}</label>
+
+    <details class="fuelform__more" {% if raw.get("missed_before") or raw.get("note") %}open{% endif %}>
+      <summary>More</summary>
+      <div class="form__body">
+        <div>
+          <label class="check"><input type="checkbox" name="missed_before" value="1" {% if raw.get("missed_before") %}checked{% endif %}>
+            I didn't log the {{ units.fill }} before this one</label>
+          <p class="field__hint">{{ units.economy_name }} isn't measured across a {{ units.fill }} that wasn't logged:
+            the {{ "fuel" if units.quantity == "gal" else "energy" }} it put in is missing.</p>
+        </div>
+        {{ textarea("note", "Note", raw, errors, rows=2) }}
+      </div>
+    </details>
+  </div>
+
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">Save {{ units.fill }}</button>
+    <a class="btn btn--quiet" href="{{ '/vehicles/%d/fuel' % car.id if fill else '/vehicles/%d' % car.id }}">Cancel</a>
+  </div>
+</form>
+
+{% if fill %}
+<div class="zone" x-data="{ confirming: false }">
+  <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true">Delete this {{ units.fill }}</button>
+  <form method="post" action="/fuel/{{ fill.id }}/delete" class="confirm" x-show="confirming" x-cloak>
+    <span>Delete this {{ units.fill }}? Its odometer reading goes with it.</span>
+    <button class="btn btn--danger" type="submit">Delete {{ units.fill }}</button>
+    <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

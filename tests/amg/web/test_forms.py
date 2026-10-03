@@ -42,6 +42,24 @@ def test_bad_quantity():
         forms.quantity("two")
 
 
+@pytest.mark.parametrize(("raw", "unit", "expected"), [
+    ("11.482", "gal", 11.482), ("11.482 gal", "gal", 11.482), (".5", "gal", 0.5), ("42.5 kWh", "kWh", 42.5),
+    ("150", "kWh", 150.0), ("", "gal", None),
+])
+def test_amount(raw, unit, expected):
+    assert forms.amount(raw, unit) == expected
+
+
+@pytest.mark.parametrize(("raw", "unit", "message"), [
+    ("0", "gal", "Enter the gallons that went in, like 11.482."), ("-3", "gal", "like 11.482"),
+    ("11.4821", "gal", "like 11.482"), ("lots", "kWh", "Enter the kWh that went in, like 42.5."),
+    ("150", "gal", "more than a tank holds"), ("425", "kWh", "more than a battery takes"),
+])
+def test_bad_amount(raw, unit, message):
+    with pytest.raises(ValueError, match=message):
+        forms.amount(raw, unit)
+
+
 @pytest.mark.parametrize(("raw", "expected"), [("2016-08-15", "2016-08-15"), ("08/15/2016", "2016-08-15"), ("8/15/16", "2016-08-15")])
 def test_day(raw, expected):
     assert forms.day(raw) == expected

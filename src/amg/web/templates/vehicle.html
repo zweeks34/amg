@@ -88,6 +88,28 @@
   {% endif %}
 </section>
 
+{% set u = fuel.units %}
+<section class="block" id="fuel" aria-labelledby="fuel-heading">
+  <div class="block__head">
+    <h2 class="h3" id="fuel-heading">{{ u.title }}</h2>
+    {% if fuel.count %}<a class="btn btn--quiet" href="/vehicles/{{ car.id }}/fuel">The {{ u.fill }} log</a>{% endif %}
+  </div>
+  <div class="sheet fuelblock">
+    {% if fuel.count %}
+    <dl class="facts">
+      <div><dt>Economy</dt>
+        <dd class="mono">{% if fuel.economy %}{{ fuel.economy }} <span class="muted">{{ fuel.span }}</span>{% else %}<span class="muted">From your second {{ u.full_noun }}</span>{% endif %}</dd></div>
+      {% if fuel.cost_a_mile %}<div><dt>Cost a mile</dt><dd class="mono">{{ fuel.cost_a_mile }} <span class="muted">{{ fuel.span }}</span></dd></div>{% endif %}
+      <div><dt>Last {{ u.fill }}</dt><dd class="mono">{{ fuel.last.filled_on }} <span class="muted">at {{ fuel.last.odometer | miles }}</span></dd></div>
+    </dl>
+    {% else %}
+    <p>No {{ u.fill }}s logged yet. Log them {{ "at the pump" if u.quantity == "gal" else "as you charge" }}: AMG works out
+      {{ u.economy_name }} from your second {{ u.full_noun }}, and each one keeps the odometer estimate fresh.</p>
+    {% endif %}
+    <p><a class="btn btn--secondary" href="/vehicles/{{ car.id }}/fuel/new">Log a {{ u.fill }}</a></p>
+  </div>
+</section>
+
 <section class="block" aria-labelledby="history-heading">
   <h2 class="h3" id="history-heading">Service history</h2>
   {% if history %}
@@ -139,6 +161,7 @@
       <span class="mono">{{ point.miles | miles }}</span>
       <span class="points__from">
         {% if point.source == "service" %}<a href="/services/{{ point.source_id }}">From a service</a>
+        {% elif point.source in ("fill", "charge") %}<a href="/fuel/{{ point.source_id }}/edit">From a {{ "fill-up" if point.source == "fill" else "charge" }}</a>
         {% elif point.source == "acquired" %}When you got it
         {% else %}Typed in{% endif %}
       </span>

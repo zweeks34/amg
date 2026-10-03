@@ -12,6 +12,7 @@ from starlette.responses import RedirectResponse, Response
 from ..ingest import vin as vins
 from ..repo import odometer, schedules, services, vehicles
 from . import forms
+from . import fuel_status
 from . import status as car_status
 from .deps import get_conn
 from .templating import render
@@ -175,6 +176,7 @@ def _page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_co
         upcoming=car_status.next_up(state),
         missed=car_status.missed(state),
         chart=car_status.chart(state, car["name"]),
+        fuel=fuel_status.summary(fuel_status.load(conn, car)),
         attested=extra.get("attested", False),
         schedule_from=schedules.current_draft(conn, vehicle_id),
         schedule_drafts=schedules.open_drafts(conn, vehicle_id),

@@ -85,6 +85,24 @@ def months(value: str | None) -> int | None:
     return int(raw)
 
 
+# Gallons or kWh: more than this went into no car, so it's a typo.
+_MOST = {"gal": 100, "kWh": 300}
+
+
+def amount(value: str | None, unit: str) -> float | None:
+    """'11.482' / '11.482 gal' / '42.5 kWh' → 11.482. What went into a tank or battery: above zero, to 3 places."""
+    raw = re.sub(r"(?i)\s*(gal|gallons?|kwh)\.?$", "", text(value)).replace(",", "").replace(" ", "")
+    if not raw:
+        return None
+    words, example = ("gallons", "11.482") if unit == "gal" else ("kWh", "42.5")
+    if not re.fullmatch(r"\d+(\.\d{1,3})?|\.\d{1,3}", raw) or float(raw) == 0:
+        raise ValueError(f"Enter the {words} that went in, like {example}.")
+    if float(raw) > _MOST[unit]:
+        holds = "tank holds" if unit == "gal" else "battery takes"
+        raise ValueError(f"That's more than a {holds}. Check for an extra digit.")
+    return float(raw)
+
+
 def quantity(value) -> float | None:
     """'2' / '1.5' / '-1' → a number. Receipts print -1 on credits and returns,
     such as a manufacturer's warranty credit against a tire."""

@@ -90,6 +90,11 @@ def garage(conn: sqlite3.Connection) -> tuple[list[dict], list[dict]]:
     return active, archived
 
 
+def powertrains(conn: sqlite3.Connection) -> set[str]:
+    """The powertrains of the cars in the garage (archived ones aside)."""
+    return {row[0] for row in conn.execute("SELECT DISTINCT powertrain FROM vehicles WHERE archived_at IS NULL")}
+
+
 def latest_odometer(conn: sqlite3.Connection, vehicle_id: int) -> dict | None:
     row = conn.execute(
         "SELECT read_on, miles, source FROM odometer_points WHERE vehicle_id = ?"

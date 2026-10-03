@@ -1185,6 +1185,62 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .leftout__name { font-weight: 600; }
 .leftout__why { font-size: 0.8125rem; color: var(--steel); }
 
+/* ---------- Fuel and charging ---------- */
+
+.fuelblock { display: grid; gap: 1rem; }
+.fuelblock .facts { margin: 0; }
+.fuelform__more > summary {
+  cursor: pointer;
+  font: 600 0.9375rem/1.2 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.fuelform__more[open] > summary { margin-bottom: 1rem; }
+
+/* Which car: big targets, for a thumb at the pump. */
+.pick { display: grid; gap: 0.75rem; max-width: 32rem; margin: 0; padding: 0; list-style: none; }
+.pick__car { display: grid; gap: 0.25rem; text-decoration: none; }
+.pick__car:hover { border-color: var(--ink); }
+.pick__name { font: 700 1.75rem/1 var(--display); }
+
+/* The log: date, odometer, quantity, price, total, economy; two lines on a phone. */
+.fuellog { margin: 0; padding: 0; list-style: none; }
+.fuellog li + li { border-top: 1px solid var(--rule-soft); }
+.fuellog__row {
+  display: grid;
+  grid-template-columns: 6.5rem 6.5rem 7rem 6.5rem 5.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem var(--gutter);
+  text-decoration: none;
+}
+.fuellog__row:hover { background: var(--band); }
+.fuellog__price, .fuellog__qty, .fuellog__miles { color: var(--ink-2); }
+.fuellog__total { text-align: right; }
+.fuellog__econ { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.625rem; font-weight: 600; }
+.fuellog__more { grid-column: 1 / -1; font-size: 0.875rem; color: var(--steel); }
+.fuellog__flag {
+  padding: 0 0.375rem;
+  border-radius: var(--radius-sm);
+  background: var(--due);
+  color: var(--on-due);
+  font: 600 0.75rem/1.5 var(--body);
+}
+@media (max-width: 48rem) {
+  .fuellog__row {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      "date miles total"
+      "qty price econ";
+  }
+  .fuellog__date { grid-area: date; }
+  .fuellog__miles { grid-area: miles; }
+  .fuellog__total { grid-area: total; }
+  .fuellog__qty { grid-area: qty; }
+  .fuellog__price { grid-area: price; }
+  .fuellog__econ { grid-area: econ; justify-content: flex-end; }
+}
+
 /* ---------- Motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {

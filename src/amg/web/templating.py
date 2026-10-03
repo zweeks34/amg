@@ -103,8 +103,21 @@ def receipts_to_check() -> int:
         conn.close()
 
 
+def fill_word() -> str:
+    """The masthead's way to the fill-up form: Charge when every car in the garage is electric."""
+    from .. import db
+    from ..repo import vehicles
+
+    conn = db.connect()
+    try:
+        return "Charge" if vehicles.powertrains(conn) == {"ev"} else "Fill-up"
+    finally:
+        conn.close()
+
+
 templates.env.globals["asset"] = asset
 templates.env.globals["receipts_to_check"] = receipts_to_check
+templates.env.globals["fill_word"] = fill_word
 templates.env.globals["axis"] = axis
 templates.env.globals["status_words"] = STATUS_WORDS
 templates.env.globals["origin_words"] = SCHEDULE_ORIGINS

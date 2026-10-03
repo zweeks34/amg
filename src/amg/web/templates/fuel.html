@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ units.title }} · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
+  <h1 class="display">{{ units.title }}</h1>
+  <div class="pagehead__actions">
+    <a class="btn btn--primary" href="/vehicles/{{ car.id }}/fuel/new">Log a {{ units.fill }}</a>
+  </div>
+</header>
+
+{% if saved %}<p class="notice notice--done" role="status">{{ saved }}</p>{% endif %}
+
+<section class="block" aria-labelledby="log-heading">
+  <h2 class="h3" id="log-heading">The log</h2>
+  {% if log %}
+  <ol class="fuellog sheet sheet--flush">
+    {% for row in log %}
+    <li>
+      <a class="fuellog__row" href="/fuel/{{ row.id }}/edit">
+        <span class="fuellog__date mono">{{ row.day }}</span>
+        <span class="fuellog__miles mono">{{ row.odometer | miles }}</span>
+        <span class="fuellog__qty mono">{{ row.quantity }}</span>
+        <span class="fuellog__price mono">{{ row.price or "" }}</span>
+        <span class="fuellog__total mono">{{ row.total or "" }}</span>
+        <span class="fuellog__econ">
+          {%- if row.economy %}<span class="mono">{{ row.economy }}</span>
+          {%- elif row.partial %}<span class="muted">Partial</span>{% endif %}
+          {%- if row.unusual %} <span class="fuellog__flag">Unusual, check it</span>{% endif %}
+        </span>
+        {% if row.place or row.missed_before or row.note %}
+        <span class="fuellog__more">
+          {{- [row.place, "After one not logged" if row.missed_before else "", row.note] | select | join(" · ") -}}
+        </span>
+        {% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="sheet empty empty--small">
+    <p>Nothing logged yet. {{ units.economy_name }} shows from your second {{ units.full_noun }}.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
