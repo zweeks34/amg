@@ -286,31 +286,39 @@ there is one.
 
 **For:** the answer to "what have I missed and what's next?"
 
-- [ ] Odometer model: piecewise-linear between known readings; forward projection from the recent miles-per-day rate
-- [ ] Gap engine: walk each schedule item's expected occurrences from in-service (or acquisition) forward; due at the earlier of miles and months; met by a matching service within tolerance; status done / gap / overdue / due soon / upcoming
-- [ ] Attest a gap ("done, no receipt") → an attested service event
-- [ ] Interval Chart per vehicle — the signature: service items × mileage, ● done (links to its receipt), ✕ gap, ◐ due soon. On phones: "Next up" list first, chart one tap away, scrolls sideways with a sticky item column
-- [ ] Garage dashboard: per car, next up, gap count, due-soon badges
+- [x] Odometer model (`engine/odometer.py`): a straight line between readings, with the in-service date as a reading of zero; after the last reading the recent pace (the last year of readings if they span two months, else the whole history); before the first, back along the first stretch, never below zero
+- [x] Gap engine (`engine/schedule.py`): each item due at the earlier of its miles and months, **counted from when it was last done** (from new, the first time). A matching service before the *next* one falls due → done (late beyond a tenth of an interval); nothing by then → missed, and the count carries on from the missed due point; due point passed, next not yet → overdue; within 30 days or 1,000 mi → due soon; else later. Nothing is judged before you had the car
+- [x] What meets what: a service covering any of the item's service types — an inspection item by anything done to the part, a replacement or procedure only by a replacement or procedure. **A multi-point or state inspection meets every inspection item**, never a replacement (your call: otherwise the dealer's checks would all read as missed)
+- [x] Mark as done ("done, no receipt") → an attested service covering the item, from **Mark as done** on next up, **It was done** on a missed one, or a missed or overdue mark on the chart; it shows in the history as "Done, no receipt"; deleting it undoes it
+- [x] Interval chart per car: the items that apply, grouped as the schedule is; ● done where the work was done (links to the service), ✕ missed and ▲ overdue (link to mark as done), ◐ due soon, ○ later; today's estimated odometer as the ink line. Open on wide screens; on phones next up comes first and the chart is one tap away, scrolling sideways with the item column fixed
+- [x] Car page: next up (every overdue and due-soon item, then the next few, folded after six), "N missed in the past" with each one listed, today's estimated odometer
+- [x] Garage: each card says what's next and counts overdue, due soon and missed
 
-**Data owned:** none new — the engine is pure functions over the tables above.
+**Data owned:** none new — the engine is pure functions over the tables
+above; `web/status.py` turns its answer into words and the chart.
 
-**From phase 4:** a schedule item names one or more service types and one
-action. It's met by a confirmed service covering *any* of its types with a
-sufficient action — a replacement also meets an inspection. An item with a
-first-due point falls due there, then every interval after; one with only a
-first-due point is due once. Only items in effect count: `applies` is always,
-normal or severe, against the car's `severe_service`
-(`schedule_drafts.in_effect`).
+**Can go wrong:** no odometer readings → months-only judgement, no chart, and
+an item due by mileage alone says it needs a reading. Services done early →
+met, and the count restarts from them. A used car → nothing judged before
+acquisition ("before you had it"), and with no in-service date the count starts
+when you got it. A service with no odometer → placed on the chart from the
+odometer model. A long silence → one missed mark per interval that passed.
 
-**Can go wrong:** no odometer readings at all → months-only judgement and a
-prompt to add one. Services done early → still met. A used car → no gaps
-before acquisition.
+**Tests pin:** whichever comes first, both ways round; first-due offsets
+(first at 7,500, then every 15,000) and "first at 11 years"; the late-service
+example (done 13,500 → 19,500 missed → 25,500 done late at 27,000 → next
+33,000); the tolerance edge to the day; early services restart the count;
+acquisition cutoff; zero readings; what meets what, including multi-point
+inspections; normal and severe; the odometer model's straight lines, pace,
+in-service anchor and edge cases; **a hand-checked car** — five items, five
+services, every mark of its chart and every next-up line worked out on paper
+in `tests/amg/web/test_status.py` and matched exactly; marking as done.
 
-**Tests pin:** whichever-comes-first; `first_at` offsets (first at 7,500, then
-every 15,000); acquisition cutoff; tolerance edges; zero readings; a
-hand-checked car's chart matches the engine output exactly.
-
-**Done when:** the chart matches a hand-checked car.
+**Done when:** the chart matches a hand-checked car. *The engine matches the
+hand-checked car in the tests (2026-10-02), and run over the 14 sample receipts
+it finds what they show — oil and tire rotations missed where receipts are
+missing, inspections met by the dealer's multi-point checks. Checking the
+Outback's chart against your full history on the server is yours.*
 
 ---
 
