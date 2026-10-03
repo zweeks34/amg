@@ -247,8 +247,9 @@ comes first" survives draft → items → editor → items; editing a copied sch
 leaves the original alone; saving keeps ids; nothing counts before it's used.
 
 **Done when:** every car has a verified schedule. *Built and checked end to end
-on the sample maintenance plan (2026-10-02); reading your manuals on the server
-is yours to run.*
+on the sample maintenance plan (2026-10-02); deployed, and the Outback's
+schedule read from its maintenance plan and in use on the server (2026-10-02).
+Done.*
 
 ### Trial findings (2026-10-02)
 
