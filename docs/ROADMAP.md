@@ -362,19 +362,55 @@ page and moves today's estimated odometer. *That last part is yours.*
 
 **For:** how much to put aside, and when.
 
-- [ ] Each upcoming occurrence in the horizon (12 months default) dated from the odometer projection
-- [ ] Cost estimate, in order: median of your confirmed costs for that service on this car, then on your other cars (inflation-adjusted) → price book → an AI estimate range, flagged and cached
-- [ ] Fuel/energy projection from miles per day × cost per mile (both exist: `Odometer.rate()` and `engine/fuel.cost_per_mile`)
-- [ ] Month-by-month budget view per car and in total
+- [x] Each upcoming occurrence in the horizon (12 months, or two or three years) dated from the odometer projection — the gap engine's own walk, so an oil change due twice in the year is budgeted twice; one already overdue is due now
+- [x] Cost estimate (`engine/forecast.py`), the first that knows: **your price** → the median of what visits that did the job cost on this car → shops' quotes on this car's receipts → the median on your other cars → Claude's range, flagged and kept. Past prices are brought up to today's at 4% a year
+- [x] What a visit charged for a job: its share of the lines that did the work (a line that did several things split evenly), plus the same share of the tax, shop fees and discounts; the visit must have done all of the job (a filter bought alone isn't an oil change)
+- [x] Fuel/energy projection: miles a day (`Odometer.rate()`) × the fuel page's cost a mile, month by month
+- [x] Month-by-month budget per car (`/vehicles/{id}/budget`) and in total (`/budget`): put aside a month, due now, maintenance and fuel for the horizon, month bars, each month's jobs with where each price came from; the price list, where you set your own or ask Claude (a background job, one call per car, a few cents). The garage gets a line, and next up shows each job's cost
 
-**Data owned:** `price_book`.
+**Decisions:**
+
+- **Your price beats your history** (this phase's change to the order above,
+  which had the price book after it): otherwise an estimate from old receipts
+  could never be corrected. Removing your price brings AMG's back.
+- **Inflation is 4% a year**, about what the BLS index for US motor vehicle
+  maintenance and repair rose from 2016 to 2025 (≈50% over the decade, 1.4%
+  early on, 8% in 2023). It's `INFLATION` in `engine/forecast.py`.
+- **Inspections are part of a visit:** an inspection job with nothing you've
+  paid for it alone counts as $0 and isn't sent to Claude; a dealer checks
+  these while doing other work.
+- **Overdue work is due now, not saved for:** the put-aside figure spreads
+  only what's still to come; what's overdue shows on its own as *due now*.
+- **Fuel stays off the month bars** — steady and paid as you go, it would only
+  flatten the months that matter — and is in each month's list instead.
+- **Claude is asked only when you press the button**, for the jobs nothing
+  else prices; its ranges count at their midpoint and are checked (upside
+  down, nothing, or over $20,000 is refused).
+
+**Data owned:** `price_book` — per car and per job (service types + action),
+so a price outlives the schedule item that asked for it.
 
 **Can go wrong:** work done under warranty or as goodwill is a $0 line (see
-*Line kinds* above) → it would drag the median toward zero, so lines at $0 or
-with no amount aren't prices and are skipped when estimating.
+*Line kinds* above) → it would drag the median toward zero, so a visit whose
+share comes to nothing isn't a price. A package line ("30,000-mile service")
+→ split between the jobs it did, the inspections on it free. A receipt
+history still being uploaded → false overdue jobs inflate *due now*, not the
+monthly figure. Claude's thread dies mid-call (a deploy) → the page says
+pricing stopped and offers to ask again. A car with no schedule → fuel only.
 
-**Tests pin:** the estimate fallback order; inflation adjustment; an occurrence
-beyond the horizon is excluded; a $0 warranty line doesn't lower the estimate.
+**Tests pin:** a hand-worked set of visits in `tests/amg/engine/test_forecast.py`
+— overhead shared to the cent, a package split, a filter-only visit, a $0
+goodwill visit that would have lowered the median, a discount and a credit;
+the fallback order tier by tier; inflation; an occurrence beyond the horizon
+excluded; oil twice in a year; a one-off; overdue now; fuel per month. The
+pages: a worked car's figures, setting and removing a price, a bad price
+refused on its row, asking Claude (faked) through to its range in the totals,
+a stalled ask, the horizon switch, the garage line, archived cars left out.
+
+**Done when:** the engine matches the hand-worked figures *(it does,
+2026-10-03)*, and on the server the Outback's budget is priced from your
+receipts, with Claude asked only for what they don't cover, and the year's
+total looks believable to you. *That last part is yours.*
 
 ---
 
