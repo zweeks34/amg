@@ -207,8 +207,8 @@ alongside the original.
 
 **Done when:** the app is reachable over NordVPN from the phone, and a backup
 restores cleanly into a fresh container. *Built and rehearsed in WSL
-(2026-10-01). Creating LXC 302, the nginx site, the DNS name and the phone
-check are yours to run, with the guide's steps 1–9.*
+(2026-10-01); deployed to LXC 302 and checked from the phone over NordVPN, with
+a backup restored into a fresh container (2026-10-02). Done.*
 
 ---
 
