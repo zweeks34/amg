@@ -56,3 +56,14 @@ def test_year():
     assert forms.year("2016") == 2016
     with pytest.raises(ValueError):
         forms.year("16")
+
+
+@pytest.mark.parametrize(("raw", "expected"), [("6", 6), ("24 months", 24), ("1 mo", 1), ("", None)])
+def test_months(raw, expected):
+    assert forms.months(raw) == expected
+
+
+@pytest.mark.parametrize("raw", ["0", "six", "1.5", "601"])
+def test_bad_months(raw):
+    with pytest.raises(ValueError):
+        forms.months(raw)

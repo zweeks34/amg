@@ -121,6 +121,71 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
+  // A schedule: checking a draft before using it, and editing a car's schedule
+  // after. Rows share the line editor's chips; each row is one item and action.
+  // Rows as Claude read them are drawn as unconfirmed until touched; changing
+  // an item's timing or action makes it yours ("Set by you").
+  const blankItem = () => withId({
+    id: null, name: "", covers: [], action: "replace", interval_miles: "", interval_months: "", first_miles: "",
+    first_months: "", applies: "always", note: "", source: "you", document_id: null, page: null, included: true,
+    why_not: "", marked: "", marked_miles: [], from_read: false, show_first: false, show_note: false,
+  });
+  const LETTERS = { replace: "R", inspect: "I", perform: "P" };
+  const SOURCES = { manual: "Owner's manual", claude: "Claude's draft", template: "Generic template", you: "Set by you" };
+
+  Alpine.data("scheduleEditor", (editor) => ({
+    ...lineEditor({ lines: editor.items, errors: editor.errors, types: editor.types }),
+    reading: editor.reading,
+
+    unread(item) {
+      return this.reading && item.from_read && !item.touched;
+    },
+    letter(action) {
+      return LETTERS[action] || "?";
+    },
+    sourceLabel(item) {
+      return SOURCES[item.source] || "";
+    },
+    timed(item) {
+      item.touched = true;
+      item.source = "you";
+    },
+    everyWords(item) {
+      const parts = [];
+      if (item.interval_miles) parts.push(`${item.interval_miles} mi`);
+      if (item.interval_months) parts.push(`${item.interval_months} months`);
+      return parts.length ? `every ${parts.join(" or ")}` : "";
+    },
+    whenHint(item) {
+      const first = item.show_first && (item.first_miles || item.first_months);
+      const every = item.interval_miles || item.interval_months;
+      if (first && every) return "The first is due at that point, then every interval after it.";
+      if (first) return "Due once, at that point.";
+      if (item.interval_miles && item.interval_months) return "Whichever comes first.";
+      return "";
+    },
+    add() {
+      this.lines.push(blankItem());
+      this.errors.push(null);
+    },
+    remove(index) {
+      this.lines.splice(index, 1);
+      this.errors.splice(index, 1);
+    },
+    leaveOut(index) {
+      this.lines[index].included = false;
+    },
+    include(index) {
+      this.lines[index].included = true;
+    },
+    leftOutCount() {
+      return this.lines.filter((item) => !item.included).length;
+    },
+    serializedItems() {
+      return JSON.stringify(this.lines.map((item) => ({ ...strip(item), from_read: item.from_read && !item.touched })));
+    },
+  }));
+
   // The interval chart opens scrolled so today's odometer line is in view —
   // on a phone the chart is wider than the screen and would otherwise open at
   // zero miles, showing only the car's distant past.

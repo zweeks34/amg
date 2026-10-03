@@ -10,7 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import RedirectResponse, Response
 
 from ..ingest import vin as vins
-from ..repo import odometer, services, vehicles
+from ..repo import odometer, schedules, services, vehicles
 from . import forms
 from .deps import get_conn
 from .templating import render
@@ -167,6 +167,9 @@ def _page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_co
         powertrains=POWERTRAIN_LABELS,
         latest=vehicles.latest_odometer(conn, vehicle_id),
         history=services.history(conn, vehicle_id),
+        schedule_count=schedules.count(conn, vehicle_id),
+        schedule_from=schedules.current_draft(conn, vehicle_id),
+        schedule_drafts=schedules.open_drafts(conn, vehicle_id),
         points=odometer.points(conn, vehicle_id),
         # The server's local date — the deploy guide sets the container's time zone to yours.
         reading=extra.get("reading", {"read_on": date.today().isoformat()}),

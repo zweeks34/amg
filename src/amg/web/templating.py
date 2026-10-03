@@ -64,6 +64,15 @@ STATUS_WORDS = {
     "later": "Later",
 }
 
+# Where a car's schedule came from, as a sentence finishes it: "28 items, from …".
+SCHEDULE_ORIGINS = {
+    "manual": "your owner's manual",
+    "claude": "Claude's draft",
+    "template": "AMG's generic template",
+    "copy": "another car's schedule",
+}
+
+
 def receipts_to_check() -> int:
     """For the nav badge: receipts read and waiting for you."""
     from .. import db
@@ -80,6 +89,7 @@ templates.env.globals["asset"] = asset
 templates.env.globals["receipts_to_check"] = receipts_to_check
 templates.env.globals["axis"] = axis
 templates.env.globals["status_words"] = STATUS_WORDS
+templates.env.globals["origin_words"] = SCHEDULE_ORIGINS
 templates.env.filters["miles"] = miles
 templates.env.filters["dollars"] = dollars
 templates.env.filters["money"] = money

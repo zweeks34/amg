@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_schedule_editor.html" import items as editor_items, legend %}
+{% from "_line_editor.html" import datalist %}
+{% block title %}Edit schedule · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a> · <a href="/vehicles/{{ car.id }}/schedule">Schedule</a></p>
+  <h1 class="display">Edit the schedule</h1>
+  <p class="pagehead__lede">Change any item, add what's missing, remove what doesn't apply. An item whose interval or
+    action you change is marked as set by you.</p>
+</header>
+
+<div class="review review--form-only">
+  <form class="review__form sheet form" method="post" action="/vehicles/{{ car.id }}/schedule/edit"
+        x-data='scheduleEditor({{ editor | tojson }})'>
+    <div class="form__body">
+      <fieldset class="field field--wide lines">
+        <legend>The schedule</legend>
+        {{ legend(actions) }}
+        {{ editor_items(actions, applies, "edit") }}
+      </fieldset>
+      {{ datalist() }}
+      <input type="hidden" name="items_json" :value="serializedItems()">
+    </div>
+    <div class="form__actions review__actions">
+      <button class="btn btn--primary" type="submit">Save schedule</button>
+      <a class="btn btn--quiet" href="/vehicles/{{ car.id }}/schedule">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

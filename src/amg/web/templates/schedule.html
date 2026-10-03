@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% from "_forms.html" import message %}
+{% from "_schedule_editor.html" import legend %}
+{% block title %}Schedule · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
+  <h1 class="display">Maintenance schedule</h1>
+  {% if count %}
+  <p class="pagehead__lede">
+    {{ count }} item{{ "s" if count != 1 }}{% if current %}, from {{ origin_words[current.origin] }}{% if current.filename %} ({{ current.filename }}){% endif %}{% endif %}.
+    {{ car.name }} follows {{ "severe" if severe else "normal" }} service, so {{ in_effect }} of them apply.
+  </p>
+  <div class="pagehead__actions">
+    <a class="btn btn--primary" href="/vehicles/{{ car.id }}/schedule/edit">Edit schedule</a>
+  </div>
+  {% else %}
+  <p class="pagehead__lede">The maker's schedule is what {{ car.name }}'s service history gets checked against. Start
+    one in any of the ways below. You check every item before it counts.</p>
+  {% endif %}
+</header>
+
+{% if used %}<p class="notice notice--done" role="status">Schedule in use. {{ car.name }}'s service history will be checked against it.</p>{% endif %}
+{% if saved %}<p class="notice notice--done" role="status">Schedule saved.</p>{% endif %}
+
+{% if drafts %}
+<div class="notice notice--due">
+  <p class="notice__title">Drafts</p>
+  <ul class="notice__list">
+    {% for d in drafts %}
+    <li>
+      <a href="/schedule-drafts/{{ d.id }}">{{ d.filename or origin_words[d.origin] | capitalize }}</a>
+      — {% if d.status in ("queued", "reading") %}being read{% elif d.status == "read" %}ready to check{% else %}couldn't be read{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if count %}
+<form class="sheet severity" method="post" action="/vehicles/{{ car.id }}/schedule/severe" x-data>
+  <fieldset class="field">
+    <legend>How {{ car.name }} is driven</legend>
+    <div class="choices">
+      <label class="choice"><input type="radio" name="severe" value="0" {% if not severe %}checked{% endif %} @change="$root.requestSubmit()"> Normal service</label>
+      <label class="choice"><input type="radio" name="severe" value="1" {% if severe %}checked{% endif %} @change="$root.requestSubmit()"> Severe service</label>
+    </div>
+  </fieldset>
+  {% if current and current.draft.get("severe_conditions") %}
+  <details class="severity__list">
+    <summary>What counts as severe</summary>
+    <p class="prose">{{ current.draft.severe_conditions }}</p>
+  </details>
+  {% endif %}
+  <button class="btn btn--secondary" type="submit" x-show="false">Save</button>
+</form>
+
+<section class="block" aria-label="The schedule">
+  {{ legend(actions) }}
+  <div class="sched sheet sheet--flush">
+    {% for group in groups %}
+    <h2 class="sched__group">{{ group.label }}</h2>
+    <ul class="sched__list">
+      {% for item in group.rows %}
+      <li class="sched__row{% if not item.in_effect %} sched__row--off{% endif %}">
+        <span class="stamp stamp--{{ item.action }}" aria-hidden="true">{{ item.letter }}</span>
+        <div class="sched__what">
+          <p class="sched__name"><span class="vh">{{ actions[item.action] }}: </span>{{ item.name }}</p>
+          {% if item.type_names and item.type_names | join(", ") != item.name %}<p class="sched__types">{{ item.type_names | join(" · ") }}</p>{% endif %}
+          {% if item.note %}<p class="sched__note">{{ item.note }}</p>{% endif %}
+        </div>
+        <p class="sched__when">{{ item.words }}</p>
+        <p class="sched__meta">
+          {% if item.applies != "always" %}<span class="tag">{{ "Severe service only" if item.applies == "severe" else "Normal service only" }}</span>{% endif %}
+          {% set page_url = "/documents/%s/pages/%s?size=full" % (item.document_id, item.page) if item.document_id and item.page else None %}
+          {% if page_url and item.source == "manual" %}
+          <a href="{{ page_url }}" target="_blank" rel="noopener">{{ item.source_label }}</a>
+          {% else %}<span>{{ item.source_label }}{% if page_url %} · <a href="{{ page_url }}" target="_blank" rel="noopener">manual p. {{ item.page }}</a>{% endif %}</span>{% endif %}
+        </p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="block" aria-labelledby="start-heading">
+  {% if count %}
+  <h2 class="h3" id="start-heading">Replace the schedule</h2>
+  <p class="muted">Each of these makes a new draft to check. The current schedule stays until you use the new one.</p>
+  {% else %}
+  <h2 class="h3" id="start-heading">Start a schedule</h2>
+  {% endif %}
+  <div class="starts">
+    <form class="sheet start" method="post" action="/vehicles/{{ car.id }}/schedule/manual" enctype="multipart/form-data"
+          x-data="{ files: 0, photos: 0 }">
+      <h3 class="start__title">Read the owner's manual</h3>
+      <p class="start__what">Upload the manual, or photos of its maintenance schedule pages. AMG finds the schedule and
+        Claude reads it.</p>
+      <div class="upload__pick">
+        <label class="btn btn--secondary upload__button">
+          <input type="file" name="files" multiple
+                 accept=".pdf,.png,.jpg,.jpeg,.gif,application/pdf,image/png,image/jpeg,image/gif"
+                 @change="files = $el.files.length"{% if errors.get('files') %} aria-invalid="true" aria-describedby="f-files-error"{% endif %}>
+          Choose files
+        </label>
+        <label class="btn btn--secondary upload__button upload__camera">
+          <input type="file" name="files" accept="image/*" capture="environment" @change="photos = $el.files.length">
+          Take a photo
+        </label>
+        <span class="upload__count" x-show="files + photos" x-text="(files + photos) + ((files + photos) === 1 ? ' file chosen' : ' files read as one')"></span>
+      </div>
+      {{ message("files", errors, None) }}
+      <div class="field">
+        <label for="f-pages">Pages <span class="field__source">optional</span></label>
+        <input id="f-pages" name="pages" value="{{ raw.get('pages', '') }}" class="mono" inputmode="numeric" placeholder="e.g. 30-31"
+               {% if errors.get('pages') %}aria-invalid="true" aria-describedby="f-pages-error"{% else %}aria-describedby="f-pages-hint"{% endif %}>
+        {{ message("pages", errors, "Where the schedule is, if you know. Otherwise AMG looks for it.") }}
+      </div>
+      <div class="form__actions">
+        <button class="btn btn--primary" type="submit">Read the manual</button>
+        <span class="field__hint">About 20–50¢.</span>
+      </div>
+    </form>
+
+    <form class="sheet start" method="post" action="/vehicles/{{ car.id }}/schedule/claude">
+      <h3 class="start__title">Ask Claude to draft it</h3>
+      <p class="start__what">For a {{ car_words }}, from what Claude knows about it. No manual needed, but check the
+        draft against one if you can.</p>
+      {% if not can_draft %}
+      <p class="field__hint">Claude needs the car's year, make and model. <a href="/vehicles/{{ car.id }}/edit">Add them</a>.</p>
+      {% endif %}
+      {{ message("claude", errors, None) }}
+      <div class="form__actions">
+        <button class="btn btn--secondary" type="submit"{% if not can_draft %} disabled{% endif %}>Draft with Claude</button>
+        <span class="field__hint">About 20¢.</span>
+      </div>
+    </form>
+
+    <form class="sheet start" method="post" action="/vehicles/{{ car.id }}/schedule/template">
+      <h3 class="start__title">Start from a generic schedule</h3>
+      <p class="start__what">Middle-of-the-road intervals for a modern car, not your maker's. A starting point to correct.</p>
+      <div class="field">
+        <label for="f-powertrain">For a car that runs on</label>
+        <select id="f-powertrain" name="powertrain">
+          {% for value, label in template_labels.items() %}
+          <option value="{{ value }}"{% if value == car.powertrain %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {{ message("template", errors, None) }}
+      </div>
+      <div class="form__actions">
+        <button class="btn btn--secondary" type="submit">Use the generic schedule</button>
+      </div>
+    </form>
+
+    {% if copyable %}
+    <form class="sheet start" method="post" action="/vehicles/{{ car.id }}/schedule/copy">
+      <h3 class="start__title">Copy another car's schedule</h3>
+      <p class="start__what">For a second car of the same model. The copy is {{ car.name }}'s own: changing one doesn't change the other.</p>
+      <div class="field">
+        <label for="f-from_vehicle_id">Copy from</label>
+        <select id="f-from_vehicle_id" name="from_vehicle_id">
+          {% for other in copyable %}<option value="{{ other.id }}">{{ other.name }} · {{ other.items }} items</option>{% endfor %}
+        </select>
+        {{ message("copy", errors, None) }}
+      </div>
+      <div class="form__actions">
+        <button class="btn btn--secondary" type="submit">Copy the schedule</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "_schedule_editor.html" import items as editor_items, left_out, legend %}
+{% from "_line_editor.html" import datalist %}
+{% block title %}Schedule draft · {{ car.name }}{% endblock %}
+
+{% block content %}
+{% set status = row.status %}
+{% set show_scan = row.origin == "manual" and document and row.pages %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a> · <a href="/vehicles/{{ car.id }}/schedule">Schedule</a></p>
+  <h1 class="display">
+    {%- if status == "read" %}Check this schedule
+    {%- elif status == "confirmed" %}This draft is in use
+    {%- elif status == "failed" %}AMG couldn't {{ "read the schedule" if row.origin == "manual" else "draft a schedule" }}
+    {%- elif status == "discarded" %}Discarded draft
+    {%- elif row.origin == "manual" %}Reading the schedule…
+    {%- else %}Claude is drafting a schedule…{% endif -%}
+  </h1>
+  <p class="pagehead__lede">
+    {%- if row.origin == "manual" %}From {{ document.filename if document else "your manual" }}{% if draft and draft.printed_for %}, which says it's for {{ draft.printed_for }}{% endif %}.
+    {%- elif row.origin == "claude" %}For a {{ car_words }}, from what Claude knows about it — not from your manual. Check what you can against the manual.
+    {%- elif row.origin == "template" %}{{ draft.printed_for }}. {{ draft.read_note }}
+    {%- else %}Copied from {{ draft.printed_for }}. Changing it here doesn't change that car's.{% endif -%}
+  </p>
+</header>
+
+{% if saved %}<p class="notice notice--done" role="status">Draft saved. It doesn't count until you use it.</p>{% endif %}
+
+{% if status in ("queued", "reading") %}
+<div class="sheet empty empty--small" hx-get="/schedule-drafts/{{ row.id }}" hx-trigger="every 3s" hx-select="main" hx-target="main" hx-swap="outerHTML">
+  <p>{{ "Claude is reading the pages now." if row.origin == "manual" else "Claude is writing the draft now." }}
+    It takes a minute or two; this page updates when it's done.</p>
+  {% if row.stalled %}
+  <form method="post" action="/schedule-drafts/{{ row.id }}/carry-on">
+    <p class="notice notice--gap">The reader stopped, probably because the app restarted.</p>
+    <button class="btn btn--secondary" type="submit">Carry on reading</button>
+  </form>
+  {% endif %}
+</div>
+{% elif status == "failed" %}
+<form class="sheet form empty empty--small" method="post" action="/schedule-drafts/{{ row.id }}/read-again">
+  <p class="field__error">{{ row.error }}</p>
+  {% if row.origin == "manual" %}
+  <div class="field">
+    <label for="f-pages">Pages to read</label>
+    <input id="f-pages" name="pages" value="{{ pages_raw }}" class="mono" inputmode="numeric" placeholder="e.g. 30-31"
+           {% if problems.pages %}aria-invalid="true" aria-describedby="f-pages-error"{% else %}aria-describedby="f-pages-hint"{% endif %}>
+    {% if problems.pages %}<p class="field__error" id="f-pages-error">{{ problems.pages }}</p>
+    {% else %}<p class="field__hint" id="f-pages-hint">The manual's pages with the maintenance schedule, as numbered in the file. Leave blank to let AMG look for them.</p>{% endif %}
+  </div>
+  {% endif %}
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">{{ "Read it again" if row.origin == "manual" else "Try again" }}</button>
+    <button class="btn btn--quiet" type="submit" formaction="/schedule-drafts/{{ row.id }}/discard">Discard</button>
+  </div>
+</form>
+{% elif status == "confirmed" %}
+<div class="sheet empty empty--small">
+  <p>This became {{ car.name }}'s schedule. Changes are made on the schedule itself now.</p>
+  <p><a class="btn btn--secondary" href="/vehicles/{{ car.id }}/schedule">See the schedule</a></p>
+</div>
+{% elif status == "discarded" %}
+<form class="sheet empty empty--small" method="post" action="/schedule-drafts/{{ row.id }}/restore">
+  <p>You discarded this draft.</p>
+  <p><button class="btn btn--secondary" type="submit">Restore draft</button></p>
+</form>
+{% endif %}
+
+{% if status == "read" and draft %}
+<div class="review{% if not show_scan %} review--form-only{% endif %}">
+  {% if show_scan %}
+  <section class="review__scan" aria-label="The pages read">
+    <details class="scan" open>
+      <summary class="scan__toggle">Pages read · {{ row.pages | join(", ") }}</summary>
+      {% for n in row.pages %}
+      <figure class="scan__page">
+        <a href="/documents/{{ document.id }}/pages/{{ n }}?size=full" target="_blank" rel="noopener">
+          <img src="/documents/{{ document.id }}/pages/{{ n }}" alt="Page {{ n }} of the manual"{% if not loop.first %} loading="lazy"{% endif %}>
+        </a>
+        <figcaption>Page {{ n }} of {{ document.page_count }} ·
+          <a href="/documents/{{ document.id }}/pages/{{ n }}?size=full" target="_blank" rel="noopener">open larger</a></figcaption>
+      </figure>
+      {% endfor %}
+      <p class="scan__file"><a href="/documents/{{ document.id }}/file" target="_blank" rel="noopener">Open the original file</a></p>
+    </details>
+  </section>
+  {% endif %}
+
+  <form class="review__form sheet form" method="post" action="/schedule-drafts/{{ row.id }}"
+        x-data='scheduleEditor({{ editor | tojson }})'>
+    {% if editor.reading %}
+    <p class="review__key"><span class="review__swatch" aria-hidden="true"></span>Dashed items are still as Claude
+      {{ "read them" if row.origin == "manual" else "drafted them" }}. Change anything that's wrong; using the schedule accepts the rest.</p>
+    {% endif %}
+
+    {% if row.warnings %}
+    <div class="notice notice--due" role="note">
+      <p class="notice__title">Worth a look</p>
+      <ul class="notice__list">{% for note in row.warnings %}<li>{{ note }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    <div class="form__body">
+      <fieldset class="field field--wide lines">
+        <legend>The schedule</legend>
+        {{ legend(actions) }}
+        {{ editor_items(actions, applies, "draft") }}
+        {% if problems.get("items") %}<p class="field__error">{{ problems["items"] }}</p>{% endif %}
+      </fieldset>
+      {{ datalist() }}
+
+      {{ left_out() }}
+
+      <div class="field field--wide">
+        <label for="f-severe_conditions">What counts as severe service</label>
+        <textarea id="f-severe_conditions" name="severe_conditions" rows="6" aria-describedby="f-severe_conditions-hint">{{ severe_conditions }}</textarea>
+        <p class="field__hint" id="f-severe_conditions-hint">As the schedule lists them, one per line. Shown beside the normal and severe switch.</p>
+      </div>
+
+      {% if row.origin == "manual" %}
+      <details class="printed">
+        <summary>Read other pages</summary>
+        <div class="field">
+          <label for="f-pages">Pages to read</label>
+          <input id="f-pages" name="pages" value="{{ pages_raw }}" class="mono" inputmode="numeric" placeholder="e.g. 30-31"
+                 aria-describedby="f-pages-hint">
+          <p class="field__hint" id="f-pages-hint">AMG read pages {{ row.pages | join(", ") }}. Reading again starts the draft over.</p>
+        </div>
+        <button class="btn btn--secondary" type="submit" formaction="/schedule-drafts/{{ row.id }}/read-again">Read these pages</button>
+      </details>
+      {% endif %}
+
+      <input type="hidden" name="items_json" :value="serializedItems()">
+    </div>
+
+    {% if replaces %}
+    <p class="notice notice--due">Using this replaces {{ car.name }}'s current schedule of {{ replaces }} item{{ "s" if replaces != 1 }}.</p>
+    {% endif %}
+    <div class="form__actions review__actions">
+      <button class="btn btn--primary" type="submit" name="action" value="use">Use this schedule</button>
+      <button class="btn btn--secondary" type="submit" name="action" value="save">Save draft</button>
+      {% if row.origin == "claude" %}
+      <button class="btn btn--quiet" type="submit" formaction="/schedule-drafts/{{ row.id }}/read-again">Draft it again</button>
+      {% endif %}
+      <button class="btn btn--quiet" type="submit" formaction="/schedule-drafts/{{ row.id }}/discard">Discard</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

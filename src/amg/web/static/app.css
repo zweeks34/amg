@@ -1006,6 +1006,146 @@ p.notice, div.notice { margin-bottom: 1rem; }
 
 .review__actions { position: sticky; bottom: 0; padding: 0.75rem 0; background: var(--sheet); border-top: 1px solid var(--rule-soft); }
 
+/* ---------- Schedules ---------- */
+
+/* Read by screen readers, not shown: the word a stamp stands for. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The manual's own letters — R replace, I inspect, P perform — as a stamp.
+   Replace is solid (new parts in), inspect dashed (as an inspected chip is),
+   perform outlined. */
+.stamp {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--sheet);
+  color: var(--ink);
+  font: 700 1.125rem/1 var(--display);
+}
+.stamp--replace { background: var(--ink); color: var(--on-ink); }
+.stamp--inspect { border-style: dashed; }
+.stamp--small { width: 1.375rem; height: 1.375rem; border-width: 1.5px; font-size: 0.8125rem; }
+.stamps-key { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.8125rem; color: var(--ink-2); }
+.stamps-key > span { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+.tag {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font: 600 0.75rem/1.6 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* A car's schedule, grouped as the service-type list is. */
+.sched__group {
+  padding: 0.5rem var(--gutter);
+  background: var(--band);
+  border-block: 1px solid var(--rule-soft);
+  font: 600 0.8125rem/1.2 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.sched__group:first-child { border-top: 0; }
+.sched__list { margin: 0; padding: 0; list-style: none; }
+.sched__row {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.25rem 0.875rem;
+  padding: 0.875rem var(--gutter);
+}
+.sched__row + .sched__row { border-top: 1px solid var(--rule-soft); }
+.sched__row > :not(.stamp) { grid-column: 2; }
+.sched__row > .stamp { grid-row: span 3; }
+.sched__name { font: 600 1.1875rem/1.15 var(--display); }
+.sched__types, .sched__note { font-size: 0.875rem; color: var(--ink-2); }
+.sched__when { font: 400 0.875rem/1.4 var(--mono); }
+.sched__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; font-size: 0.8125rem; color: var(--steel); }
+.sched__meta a { color: var(--ink-2); }
+/* Not in effect for how the car is driven: still listed, quietly. */
+.sched__row--off { color: var(--steel); }
+.sched__row--off .stamp { border-color: var(--steel); background: none; color: var(--steel); }
+.sched__row--off .sched__types { color: var(--steel); }
+@media (min-width: 48rem) {
+  .sched__row { grid-template-columns: 2rem minmax(0, 1fr) 15rem 11rem; align-items: start; }
+  .sched__row > :not(.stamp) { grid-column: auto; }
+  .sched__row > .stamp { grid-row: auto; }
+  .sched__what { display: grid; gap: 0.25rem; }
+  .sched__when { padding-top: 0.125rem; }
+  .sched__meta { justify-content: flex-end; text-align: right; padding-top: 0.125rem; }
+}
+
+.severity { display: grid; gap: 0.75rem; margin-bottom: 0.5rem; }
+.severity__list summary { cursor: pointer; font-size: 0.875rem; color: var(--ink-2); }
+.severity__list p { margin-top: 0.5rem; font-size: 0.875rem; }
+
+.starts { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; }
+.start { display: grid; gap: 0.875rem; align-content: start; }
+.start__title { font: 700 1.5rem/1.1 var(--display); }
+.start__what { color: var(--ink-2); }
+.start .field__source { margin-left: 0.25rem; }
+
+/* The editor: one item and action per row. */
+.page:has(.review--form-only) { max-width: 72rem; }
+@media (min-width: 64rem) {
+  .review--form-only { grid-template-columns: minmax(0, 50rem); }
+}
+.sitem__head { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0.75rem; align-items: end; }
+.sitem__head > .stamp { margin-bottom: 0.25rem; }
+.sitem__pair { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.625rem; }
+.sitem__when {
+  display: grid;
+  grid-template-columns: 4.25rem minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.625rem;
+  align-items: end;
+}
+.sitem__label, .sitem__or { padding-bottom: 0.625rem; }
+.sitem__label { font: 600 0.875rem/1.2 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.sitem__or { font-size: 0.875rem; color: var(--steel); }
+.sitem__when + .field__hint:empty { display: none; }
+@media (max-width: 30rem) {
+  /* A card inside a sheet on a phone: less padding at each level, more field. */
+  .review__form.sheet { padding: 1rem 0.75rem; }
+  .sitem { padding: 0.75rem; }
+  /* "Every" above its two fields, so 137,500 fits in one. */
+  .sitem__when { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); row-gap: 0.25rem; }
+  .sitem__label { grid-column: 1 / -1; padding-bottom: 0; }
+}
+.sitem__from { margin-right: auto; font-size: 0.8125rem; color: var(--ink-2); }
+
+.leftout { display: grid; gap: 0.5rem; padding-top: 1rem; border-top: 1px dashed var(--rule); }
+.leftout__title {
+  font: 600 0.9375rem/1.2 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.leftout__list { margin: 0; padding: 0; list-style: none; }
+.leftout__row {
+  display: grid;
+  grid-template-columns: 1.375rem minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+.leftout__row + .leftout__row { border-top: 1px solid var(--rule-soft); }
+.leftout__text { display: grid; }
+.leftout__name { font-weight: 600; }
+.leftout__why { font-size: 0.8125rem; color: var(--steel); }
+
 /* ---------- Motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {

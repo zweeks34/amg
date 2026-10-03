@@ -73,6 +73,18 @@ def year(value: str | None) -> int | None:
     return int(raw)
 
 
+def months(value: str | None) -> int | None:
+    """'6' / '24 months' → 6 / 24. Whole months, for schedule intervals."""
+    raw = re.sub(r"(?i)\s*(months?|mos?)\.?$", "", text(value))
+    if not raw:
+        return None
+    if not raw.isdigit() or int(raw) == 0:
+        raise ValueError("Enter whole months, like 6.")
+    if int(raw) > 600:
+        raise ValueError("That's more than 50 years. Check for an extra digit.")
+    return int(raw)
+
+
 def quantity(value) -> float | None:
     """'2' / '1.5' / '-1' → a number. Receipts print -1 on credits and returns,
     such as a manufacturer's warranty credit against a tire."""

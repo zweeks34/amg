@@ -1,0 +1,111 @@
+{#- The schedule editor's rows, for checking a draft and for editing a car's schedule.
+    Both sit inside an Alpine component built on scheduleEditor() in app.js.
+    `mode` is "draft" (rows can be left out) or "edit" (rows are removed). -#}
+{% from "_line_editor.html" import chips %}
+
+{% macro items(actions, applies, mode) -%}
+<template x-for="(item, i) in lines" :key="item._id">
+  <div class="line sitem" x-show="item.included" :class="{ 'line--read': unread(item) }" @input="item.touched = true">
+    <div class="sitem__head">
+      <span class="stamp" :class="'stamp--' + item.action" x-text="letter(item.action)" aria-hidden="true"></span>
+      <div class="field">
+        <label :for="'item-name-' + item._id">Item</label>
+        <input :id="'item-name-' + item._id" x-model="item.name" placeholder="e.g. Engine oil and filter">
+      </div>
+    </div>
+
+    <div class="field">
+      <label :for="'covers-' + item._id">Services it's for</label>
+      {{ chips("item") }}
+    </div>
+
+    <div class="sitem__pair">
+      <div class="field">
+        <label :for="'item-action-' + item._id">Action</label>
+        <select :id="'item-action-' + item._id" x-model="item.action" @change="timed(item)">
+          {% for value, label in actions.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label :for="'item-applies-' + item._id">Applies to</label>
+        <select :id="'item-applies-' + item._id" x-model="item.applies">
+          {% for value, label in applies.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="sitem__when" role="group" :aria-labelledby="'item-every-' + item._id">
+      <p class="sitem__label" :id="'item-every-' + item._id">Every</p>
+      <div class="field">
+        <label :for="'item-miles-' + item._id">Miles</label>
+        <input :id="'item-miles-' + item._id" x-model="item.interval_miles" @input="timed(item)" inputmode="numeric" class="mono" autocomplete="off">
+      </div>
+      <span class="sitem__or" aria-hidden="true">or</span>
+      <div class="field">
+        <label :for="'item-months-' + item._id">Months</label>
+        <input :id="'item-months-' + item._id" x-model="item.interval_months" @input="timed(item)" inputmode="numeric" class="mono" autocomplete="off">
+      </div>
+    </div>
+    <div class="sitem__when" role="group" x-show="item.show_first" :aria-labelledby="'item-first-' + item._id">
+      <p class="sitem__label" :id="'item-first-' + item._id">First at</p>
+      <div class="field">
+        <label :for="'item-first-miles-' + item._id">Miles</label>
+        <input :id="'item-first-miles-' + item._id" x-model="item.first_miles" @input="timed(item)" inputmode="numeric" class="mono" autocomplete="off">
+      </div>
+      <span class="sitem__or" aria-hidden="true">or</span>
+      <div class="field">
+        <label :for="'item-first-months-' + item._id">Months</label>
+        <input :id="'item-first-months-' + item._id" x-model="item.first_months" @input="timed(item)" inputmode="numeric" class="mono" autocomplete="off">
+      </div>
+    </div>
+    <p class="field__hint" x-text="whenHint(item)"></p>
+
+    <div class="field" x-show="item.note || item.show_note">
+      <label :for="'item-note-' + item._id">Note</label>
+      <input :id="'item-note-' + item._id" x-model="item.note">
+    </div>
+
+    <div class="line__meta">
+      <p class="sitem__from">
+        <span x-text="sourceLabel(item)"></span><template x-if="item.page && item.document_id">
+          <span>, <a :href="'/documents/' + item.document_id + '/pages/' + item.page + '?size=full'" target="_blank" rel="noopener" x-text="'p. ' + item.page"></a></span>
+        </template><span x-show="item.marked" x-text="' · marked at ' + item.marked"></span>
+      </p>
+      <div class="line__actions">
+        <button type="button" class="btn btn--quiet" x-show="!item.show_first" @click="item.show_first = true">Add a first due</button>
+        <button type="button" class="btn btn--quiet" x-show="!item.note && !item.show_note" @click="item.show_note = true">Add a note</button>
+        {% if mode == "draft" %}<button type="button" class="btn btn--quiet" @click="leaveOut(i)">Leave out</button>{% endif %}
+        <button type="button" class="btn btn--quiet" @click="remove(i)">Remove</button>
+      </div>
+    </div>
+    <p class="field__error" x-show="errors[i]" x-text="errors[i]"></p>
+  </div>
+</template>
+<button type="button" class="btn btn--secondary" @click="add()">Add an item</button>
+{%- endmacro %}
+
+{% macro left_out() -%}
+<section class="leftout" x-show="leftOutCount()" aria-labelledby="leftout-heading">
+  <h2 class="leftout__title" id="leftout-heading">Left out · <span x-text="leftOutCount()"></span></h2>
+  <p class="field__hint">For other models, engines or transmissions, as the schedule says. They stay out of the car's schedule unless you include them.</p>
+  <ul class="leftout__list">
+    <template x-for="(item, i) in lines" :key="'out-' + item._id">
+      <li class="leftout__row" x-show="!item.included">
+        <span class="stamp stamp--small" :class="'stamp--' + item.action" x-text="letter(item.action)" aria-hidden="true"></span>
+        <span class="leftout__text">
+          <span class="leftout__name" x-text="item.name"></span>
+          <span class="leftout__why" x-text="[item.why_not, everyWords(item)].filter(Boolean).join(' · ')"></span>
+          <span class="field__error" x-show="errors[i]" x-text="errors[i]"></span>
+        </span>
+        <button type="button" class="btn btn--quiet" @click="include(i)" :aria-label="'Include ' + item.name">Include</button>
+      </li>
+    </template>
+  </ul>
+</section>
+{%- endmacro %}
+
+{% macro legend(actions) -%}
+<p class="stamps-key">
+  {% for value, label in actions.items() %}<span><span class="stamp stamp--small stamp--{{ value }}" aria-hidden="true">{{ label[0] }}</span>{{ label }}</span>{% endfor %}
+</p>
+{%- endmacro %}
