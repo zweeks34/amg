@@ -1,30 +1,15 @@
 from __future__ import annotations
 
 import pytest
+from schedule_fixtures import COLUMNS, reading, row  # tests/ is on pytest's path
 
 from amg.ingest import schedule_drafts as sd
-from amg.ingest.manuals import ScheduleExtraction, ScheduleRow, TableColumn
+from amg.ingest import schedule_templates as templates
 
 TYPES = {code: {"code": code, "name": code.replace("_", " ").capitalize()} for code in (
     "engine_oil", "oil_filter", "engine_coolant", "spark_plugs", "transmission_fluid", "timing_belt", "brake_pads",
     "brake_rotors", "axle_boots",
 )}
-# The sample manual's columns: 6 to 132 thousand miles, paired with 6 to 132 months.
-COLUMNS = [TableColumn(miles=m * 1000, months=m) for m in range(6, 133, 6)]
-
-
-def row(name="Engine oil", codes=("engine_oil",), action="replace", marks=(), severe=False, applies=True,
-        why_not="", page=1, **written):
-    fields = dict(every_miles=None, every_months=None, first_miles=None, first_months=None)
-    fields.update(written)
-    return ScheduleRow(name=name, page=page, service_codes=list(codes), action=action,
-                       marked_at_miles=[m * 1000 for m in marks], severe=severe, note="",
-                       applies_to_vehicle=applies, why_not=why_not, **fields)
-
-
-def reading(*rows, columns=COLUMNS, uncertain=""):
-    return ScheduleExtraction(printed_for="2016 MY All Vehicles", table_columns=columns, items=list(rows),
-                              severe_conditions="Repeated short trips\nTowing", uncertain=uncertain)
 
 
 def _only(draft):
@@ -173,3 +158,31 @@ def test_interval_words(values, words):
 def test_a_draft_survives_json():
     draft, _ = sd.from_extraction(reading(row(marks=(6, 12))), TYPES, "manual")
     assert sd.ScheduleDraft.from_dict(draft.to_dict()) == draft
+
+
+# ---------- Templates ----------
+
+
+@pytest.mark.parametrize("powertrain", ["gas", "hybrid", "ev"])
+def test_templates_use_known_types_for_their_powertrain(conn, powertrain):
+    from amg.repo import services
+
+    types = {row["code"]: row for row in services.list_types(conn, powertrain)}
+    draft = templates.draft(powertrain)
+    assert draft.items and all(item["source"] == "template" for item in draft.items)
+    for item in draft.items:
+        assert item["codes"] and all(code in types for code in item["codes"]), item["name"]
+        assert sd.interval_words(item) != "no interval", item["name"]
+
+
+def test_a_template_draft_is_a_fresh_copy():
+    first = templates.draft("gas")
+    first.items[0]["codes"].append("tires")
+    assert "tires" not in templates.draft("gas").items[0]["codes"]
+
+
+def test_the_hybrid_template_adds_to_the_gasoline_one():
+    gas = {item["name"] for item in templates.draft("gas").items}
+    hybrid = {item["name"] for item in templates.draft("hybrid").items}
+    assert gas < hybrid and "Inverter coolant" in hybrid
+    assert "Engine oil and filter" not in {item["name"] for item in templates.draft("ev").items}
