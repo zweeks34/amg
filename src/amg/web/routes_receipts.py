@@ -186,23 +186,36 @@ def read_again(receipt_id: int, conn: sqlite3.Connection = Depends(get_conn)) ->
 
 
 @router.get("/documents/{document_id}/pages/{page}")
-def page_image(document_id: int, page: int, size: str = "preview", conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+def page_image(document_id: int, page: int, size: str = "preview", v: str = "",
+               conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     document = documents.get(conn, document_id)
     if document is None or not 1 <= page <= document["page_count"]:
         raise HTTPException(status_code=404)
     long_edge = documents.FULL_LONG_EDGE if size == "full" else documents.PREVIEW_LONG_EDGE
-    # Content never changes for a given document and page, so the browser may keep it.
     return FileResponse(documents.page_image(document, page, long_edge), media_type="image/jpeg",
-                        headers={"Cache-Control": "private, max-age=31536000, immutable"})
+                        headers=_cache(document, v))
 
 
 @router.get("/documents/{document_id}/file")
-def original_file(document_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+def original_file(document_id: int, v: str = "", conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     document = documents.get(conn, document_id)
     if document is None:
         raise HTTPException(status_code=404)
     return FileResponse(documents.path(document), media_type=document["media_type"],
-                        filename=document["filename"], content_disposition_type="inline")
+                        filename=document["filename"], content_disposition_type="inline", headers=_cache(document, v))
+
+
+def _cache(document, v: str) -> dict[str, str]:
+    """Keep for good only when the URL names the file's content (``v``, its fingerprint).
+
+    A document id alone isn't enough: restore a different backup, or start a
+    fresh database, and the same id is another file — a browser that kept the
+    old one would show the wrong scan. Without a matching ``v`` the browser
+    asks again each time.
+    """
+    if v and v == documents.fingerprint(document["sha256"]):
+        return {"Cache-Control": "private, max-age=31536000, immutable"}
+    return {"Cache-Control": "private, no-cache"}
 
 
 # ---------- Helpers ----------

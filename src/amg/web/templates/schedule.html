@@ -73,10 +73,10 @@
         <p class="sched__when">{{ item.words }}</p>
         <p class="sched__meta">
           {% if item.applies != "always" %}<span class="tag">{{ "Severe service only" if item.applies == "severe" else "Normal service only" }}</span>{% endif %}
-          {% set page_url = "/documents/%s/pages/%s?size=full" % (item.document_id, item.page) if item.document_id and item.page else None %}
-          {% if page_url and item.source == "manual" %}
-          <a href="{{ page_url }}" target="_blank" rel="noopener">{{ item.source_label }}</a>
-          {% else %}<span>{{ item.source_label }}{% if page_url %} · <a href="{{ page_url }}" target="_blank" rel="noopener">manual p. {{ item.page }}</a>{% endif %}</span>{% endif %}
+          {% set page_link = page_url(item.document_id, item.document_sha, item.page, full=True) if item.document_sha and item.page else None %}
+          {% if page_link and item.source == "manual" %}
+          <a href="{{ page_link }}" target="_blank" rel="noopener">{{ item.source_label }}</a>
+          {% else %}<span>{{ item.source_label }}{% if page_link %} · <a href="{{ page_link }}" target="_blank" rel="noopener">manual p. {{ item.page }}</a>{% endif %}</span>{% endif %}
         </p>
       </li>
       {% endfor %}

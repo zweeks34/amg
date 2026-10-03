@@ -94,6 +94,11 @@ def combine(parts: list[tuple[bytes, str]]) -> tuple[bytes, str]:
     return data, f"{Path(parts[0][1]).stem}-combined.pdf"
 
 
+def fingerprint(sha256: str) -> str:
+    """A file's short name in URLs: enough of its hash that a different file never shares it."""
+    return sha256[:12]
+
+
 def get(conn: sqlite3.Connection, document_id: int) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM documents WHERE id = ?", (document_id,)).fetchone()
 

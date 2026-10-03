@@ -281,8 +281,14 @@ def _page(request: Request, conn: sqlite3.Connection, car, status_code: int = 20
 def _editor_context(conn: sqlite3.Connection, car, rows: list[dict], errors: list | None, mode: str,
                     reading: bool = False) -> dict:
     in_use = {code for row in rows for code in row["covers"]}
+    # Page links name the file's content, so the browser may keep the image (routes_receipts._cache).
+    fingerprints: dict[int, str] = {}
+    for document_id in {row["document_id"] for row in rows if row["document_id"]}:
+        if document := documents.get(conn, document_id):
+            fingerprints[document_id] = documents.fingerprint(document["sha256"])
     return {
         "items": rows,
+        "fingerprints": fingerprints,
         "errors": errors or [None] * len(rows),
         "types": editor_types(conn, car["powertrain"], in_use),
         "reading": reading,

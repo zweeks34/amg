@@ -130,8 +130,8 @@ def test_review_shows_scan_suggestion_and_unconfirmed_fields(signed_in, conn, re
     _upload(signed_in, ("a.pdf", _pdf()))
     receipt_id = _only_receipt(conn)
     page = signed_in.get(f"/receipts/{receipt_id}").text
-    document_id = receipts.get(conn, receipt_id)["document_id"]
-    assert f'/documents/{document_id}/pages/1"' in page
+    document = receipts.get(conn, receipt_id)["document"]
+    assert f'src="/documents/{document["id"]}/pages/1?v={document["sha256"][:12]}"' in page
     assert "It&#39;s your only car." in page                          # suggested, with the reason
     assert "which isn&#39;t Outback&#39;s VIN" in page                # printed details disagree: a note
     assert 'data-read="3,610"' in page                                # still as read
@@ -272,13 +272,22 @@ def test_receipt_backed_service_links_back_and_releases_on_delete(signed_in, con
 
 def test_page_images_and_original_file(signed_in, conn, reads):
     _upload(signed_in, ("a.pdf", _pdf()))
-    document_id = conn.execute("SELECT id FROM documents").fetchone()[0]
-    image = signed_in.get(f"/documents/{document_id}/pages/1")
+    document_id, sha = conn.execute("SELECT id, sha256 FROM documents").fetchone()
+    image = signed_in.get(f"/documents/{document_id}/pages/1?v={sha[:12]}")
     assert image.headers["content-type"] == "image/jpeg" and "immutable" in image.headers["cache-control"]
     assert signed_in.get(f"/documents/{document_id}/pages/2").status_code == 404
-    original = signed_in.get(f"/documents/{document_id}/file")
-    assert original.headers["content-type"] == "application/pdf"
+    original = signed_in.get(f"/documents/{document_id}/file?v={sha[:12]}")
+    assert original.headers["content-type"] == "application/pdf" and "immutable" in original.headers["cache-control"]
     assert original.content.startswith(b"%PDF")
+
+
+@pytest.mark.parametrize("v", ["", "?v=000000000000"])
+def test_a_link_that_doesnt_name_the_file_is_checked_each_time(signed_in, conn, reads, v):
+    """After a restore or a fresh database, the same id can be a different file."""
+    _upload(signed_in, ("a.pdf", _pdf()))
+    document_id = conn.execute("SELECT id FROM documents").fetchone()[0]
+    for url in (f"/documents/{document_id}/pages/1{v}", f"/documents/{document_id}/file{v}"):
+        assert signed_in.get(url).headers["cache-control"] == "private, no-cache"
 
 
 def test_files_need_a_session(client, conn, reads):

@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import Response
 
 from ..backup import size_label
+from ..repo.documents import fingerprint
 
 HERE = Path(__file__).parent
 STATIC_DIR = HERE / "static"
@@ -64,6 +65,16 @@ STATUS_WORDS = {
     "later": "Later",
 }
 
+
+def page_url(document_id: int, sha256: str, page: int, full: bool = False) -> str:
+    """A scan page's URL. It names the file's content, so the browser may keep the image for good."""
+    return f"/documents/{document_id}/pages/{page}?v={fingerprint(sha256)}" + ("&size=full" if full else "")
+
+
+def file_url(document_id: int, sha256: str) -> str:
+    return f"/documents/{document_id}/file?v={fingerprint(sha256)}"
+
+
 # Where a car's schedule came from, as a sentence finishes it: "28 items, from …".
 SCHEDULE_ORIGINS = {
     "manual": "your owner's manual",
@@ -90,6 +101,8 @@ templates.env.globals["receipts_to_check"] = receipts_to_check
 templates.env.globals["axis"] = axis
 templates.env.globals["status_words"] = STATUS_WORDS
 templates.env.globals["origin_words"] = SCHEDULE_ORIGINS
+templates.env.globals["page_url"] = page_url
+templates.env.globals["file_url"] = file_url
 templates.env.filters["miles"] = miles
 templates.env.filters["dollars"] = dollars
 templates.env.filters["money"] = money

@@ -159,7 +159,11 @@ def restore(conn: sqlite3.Connection, draft_id: int) -> None:
 
 def items(conn: sqlite3.Connection, vehicle_id: int) -> list[dict]:
     """The car's schedule in order, each item with its service codes and the category it's shown under."""
-    rows = conn.execute("SELECT * FROM schedule_items WHERE vehicle_id = ? ORDER BY position, id", (vehicle_id,)).fetchall()
+    rows = conn.execute(
+        "SELECT i.*, d.sha256 AS document_sha FROM schedule_items i LEFT JOIN documents d ON d.id = i.document_id"
+        " WHERE i.vehicle_id = ? ORDER BY i.position, i.id",
+        (vehicle_id,),
+    ).fetchall()
     result = []
     for row in rows:
         item = dict(row)

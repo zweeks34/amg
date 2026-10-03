@@ -71,15 +71,15 @@
       <summary class="scan__toggle">Scan · {{ document.page_count }} page{{ "s" if document.page_count != 1 }}</summary>
       {% for n in range(1, document.page_count + 1) %}
       <figure class="scan__page">
-        <a href="/documents/{{ document.id }}/pages/{{ n }}?size=full" target="_blank" rel="noopener">
-          <img src="/documents/{{ document.id }}/pages/{{ n }}" alt="Page {{ n }} of the receipt"
+        <a href="{{ page_url(document.id, document.sha256, n, full=True) }}" target="_blank" rel="noopener">
+          <img src="{{ page_url(document.id, document.sha256, n) }}" alt="Page {{ n }} of the receipt"
                {%- if n > 1 %} loading="lazy"{% endif %}>
         </a>
         <figcaption>Page {{ n }} of {{ document.page_count }} ·
-          <a href="/documents/{{ document.id }}/pages/{{ n }}?size=full" target="_blank" rel="noopener">open larger</a></figcaption>
+          <a href="{{ page_url(document.id, document.sha256, n, full=True) }}" target="_blank" rel="noopener">open larger</a></figcaption>
       </figure>
       {% endfor %}
-      <p class="scan__file"><a href="/documents/{{ document.id }}/file" target="_blank" rel="noopener">Open the original file</a></p>
+      <p class="scan__file"><a href="{{ file_url(document.id, document.sha256) }}" target="_blank" rel="noopener">Open the original file</a></p>
     </details>
   </section>
 

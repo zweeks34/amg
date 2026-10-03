@@ -136,6 +136,7 @@ document.addEventListener("alpine:init", () => {
   Alpine.data("scheduleEditor", (editor) => ({
     ...lineEditor({ lines: editor.items, errors: editor.errors, types: editor.types }),
     reading: editor.reading,
+    fingerprints: editor.fingerprints || {},
 
     unread(item) {
       return this.reading && item.from_read && !item.touched;
@@ -145,6 +146,10 @@ document.addEventListener("alpine:init", () => {
     },
     sourceLabel(item) {
       return SOURCES[item.source] || "";
+    },
+    pageLink(item) {
+      const v = this.fingerprints[item.document_id];
+      return `/documents/${item.document_id}/pages/${item.page}?${v ? `v=${v}&` : ""}size=full`;
     },
     timed(item) {
       item.touched = true;

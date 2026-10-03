@@ -68,7 +68,7 @@
     <div class="line__meta">
       <p class="sitem__from">
         <span x-text="sourceLabel(item)"></span><template x-if="item.page && item.document_id">
-          <span>, <a :href="'/documents/' + item.document_id + '/pages/' + item.page + '?size=full'" target="_blank" rel="noopener" x-text="'p. ' + item.page"></a></span>
+          <span>, <a :href="pageLink(item)" target="_blank" rel="noopener" x-text="'p. ' + item.page"></a></span>
         </template><span x-show="item.marked" x-text="' · marked at ' + item.marked"></span>
       </p>
       <div class="line__actions">

@@ -77,7 +77,10 @@ def test_read_a_manual_check_it_and_use_it(signed_in, conn, outback, reads):
     url = _draft_url(_upload(signed_in, outback))
     page = signed_in.get(url).text
     assert "Check this schedule" in page and "Pages read · 1, 2" in page
+    document_id, sha = conn.execute("SELECT id, sha256 FROM documents").fetchone()
+    assert f'src="/documents/{document_id}/pages/2?v={sha[:12]}"' in page
     editor = _editor(page)
+    assert editor["fingerprints"] == {str(document_id): sha[:12]}
     names = [(row["name"], row["included"], row["from_read"]) for row in editor["items"]]
     assert ("Spark plug", True, True) in names and ("Timing Belt (WRX/WRX STI)", False, True) in names
     assert editor["reading"] is True
@@ -94,6 +97,7 @@ def test_read_a_manual_check_it_and_use_it(signed_in, conn, outback, reads):
     assert "every 60,000 mi or 5 years" in schedule
     assert "first at 137,500 mi or 11 years, then every 75,000 mi or 6 years" in schedule
     assert "Owner&#39;s manual, p. 1" in schedule and "Severe service only" in schedule
+    assert f'href="/documents/{document_id}/pages/1?v={sha[:12]}&amp;size=full"' in schedule
     assert "4 items" in signed_in.get(f"/vehicles/{outback}").text
 
 

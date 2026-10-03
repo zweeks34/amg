@@ -74,14 +74,14 @@
       <summary class="scan__toggle">Pages read · {{ row.pages | join(", ") }}</summary>
       {% for n in row.pages %}
       <figure class="scan__page">
-        <a href="/documents/{{ document.id }}/pages/{{ n }}?size=full" target="_blank" rel="noopener">
-          <img src="/documents/{{ document.id }}/pages/{{ n }}" alt="Page {{ n }} of the manual"{% if not loop.first %} loading="lazy"{% endif %}>
+        <a href="{{ page_url(document.id, document.sha256, n, full=True) }}" target="_blank" rel="noopener">
+          <img src="{{ page_url(document.id, document.sha256, n) }}" alt="Page {{ n }} of the manual"{% if not loop.first %} loading="lazy"{% endif %}>
         </a>
         <figcaption>Page {{ n }} of {{ document.page_count }} ·
-          <a href="/documents/{{ document.id }}/pages/{{ n }}?size=full" target="_blank" rel="noopener">open larger</a></figcaption>
+          <a href="{{ page_url(document.id, document.sha256, n, full=True) }}" target="_blank" rel="noopener">open larger</a></figcaption>
       </figure>
       {% endfor %}
-      <p class="scan__file"><a href="/documents/{{ document.id }}/file" target="_blank" rel="noopener">Open the original file</a></p>
+      <p class="scan__file"><a href="{{ file_url(document.id, document.sha256) }}" target="_blank" rel="noopener">Open the original file</a></p>
     </details>
   </section>
   {% endif %}
