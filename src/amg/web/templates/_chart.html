@@ -6,9 +6,14 @@
     On narrow screens the chart scrolls sideways under a sticky item column;
     the next-up list is the phone-first summary of the same data. -#}
 
-{% macro mark(status, label, position=None) -%}
+{% macro mark(status, label, position=None, href=None) -%}
+{%- if href -%}
+<a class="mark mark--{{ status }}" href="{{ href }}" aria-label="{{ label }}" title="{{ label }}"
+   {%- if position is not none %} style="--p: {{ position }}"{% endif %}></a>
+{%- else -%}
 <span class="mark mark--{{ status }}" role="img" aria-label="{{ label }}" title="{{ label }}"
       {%- if position is not none %} style="--p: {{ position }}"{% endif %}></span>
+{%- endif -%}
 {%- endmacro %}
 
 {% macro legend() -%}
@@ -45,7 +50,9 @@
         </div>
         <div class="ichart__track">
           {% for m in row.marks %}
-          {{ mark(m.status, row.name ~ " at " ~ (m.miles | miles) ~ ": " ~ (status_words[m.status] | lower), axis(m.miles, chart.span)) }}
+          {%- set label = row.name ~ " at " ~ (m.miles | miles) ~ (", " ~ m.day if m.day else "") ~ ": "
+                          ~ (status_words[m.status] | lower) ~ (", late" if m.late else "") %}
+          {{ mark(m.status, label, axis(m.miles, chart.span), m.href) }}
           {% endfor %}
         </div>
       </div>
@@ -66,7 +73,14 @@
     {{ mark(item.status, status_words[item.status]) }}
     <span class="nextup__name">{{ item.name }}</span>
     <span class="nextup__when">{{ item.when }}</span>
-    <span class="nextup__cost" aria-label="Estimated cost {{ item.cost | dollars }}">~{{ item.cost | dollars }}</span>
+    <span class="nextup__side">
+      {%- if item.cost is defined and item.cost is not none %}
+      <span class="nextup__cost" aria-label="Estimated cost {{ item.cost | dollars }}">~{{ item.cost | dollars }}</span>
+      {%- endif %}
+      {%- if item.attest_url %}
+      <a class="btn btn--quiet nextup__act" href="{{ item.attest_url }}" aria-label="Mark {{ item.name }} as done">Mark as done</a>
+      {%- endif %}
+    </span>
   </li>
   {% endfor %}
 </ol>

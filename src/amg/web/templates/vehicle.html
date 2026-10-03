@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_forms.html" import input %}
+{% from "_chart.html" import interval_chart, next_up as next_up_list %}
 {% block title %}{{ car.name }}{% endblock %}
 
 {% block content %}
@@ -15,6 +16,9 @@
       <dt>Odometer</dt>
       <dd class="mono">{% if latest %}{{ latest.miles | miles }} <span class="muted">on {{ latest.read_on }}</span>{% else %}<span class="muted">No readings yet</span>{% endif %}</dd>
     </div>
+    {% if state.today_miles is not none and latest and latest.read_on != state.today.isoformat() %}
+    <div><dt>Today, estimated</dt><dd class="mono">~{{ state.today_miles | miles }}</dd></div>
+    {% endif %}
   </dl>
   <div class="pagehead__actions">
     <a class="btn btn--primary" href="/vehicles/{{ car.id }}/services/new">Log a service</a>
@@ -25,19 +29,56 @@
   {% endif %}
 </header>
 
-<section class="block" aria-labelledby="schedule-heading">
+<section class="block" id="next" aria-labelledby="schedule-heading">
   <div class="block__head">
-    <h2 class="h3" id="schedule-heading">Maintenance schedule</h2>
-    {% if schedule_count %}<a class="btn btn--quiet" href="/vehicles/{{ car.id }}/schedule">See the schedule</a>{% endif %}
+    <h2 class="h3" id="schedule-heading">{{ "Next up" if schedule_count else "Maintenance schedule" }}</h2>
+    {% if schedule_count %}<a class="btn btn--quiet" href="/vehicles/{{ car.id }}/schedule">The schedule</a>{% endif %}
   </div>
   {% set ready = schedule_drafts | selectattr("status", "equalto", "read") | list %}
   {% if ready %}
   <p class="notice notice--due">A schedule draft is ready to check. <a href="/schedule-drafts/{{ ready[0].id }}">Check it</a>.</p>
   {% endif %}
+  {% if attested %}<p class="notice notice--done" role="status">Marked as done. It's in the history as done with no receipt.</p>{% endif %}
   {% if schedule_count %}
-  <p class="muted">{{ schedule_count }} item{{ "s" if schedule_count != 1 }}
-    {%- if schedule_from %}, from {{ origin_words[schedule_from.origin] }}{% endif %}.
-    {{ "Severe" if car.severe_service else "Normal" }} service.</p>
+  {% if upcoming %}
+  <div class="sheet">
+    {{ next_up_list(upcoming[:6]) }}
+    {% if upcoming | length > 6 %}
+    <details class="nextup__more">
+      <summary>{{ upcoming | length - 6 }} more</summary>
+      {{ next_up_list(upcoming[6:]) }}
+    </details>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if state.needs_reading %}
+  <p class="notice">{{ state.needs_reading | join(", ") }} {{ "is" if state.needs_reading | length == 1 else "are" }} due
+    by mileage alone. <a href="#odometer">Add an odometer reading</a> so AMG can tell when.</p>
+  {% endif %}
+  {% if missed %}
+  <details class="missed">
+    <summary>{{ missed | length }} missed in the past</summary>
+    <ul class="missed__list">
+      {% for row in missed %}
+      <li class="missed__row">
+        <span class="mark mark--gap" aria-hidden="true"></span>
+        <span class="missed__name">{{ row.name }}</span>
+        <span class="missed__when">{{ row.when }}</span>
+        <a class="btn btn--quiet" href="{{ row.attest_url }}" aria-label="Mark {{ row.name }}, {{ row.when }}, as done">It was done</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% if chart %}
+  <details class="chartbox" x-data x-init="if (matchMedia('(min-width: 48rem)').matches) $el.open = true">
+    <summary>The interval chart</summary>
+    <div class="sheet sheet--flush">{{ interval_chart(chart) }}</div>
+  </details>
+  {% endif %}
+  <p class="muted">{{ schedule_count }} item{{ "s" if schedule_count != 1 }} in the schedule
+    {%- if schedule_from %}, from {{ origin_words[schedule_from.origin] }}{% endif %};
+    {{ "severe" if car.severe_service else "normal" }} service.</p>
   {% else %}
   <div class="sheet empty empty--small">
     <p>No schedule yet. It's what this car's history gets checked against: read it from the owner's manual, or start
@@ -56,7 +97,7 @@
       <a class="ledger__row" href="/services/{{ event.id }}">
         <span class="ledger__date mono">{{ event.performed_on }}</span>
         <span class="ledger__miles mono">{{ event.odometer | miles if event.odometer is not none else "" }}</span>
-        <span class="ledger__who">{{ event.shop or "Your own work" }}</span>
+        <span class="ledger__who">{{ who(event) }}</span>
         <span class="ledger__what">
           {% for item in event.covered %}<span class="chip{% if item.inspected_only %} chip--inspect{% endif %}">{{ item.name }}{% if item.inspected_only %} <span class="chip__note">inspected</span>{% endif %}</span>{% endfor %}
         </span>

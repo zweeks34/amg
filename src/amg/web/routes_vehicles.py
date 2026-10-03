@@ -12,6 +12,7 @@ from starlette.responses import RedirectResponse, Response
 from ..ingest import vin as vins
 from ..repo import odometer, schedules, services, vehicles
 from . import forms
+from . import status as car_status
 from .deps import get_conn
 from .templating import render
 
@@ -124,8 +125,9 @@ def restore_vehicle(vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn
 
 
 @router.get("/vehicles/{vehicle_id}")
-def vehicle_page(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
-    return _page(request, conn, vehicle_id)
+def vehicle_page(request: Request, vehicle_id: int, attested: int | None = None,
+                 conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    return _page(request, conn, vehicle_id, attested=bool(attested))
 
 
 @router.post("/vehicles/{vehicle_id}/odometer")
@@ -158,6 +160,7 @@ def delete_reading(reading_id: int, conn: sqlite3.Connection = Depends(get_conn)
 
 def _page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_code: int = 200, **extra) -> Response:
     car = vehicle_or_404(conn, vehicle_id)
+    state = car_status.load(conn, car)
     return render(
         request,
         "vehicle.html",
@@ -168,6 +171,11 @@ def _page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_co
         latest=vehicles.latest_odometer(conn, vehicle_id),
         history=services.history(conn, vehicle_id),
         schedule_count=schedules.count(conn, vehicle_id),
+        state=state,
+        upcoming=car_status.next_up(state),
+        missed=car_status.missed(state),
+        chart=car_status.chart(state, car["name"]),
+        attested=extra.get("attested", False),
         schedule_from=schedules.current_draft(conn, vehicle_id),
         schedule_drafts=schedules.open_drafts(conn, vehicle_id),
         points=odometer.points(conn, vehicle_id),

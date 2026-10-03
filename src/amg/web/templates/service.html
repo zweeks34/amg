@@ -4,7 +4,7 @@
 {% block content %}
 <header class="pagehead">
   <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a> · {{ sources[event.source] }}</p>
-  <h1 class="display">{{ event.shop or "Your own work" }}</h1>
+  <h1 class="display">{{ who(event) }}</h1>
   <dl class="facts">
     <div><dt>Date</dt><dd class="mono">{{ event.performed_on }}</dd></div>
     <div><dt>Odometer</dt><dd class="mono">{{ event.odometer | miles }}</dd></div>

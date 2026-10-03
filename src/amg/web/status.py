@@ -1,0 +1,217 @@
+"""What a car's pages say about its schedule: next up, the interval chart, the garage line.
+
+The gap engine (engine/schedule.py) decides; this turns its answer into what
+a person reads — "1,200 mi overdue", "in 700 mi · by Nov 12" — and into the
+chart _chart.html draws. A done mark sits where the work was done, a missed
+or upcoming one where it fell (or falls) due.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from dataclasses import dataclass
+from datetime import date
+
+from ..engine.odometer import Odometer
+from ..engine.schedule import Car, Item, ItemStatus, Occurrence, Service, assess
+from ..repo import odometer as readings
+from ..repo import schedules, services
+
+NEXT_UP = 6                 # rows in the next-up list, besides every overdue and due-soon one
+TICKS = (5_000, 10_000, 15_000, 20_000, 25_000, 50_000)
+MAX_SEGMENTS = 8
+
+
+@dataclass
+class CarStatus:
+    vehicle_id: int
+    items: dict[int, dict]          # schedule item rows by id: name, codes, category, …
+    statuses: list[ItemStatus]
+    odometer: Odometer
+    today: date
+    today_miles: int | None
+
+    @property
+    def missed(self) -> int:
+        return sum(len(s.missed) for s in self.statuses)
+
+    def count(self, state: str) -> int:
+        return sum(1 for s in self.statuses if s.current and s.current.status == state)
+
+    @property
+    def needs_reading(self) -> list[str]:
+        return [s.item.name for s in self.statuses if s.needs_reading]
+
+
+def _day(value: str | None) -> date | None:
+    return date.fromisoformat(value) if value else None
+
+
+def load(conn: sqlite3.Connection, car, today: date | None = None) -> CarStatus:
+    """Run the gap engine over one car's schedule and confirmed services."""
+    today = today or date.today()
+    rows = schedules.items(conn, car["id"])
+    items = [
+        Item(row["id"], row["name"], frozenset(row["codes"]), row["action"], row["interval_miles"],
+             row["interval_months"], row["first_miles"], row["first_months"], row["applies"])
+        for row in rows
+    ]
+    done = [
+        Service(row["id"], date.fromisoformat(row["performed_on"]), row["odometer"],
+                {code: frozenset(actions) for code, actions in row["coverage"].items()})
+        for row in services.coverage(conn, car["id"])
+    ]
+    odo = Odometer(((date.fromisoformat(p["read_on"]), p["miles"]) for p in readings.points(conn, car["id"])),
+                   in_service=_day(car["in_service_date"]))
+    vehicle = Car(_day(car["in_service_date"]), _day(car["acquired_date"]), car["acquired_miles"],
+                  bool(car["severe_service"]))
+    estimate = odo.miles_on(today)
+    return CarStatus(car["id"], {row["id"]: row for row in rows}, assess(items, done, odo, vehicle, today), odo,
+                     today, None if estimate is None else round(estimate))
+
+
+# ---------- Words ----------
+
+
+def _date(day: date, today: date) -> str:
+    return f"{day:%b} {day.day}" + (f", {day.year}" if day.year != today.year else "")
+
+
+def when(occurrence: Occurrence, status: CarStatus) -> str:
+    """How far off (or how far past) an occurrence is, in miles where known and by date."""
+    day, miles, today = occurrence.due_day, occurrence.due_miles, status.today
+    gap = None if miles is None or status.today_miles is None else miles - status.today_miles
+    if occurrence.status == "overdue":
+        if gap is not None and gap < 0:
+            return f"{-gap:,} mi overdue · due {_date(day, today)}"
+        return f"overdue since {_date(day, today)}"
+    if occurrence.status == "due":
+        return (f"in {gap:,} mi · " if gap is not None and gap > 0 else "") + f"by {_date(day, today)}"
+    if occurrence.status == "later":
+        return (f"in {gap:,} mi · " if gap is not None and gap > 0 else "") + f"~{day:%b %Y}"
+    if occurrence.status == "gap":
+        return f"missed at {miles:,} mi · {day:%b %Y}" if miles is not None else f"missed {day:%b %Y}"
+    return ""
+
+
+def _months(months: int) -> str:
+    return f"{months // 12} yr" if months >= 24 and months % 12 == 0 else f"{months} mo"
+
+
+def every(item: dict) -> str:
+    """The interval, briefly, for the chart's item column: '6,000 mi · 6 mo', never broken inside a figure."""
+    parts = ([f"{item['interval_miles']:,} mi"] if item["interval_miles"] else []) + (
+        [_months(item["interval_months"])] if item["interval_months"] else [])
+    if not parts and (item["first_miles"] or item["first_months"]):
+        return "once"
+    return " · ".join(parts)
+
+
+# ---------- Next up ----------
+
+
+def attest_url(vehicle_id: int, item_id: int, occurrence: Occurrence | None = None) -> str:
+    url = f"/vehicles/{vehicle_id}/schedule-items/{item_id}/done"
+    return f"{url}?due={occurrence.due_day.isoformat()}" if occurrence is not None and occurrence.status == "gap" else url
+
+
+def next_up(status: CarStatus, limit: int = NEXT_UP) -> list[dict]:
+    """Overdue first (longest overdue at the top), then due soon, then the next few later."""
+    rank = {"overdue": 0, "due": 1, "later": 2}
+    current = sorted(
+        ((s, s.current) for s in status.statuses if s.current),
+        key=lambda pair: (rank[pair[1].status], pair[1].due_day, pair[0].item.name),
+    )
+    urgent = [pair for pair in current if pair[1].status != "later"]
+    chosen = urgent + [pair for pair in current if pair[1].status == "later"][:max(0, limit - len(urgent))]
+    return [
+        {
+            "item_id": item_status.item.id,
+            "name": item_status.item.name,
+            "status": occurrence.status,
+            "when": when(occurrence, status),
+            "attest_url": attest_url(status.vehicle_id, item_status.item.id) if occurrence.status == "overdue" else None,
+        }
+        for item_status, occurrence in chosen
+    ]
+
+
+def missed(status: CarStatus) -> list[dict]:
+    """Every missed occurrence, most recent first, each with a way to say it was done after all."""
+    rows = [
+        {"name": s.item.name, "when": when(o, status), "attest_url": attest_url(status.vehicle_id, s.item.id, o),
+         "due_day": o.due_day}
+        for s in status.statuses for o in s.missed
+    ]
+    return sorted(rows, key=lambda row: row["due_day"], reverse=True)
+
+
+def summary(status: CarStatus) -> dict:
+    """The garage card's line: counts, and the one thing to do next."""
+    first = next_up(status, limit=1)
+    return {"overdue": status.count("overdue"), "due": status.count("due"), "missed": status.missed,
+            "next": first[0] if first else None}
+
+
+# ---------- The interval chart ----------
+
+
+def _span(here: int) -> tuple[int, int]:
+    """The axis length and tick step: past today by enough to show what's coming.
+
+    Something due far off (coolant at 137,500) isn't stretched for; next up lists it.
+    """
+    want = here + max(12_000, here * 0.15)
+    for step in TICKS:
+        if want / step <= MAX_SEGMENTS:
+            return int(-(-want // step) * step), step
+    step = TICKS[-1]
+    return int(-(-want // step) * step), step
+
+
+def _miles(occurrence: Occurrence, odometer: Odometer) -> int | None:
+    if occurrence.status == "done" and occurrence.service is not None:
+        service = occurrence.service
+        if service.miles is not None:
+            return service.miles
+        estimate = odometer.miles_on(service.day)
+        return None if estimate is None else round(estimate)
+    return occurrence.due_miles
+
+
+def chart(status: CarStatus, vehicle_name: str) -> dict | None:
+    """The interval chart for _chart.html, or None when the odometer can't place anything."""
+    here = status.today_miles
+    if here is None:
+        return None
+    span, step = _span(here)
+    groups: list[dict] = []
+    ordered = sorted(status.statuses, key=lambda s: (status.items[s.item.id]["category_sort"],
+                                                   status.items[s.item.id]["category"],
+                                                   status.items[s.item.id]["position"]))
+    for item_status in ordered:
+        row = status.items[item_status.item.id]
+        marks = []
+        for occurrence in item_status.occurrences:
+            if occurrence.status == "before":
+                continue
+            miles = _miles(occurrence, status.odometer)
+            if miles is None or miles > span:
+                continue
+            href, day = None, occurrence.due_day
+            if occurrence.status == "done" and occurrence.service is not None:
+                href, day = f"/services/{occurrence.service.id}", occurrence.service.day
+            elif occurrence.status in ("gap", "overdue"):
+                href = attest_url(status.vehicle_id, item_status.item.id, occurrence)
+            marks.append({"miles": miles, "status": occurrence.status, "href": href, "late": occurrence.late,
+                          "day": day.isoformat()})
+        if not groups or groups[-1]["label"] != row["category"]:
+            groups.append({"label": row["category"], "rows": []})
+        groups[-1]["rows"].append({"name": row["name"], "every": every(row), "marks": marks})
+    return {
+        "vehicle": vehicle_name,
+        "here": here,
+        "span": span,
+        "ticks": list(range(0, span + 1, step)),
+        "groups": groups,
+    }

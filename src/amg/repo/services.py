@@ -195,6 +195,28 @@ def history(conn: sqlite3.Connection, vehicle_id: int) -> list[dict]:
     return events
 
 
+def coverage(conn: sqlite3.Connection, vehicle_id: int) -> list[dict]:
+    """A car's confirmed services, oldest first, each with {code: {actions}} — what the gap engine reads."""
+    events: dict[int, dict] = {}
+    for row in conn.execute(
+        "SELECT e.id, e.performed_on, e.odometer, e.source, st.code, lis.action"
+        "  FROM service_events e"
+        "  LEFT JOIN line_items li ON li.service_event_id = e.id"
+        "  LEFT JOIN line_item_services lis ON lis.line_item_id = li.id"
+        "  LEFT JOIN service_types st ON st.id = lis.service_type_id"
+        " WHERE e.vehicle_id = ? AND e.confirmed = 1"
+        " ORDER BY e.performed_on, e.id",
+        (vehicle_id,),
+    ):
+        event = events.setdefault(row["id"], {
+            "id": row["id"], "performed_on": row["performed_on"], "odometer": row["odometer"],
+            "source": row["source"], "coverage": {},
+        })
+        if row["code"]:
+            event["coverage"].setdefault(row["code"], set()).add(row["action"])
+    return list(events.values())
+
+
 def _covers_for(conn: sqlite3.Connection, line_ids: list[int]) -> dict[int, list[dict]]:
     if not line_ids:
         return {}

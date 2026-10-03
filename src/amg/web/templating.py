@@ -66,6 +66,13 @@ STATUS_WORDS = {
 }
 
 
+def who(event) -> str:
+    """Who did a service, as its title: the shop, you, or nobody on paper."""
+    if event["shop"]:
+        return event["shop"]
+    return "Done, no receipt" if event["source"] == "attested" else "Your own work"
+
+
 def page_url(document_id: int, sha256: str, page: int, full: bool = False) -> str:
     """A scan page's URL. It names the file's content, so the browser may keep the image for good."""
     return f"/documents/{document_id}/pages/{page}?v={fingerprint(sha256)}" + ("&size=full" if full else "")
@@ -102,6 +109,7 @@ templates.env.globals["axis"] = axis
 templates.env.globals["status_words"] = STATUS_WORDS
 templates.env.globals["origin_words"] = SCHEDULE_ORIGINS
 templates.env.globals["page_url"] = page_url
+templates.env.globals["who"] = who
 templates.env.globals["file_url"] = file_url
 templates.env.filters["miles"] = miles
 templates.env.filters["dollars"] = dollars

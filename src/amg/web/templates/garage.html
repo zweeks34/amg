@@ -24,13 +24,31 @@
         <div>
           <dt>Last service</dt>
           <dd>{% if car.last_service %}<span class="mono">{{ car.last_service.performed_on }}</span>
-            {{ car.last_service.shop or "Your own work" }}{% else %}<span class="muted">None logged</span>{% endif %}</dd>
+            {{ who(car.last_service) }}{% else %}<span class="muted">None logged</span>{% endif %}</dd>
         </div>
         <div>
           <dt>Services</dt>
           <dd class="mono">{{ car.service_count }}</dd>
         </div>
       </dl>
+      {% set s = car.schedule %}
+      {% if s %}
+      <div class="carcard__status">
+        {% if s.next %}
+        <p class="carcard__next"><span class="mark mark--{{ s.next.status }}" aria-hidden="true"></span>
+          <span><span class="carcard__label">Next:</span> {{ s.next.name }} <span class="muted">{{ s.next.when }}</span></span></p>
+        {% endif %}
+        <ul class="tally" aria-label="Schedule">
+          {% for key, word in (("overdue", "overdue"), ("due", "due soon"), ("missed", "missed")) if s[key] %}
+          <li><span class="mark mark--{{ 'gap' if key == 'missed' else key }}" aria-hidden="true"></span>{{ s[key] }} {{ word }}</li>
+          {% else %}
+          <li><span class="mark mark--done" aria-hidden="true"></span>Nothing overdue or missed</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <p class="carcard__status muted">No maintenance schedule yet.</p>
+      {% endif %}
     </a>
   </li>
   {% endfor %}

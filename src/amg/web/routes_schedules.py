@@ -9,6 +9,7 @@ schedule, which is then edited in place.
 from __future__ import annotations
 
 import sqlite3
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.datastructures import UploadFile
@@ -17,7 +18,7 @@ from starlette.responses import RedirectResponse, Response
 from ..ingest import background, manuals
 from ..ingest import schedule_drafts as sd
 from ..ingest import schedule_templates as templates
-from ..repo import documents, schedules, services, vehicles
+from ..repo import documents, odometer, schedules, services, vehicles
 from . import forms
 from .deps import get_conn
 from .routes_services import editor_types
@@ -142,6 +143,59 @@ async def save_schedule(request: Request, vehicle_id: int, conn: sqlite3.Connect
     return RedirectResponse(f"/vehicles/{vehicle_id}/schedule?saved=1", status_code=303)
 
 
+# ---------- Marking an item as done, with no receipt ----------
+
+
+@router.get("/vehicles/{vehicle_id}/schedule-items/{item_id}/done")
+def attest_form(request: Request, vehicle_id: int, item_id: int, due: str = "",
+                conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    car = vehicle_or_404(conn, vehicle_id)
+    item = _item_or_404(conn, vehicle_id, item_id)
+    try:
+        due_day = forms.day(due)
+    except ValueError:
+        due_day = None
+    raw = {"performed_on": due_day or date.today().isoformat(), "odometer": "", "notes": ""}
+    return _attest(request, car, item, raw, {}, due_day)
+
+
+@router.post("/vehicles/{vehicle_id}/schedule-items/{item_id}/done")
+async def attest(request: Request, vehicle_id: int, item_id: int,
+                 conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    car = vehicle_or_404(conn, vehicle_id)
+    item = _item_or_404(conn, vehicle_id, item_id)
+    form = await request.form()
+    raw = {key: forms.text(form.get(key)) for key in ("performed_on", "odometer", "notes", "due")}
+    errors: dict[str, str] = {}
+    performed_on = miles = None
+    try:
+        performed_on = forms.day(raw["performed_on"])
+        if performed_on is None:
+            errors["performed_on"] = "Enter the date it was done. A rough one is fine."
+    except ValueError as err:
+        errors["performed_on"] = str(err)
+    try:
+        miles = forms.miles(raw["odometer"])
+    except ValueError as err:
+        errors["odometer"] = str(err)
+    if performed_on and miles is not None and not errors:
+        if clash := odometer.conflict(conn, vehicle_id, performed_on, miles):
+            errors["odometer"] = clash.message()
+    if errors:
+        return _attest(request, car, item, raw, errors, raw["due"] or None, status_code=422)
+    services.create_event(conn, vehicle_id, services.EventInput(
+        performed_on=performed_on,  # type: ignore[arg-type]
+        source="attested",
+        odometer=miles,
+        notes=raw["notes"],
+        lines=[services.LineInput(
+            description=f"{item['name']}: done, no receipt",
+            covers=[services.Coverage(code, item["action"]) for code in item["codes"]],
+        )],
+    ))
+    return RedirectResponse(f"/vehicles/{vehicle_id}?attested=1#next", status_code=303)
+
+
 # ---------- Checking a draft ----------
 
 
@@ -227,6 +281,19 @@ def _draft_or_404(conn: sqlite3.Connection, draft_id: int) -> dict:
     if row is None:
         raise HTTPException(status_code=404)
     return row
+
+
+def _item_or_404(conn: sqlite3.Connection, vehicle_id: int, item_id: int) -> dict:
+    item = next((i for i in schedules.items(conn, vehicle_id) if i["id"] == item_id), None)
+    if item is None:
+        raise HTTPException(status_code=404)
+    return item
+
+
+def _attest(request: Request, car, item: dict, raw: dict, errors: dict, due: str | None,
+            status_code: int = 200) -> Response:
+    return render(request, "attest.html", status_code=status_code, active="garage", car=car, item=item, raw=raw,
+                  errors=errors, due=due, actions=ACTION_LABELS)
 
 
 def _types(conn: sqlite3.Connection) -> dict[str, dict]:

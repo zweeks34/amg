@@ -7,7 +7,8 @@ import sqlite3
 from fastapi import APIRouter, Depends, Request
 from starlette.responses import Response
 
-from ..repo import vehicles
+from ..repo import schedules, vehicles
+from . import status as car_status
 from .deps import get_conn
 from .routes_vehicles import POWERTRAIN_LABELS
 from .templating import render
@@ -18,6 +19,8 @@ router = APIRouter()
 @router.get("/")
 def garage(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     active, archived = vehicles.garage(conn)
+    for car in active:
+        car["schedule"] = car_status.summary(car_status.load(conn, car)) if schedules.count(conn, car["id"]) else None
     return render(
         request,
         "garage.html",

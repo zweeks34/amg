@@ -33,3 +33,46 @@ def sample() -> ScheduleExtraction:
         row("Timing Belt (WRX/WRX STI)", ("timing_belt",), marks=(96,), applies=False, why_not="WRX/WRX STI only"),
         row("Engine oil", ("engine_oil",), severe=True, every_miles=3000, every_months=3, page=2),
     )
+
+
+# ---------- A car to hand-check the gap engine against ----------
+#
+# Driven 30 mi a day from new, so day n is at n × 30 miles. Five schedule items and
+# five services; tests/amg/web/test_status.py works out every mark of its chart by hand.
+
+def steady_car(conn, start):
+    """The hand-checked car, new on ``start``: (vehicle id, day number → date, {day number: service id})."""
+    from datetime import timedelta
+
+    from amg.repo import schedules, services, vehicles
+    from amg.repo.schedules import ItemInput
+
+    def day(n):
+        return start + timedelta(days=n)
+
+    car = vehicles.create(conn, vehicles.VehicleFields(name="Steady", year=2020, make="Test", model="Car",
+                                                       in_service_date=start.isoformat()))
+    items = [
+        ItemInput("Engine oil and filter", "replace", ["engine_oil", "oil_filter"], interval_miles=6000, interval_months=12),
+        ItemInput("Engine coolant", "replace", ["engine_coolant"], interval_miles=30_000, interval_months=36,
+                  first_miles=50_000, first_months=60),
+        ItemInput("Brake inspection", "inspect", ["brake_pads", "brake_rotors"], interval_miles=12_000, interval_months=12),
+        ItemInput("Tire rotation", "perform", ["tire_rotation"], interval_miles=6000),
+        ItemInput("Cabin air filter", "replace", ["cabin_air_filter"], interval_months=12),
+    ]
+    draft_id = schedules.create_draft(conn, car, "template", draft={"origin": "template", "items": []})
+    schedules.confirm(conn, draft_id, car, items, {"origin": "template", "items": []})
+
+    def visit(n, *covers):
+        lines = [services.LineInput(description=code, covers=[services.Coverage(code, action)]) for code, action in covers]
+        return services.create_event(conn, car, services.EventInput(performed_on=day(n).isoformat(), source="shop",
+                                                                    shop="Corner Garage", odometer=n * 30, lines=lines))
+
+    visits = {
+        190: visit(190, ("engine_oil", "replace"), ("tire_rotation", "perform"), ("multipoint_inspection", "inspect")),
+        380: visit(380, ("cabin_air_filter", "replace")),
+        400: visit(400, ("engine_oil", "replace")),
+        640: visit(640, ("engine_oil", "replace"), ("tire_rotation", "perform")),
+        900: visit(900, ("tire_rotation", "perform"), ("brake_pads", "inspect")),
+    }
+    return car, day, visits
