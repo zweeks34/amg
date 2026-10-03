@@ -91,6 +91,17 @@ class Price:
     vehicles: frozenset[int] = frozenset()   # elsewhere: the cars it was paid on
 
 
+def visit_from(row: Mapping) -> Visit:
+    """A visit as repo/prices.visits reads it: {id, vehicle_id, performed_on, tax_cents, lines}."""
+    lines = tuple(Line(line["amount_cents"], line["kind"], dict(line["covers"])) for line in row["lines"])
+    return Visit(row["id"], row["vehicle_id"], date.fromisoformat(row["performed_on"]), lines, row["tax_cents"])
+
+
+def quote_from(row: Mapping) -> Quote:
+    """A quote as repo/prices.quotes reads it: {day, codes, cents}."""
+    return Quote(date.fromisoformat(row["day"]), frozenset(row["codes"]), row["cents"])
+
+
 # ---------- What one visit charged ----------
 
 

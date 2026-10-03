@@ -97,8 +97,8 @@ def parse(
     """
     if not configured():
         # The SDK would raise a bare TypeError here; say what to do about it instead.
-        raise ClaudeError("No Anthropic API key is set, so AMG can't read documents. Add ANTHROPIC_API_KEY "
-                          "to the .env file, restart the app, then read this again.")
+        raise ClaudeError("No Anthropic API key is set, so AMG can't ask Claude. Add ANTHROPIC_API_KEY "
+                          "to the .env file, restart the app, then try again.")
     started = time.monotonic()
     request = dict(
         model=model(),

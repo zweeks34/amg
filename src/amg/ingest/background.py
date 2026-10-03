@@ -1,4 +1,4 @@
-"""Reading receipts and schedules in a background thread, so an upload answers straight away.
+"""Reading receipts and schedules, and pricing jobs, in a background thread, so a request answers straight away.
 
 The upload request stores the files, makes a job and starts a thread; the
 page watches the database. A file and not memory, because uvicorn runs
@@ -13,16 +13,20 @@ from __future__ import annotations
 
 import logging
 import threading
+from datetime import date
 
 from .. import db
-from ..repo import documents, jobs, receipts, schedules, services, vehicles
+from ..engine import forecast
+from ..repo import documents, jobs, prices, receipts, schedules, services, vehicles
 from . import claude, drafts, manuals, schedule_drafts
+from . import prices as pricer
 from . import receipts as reader
 
 log = logging.getLogger(__name__)
 
 JOB_KIND = "read_receipts"
 SCHEDULE_JOB = "read_schedule"
+PRICE_JOB = "price_jobs"
 
 
 def start(conn, document_ids: list[int], vehicle_id: int | None = None) -> int:
@@ -55,6 +59,14 @@ def read_schedule_again(conn, draft_id: int, pages: str | None = None) -> None:
     spawn(job_id)
 
 
+def price(conn, vehicle_id: int, wanted: list[tuple]) -> int:
+    """Ask Claude to price jobs — (codes, action, name) — for a car; returns the job id."""
+    job_id = jobs.create(conn, PRICE_JOB)
+    prices.queue_claude(conn, vehicle_id, wanted, job_id)
+    spawn(job_id)
+    return job_id
+
+
 def carry_on(conn, job_id: int) -> None:
     jobs.resume(conn, job_id)
     spawn(job_id)
@@ -72,6 +84,10 @@ def run(job_id: int) -> None:
         if job is not None and job["kind"] == SCHEDULE_JOB:
             while (draft_id := schedules.claim_next(conn, job_id)) is not None:
                 read_one_schedule(conn, draft_id)
+                jobs.heartbeat(conn, job_id)
+        elif job is not None and job["kind"] == PRICE_JOB:
+            while rows := prices.claim(conn, job_id):
+                price_rows(conn, rows)
                 jobs.heartbeat(conn, job_id)
         else:
             while (receipt_id := receipts.claim_next(conn, job_id)) is not None:
@@ -123,3 +139,31 @@ def read_one_schedule(conn, draft_id: int) -> None:
     )
     schedules.mark_read(conn, draft_id, result.extraction.model_dump(), draft.to_dict(), warnings, result.pages,
                         result.usage)
+
+
+def price_rows(conn, rows: list) -> None:
+    """One call to Claude for a car's queued jobs; each row priced, or failed with the reason."""
+    vehicle_id = rows[0]["vehicle_id"]
+    car = vehicles.get(conn, vehicle_id)
+    names = {r["code"]: r["name"] for r in services.list_types(conn)}
+    wanted = [{"key": f"j{row['id']}", "name": row["name"], "action": row["action"],
+               "types": [names.get(code, code) for code in row["codes"].split(",")]} for row in rows]
+    visits = [forecast.visit_from(v) for v in prices.visits(conn) if v["vehicle_id"] == vehicle_id]
+    try:
+        read = pricer.ask_claude(car, wanted, pricer.anchors(schedules.items(conn, vehicle_id), visits, date.today()))
+    except claude.ClaudeError as err:
+        for row in rows:
+            prices.mark_failed(conn, row["id"], str(err))
+        return
+    except Exception as err:  # never leave prices "asking" forever
+        log.exception("pricing jobs for car %s failed", vehicle_id)
+        for row in rows:
+            prices.mark_failed(conn, row["id"], f"Something went wrong asking Claude ({type(err).__name__}).")
+        return
+    for row in rows:
+        key = f"j{row['id']}"
+        if key in read.prices:
+            got = read.prices[key]
+            prices.mark_priced(conn, row["id"], got.low_cents, got.high_cents, got.note, read.usage, share=len(read.prices))
+        else:
+            prices.mark_failed(conn, row["id"], read.missing.get(key, "Claude gave no price for this."))
