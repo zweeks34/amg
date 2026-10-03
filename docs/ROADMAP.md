@@ -216,24 +216,68 @@ a backup restored into a fresh container (2026-10-02). Done.*
 
 **For:** the manufacturer schedule each car is judged against.
 
-- [ ] Templates: generic gasoline, hybrid, EV
-- [ ] Owner's-manual PDF: locate the schedule pages locally (keywords and interval patterns), send only those pages to Claude, extract items (service type, action, interval miles/months, first-at, severe-service variant, source page)
-- [ ] Review screen: every extracted item beside its page; verify, edit, drop
-- [ ] AI draft from year/make/model — every item unverified until confirmed
-- [ ] Normal vs severe service per vehicle
-- [ ] Schedules copied per vehicle so an edit never leaks to another car
+- [x] Templates: generic gasoline, hybrid, EV — middle-of-the-road intervals, labelled as not the maker's; items only some cars have (timing belt, AWD differentials) start left out
+- [x] Owner's manual (PDF or photos): a document of up to 8 pages is read whole; a longer one has its schedule pages found locally (keywords and interval patterns in the text layer, or Tesseract's reading of pages without one, up to 60), the best pages and their neighbours, at most 12; typed page numbers skip the search. Claude reads the pages as images, streamed at high effort, and returns both shapes: written intervals, and tables of marks, which become intervals by arithmetic (evenly spaced → every N; starting late → first at, then every N; uneven → flagged)
+- [x] Review screen: the pages read beside every item; anything as Claude read it dashed until changed; rows the schedule gives for other models, engines or transmissions under **Left out** with the reason, one tap to include; **Use this schedule** confirms the lot, as with receipts, and says when it replaces a schedule; save, read other pages, discard
+- [x] Claude's draft from year/make/model/trim/engine — the same review, labelled "not from your manual"; nothing counts until used
+- [x] Normal vs severe service per car: a severe entry stands in for the normal entry it covers (oil every 6,000 normally, 3,000 severe), the rest apply under both; the schedule page switches between them and shows what the manual counts as severe
+- [x] Schedules are per car: using a draft writes the car's own items, and copying another car's schedule makes a draft of its items, so an edit never leaks; editing in place keeps item ids. Every item says where it came from (manual page, Claude's draft, template, set by you) — changing an item's interval or action makes it yours
+- [x] `scripts/try_schedule.py` — read a manual, or ask for Claude's draft, and print the schedule as AMG would draft it (findings below)
 
-**Data owned:** `schedules`, `schedule_items`.
+**Data owned:** `schedule_drafts` (a proposed schedule's reading and draft, like
+`receipts`), `schedule_items` and `schedule_item_services` (each car's
+schedule: one item per service and action, every interval miles and/or
+months, an optional first-due point, normal / severe / both, its source),
+`vehicles.severe_service`.
 
 **Can go wrong:** a 600-page manual → find the pages locally first; never send
-the whole book unless it has no text layer. A schedule written as a table of
-ticks per interval rather than "every N miles" → the extraction schema carries
-both shapes. The AI draft is confidently wrong → it never counts until verified.
+the whole book. A scan with no text and too many pages to OCR → ask for the
+page numbers. A schedule written as a table of marks rather than "every N
+miles" → the reading carries both shapes, and the marks become intervals by
+arithmetic, not by Claude's sums. A schedule covering several models → rows for
+other models are left out, not dropped. The AI draft is confidently wrong → it
+never counts until used, and stays labelled as Claude's. A long read → streamed,
+so a slow answer isn't mistaken for a stuck one.
 
-**Tests pin:** page finding on a fixture manual; "whichever comes first"
-survives the round trip; editing one car's schedule leaves another's alone.
+**Tests pin:** page finding on a generated 40-page manual, the cap, typed pages
+and a textless scan; marks to intervals (even, starting late, a single mark,
+uneven); the sample's coolant (first at 137,500 mi / 11 years, then every
+75,000 / 6); severe pairing; left-out rows stay out unless included; "whichever
+comes first" survives draft → items → editor → items; editing a copied schedule
+leaves the original alone; saving keeps ids; nothing counts before it's used.
 
-**Done when:** every car has a verified schedule.
+**Done when:** every car has a verified schedule. *Built and checked end to end
+on the sample maintenance plan (2026-10-02); reading your manuals on the server
+is yours to run.*
+
+### Trial findings (2026-10-02)
+
+`samples/2016-Subaru-Outback-Maintenance-Plan.pdf` — two scanned pages: a
+table of R/I/P marks in 22 columns (6–132 thousand miles, paired with months)
+covering every 2016 Subaru, and a page of notes carrying the severe-service
+intervals. Read with `claude-opus-5-5` at high effort: **22¢, 61 s**.
+
+- **Every row was right** against the page, including uneven marks (the BRZ's
+  ATF inspected at 30 and 90, replaced at 60 and 120), the fuel filter's single
+  mark at 72, and the coolant's written-out first and repeat intervals.
+- **Other models were left out with the reason:** the WRX's timing belt and
+  five BRZ rows. Clutch operation and manual-gearbox oil, which the table
+  doesn't restrict, were kept but flagged as unlikely on a CVT Outback.
+- **Severe service came out of the footnotes:** oil and filter every 3,000 mi
+  or 3 months, gear and differential oil replaced every 15,000, CVT fluid every
+  24,855 (40,000 km), brake fluid every 15,000, and the four inspections
+  footnote 6 names every 6,000 — each paired with the normal item it replaces.
+
+**Claude's draft for the same car, from memory: 19¢, 81 s.** The core of it
+matched the manual: oil at 6,000 (3,000 severe), the 12,000 inspections, the
+30,000 items, spark plugs at 60,000, the coolant's first and repeat
+intervals. But it gave the CVT fluid and differential oil the wrong severe
+intervals (30,000 against 24,855 and 15,000), missed the fuel filter at 72,000,
+the wheel-bearing inspection and the severe fuel-line inspection, and said 6
+years for the plugs where the table says 5. It named most of these itself as
+the entries it was least sure of. **Decision:** the draft stays a starting
+point, labelled as Claude's on every item, and the manual is the way in when
+there is one.
 
 ---
 
@@ -248,6 +292,14 @@ survives the round trip; editing one car's schedule leaves another's alone.
 - [ ] Garage dashboard: per car, next up, gap count, due-soon badges
 
 **Data owned:** none new — the engine is pure functions over the tables above.
+
+**From phase 4:** a schedule item names one or more service types and one
+action. It's met by a confirmed service covering *any* of its types with a
+sufficient action — a replacement also meets an inspection. An item with a
+first-due point falls due there, then every interval after; one with only a
+first-due point is due once. Only items in effect count: `applies` is always,
+normal or severe, against the car's `severe_service`
+(`schedule_drafts.in_effect`).
 
 **Can go wrong:** no odometer readings at all → months-only judgement and a
 prompt to add one. Services done early → still met. A used car → no gaps
