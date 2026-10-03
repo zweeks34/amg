@@ -326,14 +326,35 @@ Outback's chart against your full history on the server is yours.*
 
 **For:** fuel economy, running cost, and better mileage estimates.
 
-- [ ] Phone form: odometer, quantity (gal or kWh), total cost, full fill?, home/public for charging
-- [ ] MPG or mi/kWh between full fills (partials accumulate); cost per mile; trend
-- [ ] Every fill-up is an odometer reading feeding Phase 5's model
+- [x] Phone form, one tap from the masthead (**Fill-up**; **Charge** when every car is electric; a choice of car when there are several): odometer, gallons or kWh, total cost with the price a gallon shown as you type, **Filled the tank** / **Charged to your usual limit**, home or public for a charge — a home charge is priced at your last home rate until you type a cost. Under **More**: "I didn't log the one before this" and a note. Past dates are fine, for back-filling
+- [x] Economy from one full fill to the next (`engine/fuel.py`): partial fills in between add up, a partial before the first full fill is left out, "didn't log the one before" breaks the count, a top-off at no new miles measures nothing. Every average is miles over quantity, never a mean of each tank's figure. Cost a mile (stretches with a cost missing left out), spend, average price, and a stretch more than 40% from the median flagged *unusual, check it*
+- [x] The fuel page: last tank, last 12 months, all time, cost a mile, spend, price paid; economy over time (server-drawn SVG, the average as a dashed line); the log, every fill editable and deletable. The car page gets a Fuel (Charging) block
+- [x] Every fill-up is an odometer reading feeding Phase 5's model (the `odometer_points` view), checked like any other; the car page's readings list folds after six
+
+**Decisions:** no plug-in hybrids (your call) — gas and hybrid cars fill up in
+gallons, electric cars charge in kWh, and the form has no switch. No import:
+the log starts at the next fill-up. Each fill keeps its own energy, so
+correcting a car's powertrain later never changes old entries' units.
 
 **Data owned:** `fuel_logs`.
 
-**Tests pin:** partial fills between two full fills; an odometer lower than the
-last one is rejected; EV and gas cars side by side.
+**Can go wrong:** a fill-up that isn't logged → the next stretch reads high
+(fuel went in that nobody wrote down); "didn't log the one before" keeps it
+out, and if it's forgotten, the unusual flag catches it. A fill with no cost →
+left out of cost a mile rather than counted as free. A typo'd odometer → refused
+when it runs backwards, flagged as unusual when it runs too far forwards.
+
+**Tests pin:** a hand-worked log of 13 fills in `tests/amg/engine/test_fuel.py`
+— every stretch and figure worked out on paper — including partial fills
+between two full fills, a missed fill on a full and on a partial, a top-off,
+the miles-weighted average beating a plain mean, cost a mile with a cost
+missing, the 12-month window and the unusual flag's edge; an odometer lower
+than an earlier one is rejected; EV and gas cars side by side; a fill-up moving
+today's estimated odometer.
+
+**Done when:** the engine matches the hand-worked log *(it does, 2026-10-03)*,
+and you log a real fill-up from your phone at the pump and it shows on the car
+page and moves today's estimated odometer. *That last part is yours.*
 
 ---
 
@@ -343,7 +364,7 @@ last one is rejected; EV and gas cars side by side.
 
 - [ ] Each upcoming occurrence in the horizon (12 months default) dated from the odometer projection
 - [ ] Cost estimate, in order: median of your confirmed costs for that service on this car, then on your other cars (inflation-adjusted) → price book → an AI estimate range, flagged and cached
-- [ ] Fuel/energy projection from miles per day × cost per mile
+- [ ] Fuel/energy projection from miles per day × cost per mile (both exist: `Odometer.rate()` and `engine/fuel.cost_per_mile`)
 - [ ] Month-by-month budget view per car and in total
 
 **Data owned:** `price_book`.
