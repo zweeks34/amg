@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Alerts{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <h1 class="display">Alerts</h1>
+  <p class="pagehead__lede">AMG tells you when a job comes due without you opening it: a push to your phone when
+    something comes due soon or goes overdue, and an email every Monday. Both reach you off the VPN.</p>
+</header>
+
+{% if problem %}
+<p class="notice notice--gap" role="alert">{{ problem }}</p>
+{% elif tested == "push" %}
+<p class="notice notice--done" role="status">Test push sent. If it didn't arrive, check that the ntfy app on your phone
+  is subscribed to <span class="mono">{{ push_where }}</span>.</p>
+{% elif tested == "email" %}
+<p class="notice notice--done" role="status">Test email sent to {{ email.to }}. If it isn't there in a minute, look in spam.</p>
+{% elif turned == "on" %}
+<p class="notice notice--done" role="status">Alerts are on for {{ switched.name }}. Pushes start with what comes due
+  from now; what's already due is in Monday's email.</p>
+{% elif turned == "off" %}
+<p class="notice" role="status">Alerts are off for {{ switched.name }}.</p>
+{% endif %}
+
+<section class="block" aria-labelledby="channels-heading">
+  <h2 class="h3" id="channels-heading">How they reach you</h2>
+  <ul class="channels sheet sheet--flush">
+    <li class="channel">
+      <div class="channel__what">
+        <p class="channel__name">Push</p>
+        {% if push %}
+        <p>Through ntfy, to <span class="mono">{{ push_where }}</span>. Subscribe to that topic in the ntfy app.</p>
+        {% else %}
+        <p class="muted">Not set up. Add <span class="mono">AMG_NTFY_TOPIC</span> to <span class="mono">.env</span> and
+          restart AMG.</p>
+        {% endif %}
+      </div>
+      {% if push %}
+      <form method="post" action="/alerts/test-push"><button class="btn btn--secondary" type="submit">Send a test push</button></form>
+      {% endif %}
+    </li>
+    <li class="channel">
+      <div class="channel__what">
+        <p class="channel__name">Weekly email</p>
+        {% if email %}
+        <p>Mondays, to {{ email.to }}, through <span class="mono">{{ email.host }}</span>.</p>
+        {% else %}
+        <p class="muted">Not set up. Add <span class="mono">AMG_SMTP_USER</span> and <span class="mono">AMG_SMTP_PASSWORD</span>
+          (a Gmail app password) to <span class="mono">.env</span> and restart AMG.</p>
+        {% endif %}
+      </div>
+      {% if email %}
+      <form method="post" action="/alerts/test-email"><button class="btn btn--secondary" type="submit">Send a test email</button></form>
+      {% endif %}
+    </li>
+  </ul>
+</section>
+
+<section class="block" aria-labelledby="cars-heading">
+  <h2 class="h3" id="cars-heading">Cars</h2>
+  {% if cars %}
+  <ul class="switches sheet sheet--flush">
+    {% for car in cars %}
+    <li class="switch">
+      <span class="switch__name">{{ car.name }}</span>
+      <span class="pill {{ 'pill--on' if car.alerts else 'pill--busy' }}">{{ "On" if car.alerts else "Off" }}</span>
+      <form method="post" action="/alerts/cars/{{ car.id }}">
+        <input type="hidden" name="on" value="{{ 0 if car.alerts else 1 }}">
+        <button class="btn {{ 'btn--quiet' if car.alerts else 'btn--secondary' }}" type="submit"
+                aria-label="{{ 'Turn off' if car.alerts else 'Turn on' }} alerts for {{ car.name }}">{{ "Turn off alerts" if car.alerts else "Turn on alerts" }}</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="aside">Turning a car's alerts on starts from now: what's already due or overdue goes in the weekly email,
+    not a push. Leave a car off while you're still adding its old receipts. Until they're all in, AMG thinks some
+    work is overdue that was really done.</p>
+  {% else %}
+  <div class="sheet empty empty--small"><p>No cars yet. <a href="/vehicles/new">Add a car</a> to have AMG watch its schedule.</p></div>
+  {% endif %}
+</section>
+
+<section class="block" aria-labelledby="calendar-heading">
+  <h2 class="h3" id="calendar-heading">Calendar</h2>
+  <div class="sheet calendarbox">
+    <p>The next 12 months of jobs for every car, as all-day events on the days they fall due.</p>
+    <p><a class="btn btn--secondary" href="/alerts/calendar.ics" download>Download the calendar (.ics)</a></p>
+    <p class="field__hint">In Google Calendar: Settings → Import &amp; export → Import, into a calendar of its own
+      (say “Car maintenance”). The weekly email brings a fresh file each Monday. If importing a newer one adds copies
+      instead of moving the dates, delete that calendar and import the new file into a fresh one.</p>
+  </div>
+</section>
+
+<section class="block" aria-labelledby="sent-heading">
+  <h2 class="h3" id="sent-heading">What went out</h2>
+  {% if last %}
+  <p class="lastrun{% if not last.ok %} lastrun--failed{% endif %}">Runs daily at 8:00. Last run: <span class="mono">{{ last_at }}</span>, {{ last.summary }}.</p>
+  {% else %}
+  <p class="lastrun">The daily run hasn't run yet. It's a timer on the server: <span class="mono">amg alerts --dry-run</span>
+    there shows what it would send.</p>
+  {% endif %}
+  {% if recent %}
+  <ol class="alertlog sheet sheet--flush">
+    {% for row in recent %}
+    <li class="alertlog__row">
+      <span class="alertlog__when mono">{{ row.at }}</span>
+      <span class="alertlog__what">{% if row.channel == "email" %}Weekly email: {% elif row.vehicle_name %}{{ row.vehicle_name }} · {% endif %}{{ row.title }}</span>
+      {% if row.outcome == "failed" %}<span class="alertlog__error">Didn't go: {{ row.error }}</span>
+      {% elif row.outcome == "sending" %}<span class="muted">Sending…</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+</section>
+{% endblock %}
