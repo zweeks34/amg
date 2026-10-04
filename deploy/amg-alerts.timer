@@ -1,0 +1,13 @@
+# Runs amg-alerts.service every morning at 8:00, the container's time
+# (America/New_York). Installed and enabled by scripts/deploy.sh.
+
+[Unit]
+Description=AMG's daily alerts run, at 8:00
+
+[Timer]
+OnCalendar=*-*-* 08:00:00
+# A run missed while the container was off happens soon after it boots.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

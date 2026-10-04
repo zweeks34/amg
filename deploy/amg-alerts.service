@@ -1,0 +1,23 @@
+# AMG's daily alerts run: a push for what's newly due, and the weekly email on
+# the first run of each week. amg-alerts.timer starts it at 8:00. scripts/deploy.sh
+# installs both as /etc/systemd/system/amg-alerts.* on every deploy, so change
+# them here, not there.
+#
+#   systemctl list-timers amg-alerts      # when it last ran, and when it runs next
+#   journalctl -u amg-alerts -n 30        # what it said
+#   amg alerts --dry-run                  # what it would send now, sending nothing
+
+[Unit]
+Description=AMG daily alerts: pushes for what's newly due, and the weekly email
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=amg
+Group=amg
+WorkingDirectory=/opt/amg/app
+# The same data as the app (deploy/amg.service). Settings come from /opt/amg/app/.env.
+Environment=AMG_DATA_DIR=/var/lib/amg
+ExecStart=/opt/amg/venv/bin/python -m amg.alerts.run
+NoNewPrivileges=true

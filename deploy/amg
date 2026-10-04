@@ -7,6 +7,7 @@
 #   amg backup                      # into /var/lib/amg/backups/
 #   amg restore /tmp/FILE.zip --replace
 #   amg migrate
+#   amg alerts --dry-run            # what the daily alerts run would send now
 set -e
 # A shell from `pct enter` has a bare PATH; don't depend on the caller's.
 PATH=/usr/sbin:/usr/bin:/sbin:/bin

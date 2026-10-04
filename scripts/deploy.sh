@@ -55,6 +55,19 @@ if ! cmp -s deploy/amg.service /etc/systemd/system/amg.service; then
     systemctl enable --quiet amg
 fi
 
+# The daily alerts run (8:00) and its timer.
+reload=0
+for unit in amg-alerts.service amg-alerts.timer; do
+    if ! cmp -s "deploy/$unit" "/etc/systemd/system/$unit"; then
+        install -m 644 "deploy/$unit" "/etc/systemd/system/$unit"
+        reload=1
+    fi
+done
+if [ "$reload" -eq 1 ]; then
+    systemctl daemon-reload
+fi
+systemctl enable --quiet --now amg-alerts.timer
+
 # The database as it was before the restart, which is when new migrations run.
 # Database only, so it's small; the last ten are kept.
 if [ -f /var/lib/amg/amg.sqlite3 ]; then

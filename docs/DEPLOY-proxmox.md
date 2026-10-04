@@ -143,7 +143,8 @@ The script:
    `.venv`.
 2. Installs the Python dependencies. This takes a minute or two the first time.
 3. Installs `/usr/local/bin/amg` (the command-line tasks, run as the app's
-   user) and the systemd unit from `deploy/amg.service`.
+   user), the systemd unit from `deploy/amg.service`, and the daily alerts
+   run with its timer (`deploy/amg-alerts.*`, step 10).
 4. Saves a database-only backup if a database already exists.
 5. Restarts the app and waits until it answers `/healthz`.
 
@@ -339,6 +340,79 @@ scp /mnt/c/projects/amg/data/backups/amg-backup-*.zip root@<amg-ip>:/tmp/
 
 Only do this before the server has data of its own: the restore replaces it.
 
+## 10 · Alerts
+
+Every morning at 8:00 a systemd timer (`amg-alerts.timer`, installed by the
+deploy) runs AMG's alerts:
+
+- **A push to your phone** through ntfy, when a job on a car comes due soon
+  or goes overdue. Each job is pushed once at each step.
+- **An email on Mondays** with what each car has overdue, due soon and coming
+  up. The next 12 months of jobs come attached as a calendar file.
+
+Both only need the container to reach the internet, so they reach you off the
+VPN. Each one is off until its settings are in `.env`.
+
+**Pushes.** Install the **ntfy** app on your phone. Pick a topic name nobody
+would guess, because anyone who knows a topic on ntfy.sh can read it. On
+**LXC 302**:
+
+```bash
+python3 -c "import secrets; print('amg-' + secrets.token_urlsafe(12))"
+```
+
+In the app, subscribe to that topic on the default server (ntfy.sh).
+
+**Email.** Gmail needs an **app password**, not your Google password:
+
+1. On your Google account, turn on 2-Step Verification if it isn't on.
+2. Go to <https://myaccount.google.com/apppasswords>, make one called "AMG",
+   and copy the 16 letters.
+
+**LXC 302.** Put both in the settings file and restart:
+
+```bash
+nano /opt/amg/app/.env
+#   AMG_NTFY_TOPIC=amg-…the topic…
+#   AMG_SMTP_USER=you@gmail.com
+#   AMG_SMTP_PASSWORD=…the app password…
+systemctl restart amg
+```
+
+`.env.example` lists the rest. You don't need them for ntfy.sh and Gmail.
+
+**Check it.** Open **Alerts** (footer):
+
+- [ ] **Send a test push** reaches your phone.
+- [ ] **Send a test email** reaches your inbox (look in spam the first time).
+- [ ] Turn on alerts for each car you want watched. Turning one on starts from
+      now: what's already due goes in Monday's email, not a push. **Leave a car
+      off until all its old receipts are in.** Until then, AMG thinks some
+      work is overdue that was really done.
+
+Then, on **LXC 302**:
+
+```bash
+amg alerts --dry-run                  # what a run would send now; sends nothing
+systemctl list-timers amg-alerts      # the next run, and the last
+journalctl -u amg-alerts -n 30        # what the last run said
+```
+
+`amg alerts` (without `--dry-run`) runs it there and then. A run never sends
+the same alert twice. The Alerts page shows when it last ran, what went out,
+and why anything didn't.
+
+**Calendar.** Google Calendar can't subscribe to AMG, because its servers can't
+reach your home network. So the calendar is a file you import:
+
+1. Get it from Monday's email, or **Alerts → Download the calendar (.ics)**.
+2. In Google Calendar, go to **Settings → Import & export → Import**. Import it
+   into a calendar of its own, made first under **Add calendar → Create new
+   calendar**, called "Car maintenance".
+
+To refresh it, import a newer file into the same calendar. If that adds copies
+instead of moving dates, delete the calendar and import into a fresh one.
+
 ---
 
 ## Day to day
@@ -352,7 +426,7 @@ cd /mnt/c/projects/amg && bash scripts/deploy.sh
 A restart stops any receipt being read at that moment. Its page then offers
 **Carry on reading**, and nothing already read is lost.
 
-**Logs** (**LXC 302**): `journalctl -u amg -f`. nginx's are in
+**Logs** (**LXC 302**): `journalctl -u amg -f`. The alerts run's: `journalctl -u amg-alerts -n 30`. nginx's are in
 `/var/log/nginx/amg_error.log` on LXC 300.
 
 **Restart** (**LXC 302**): `systemctl restart amg`.
@@ -399,4 +473,9 @@ your newest full backup as in step 9.
 | "attempt to write a readonly database", or Permission denied under `/var/lib/amg` | Something ran as root against the data | `chown -R amg:amg /var/lib/amg`, restart; use the `amg` command, which refuses to run as root there |
 | New services default to tomorrow's date late in the evening | The container isn't on Eastern time | `pct set 302 --timezone America/New_York`, then `pct reboot 302` |
 | `deploy.sh`: "Permission denied (publickey)" | The key isn't in the container | Step 2 |
+| Test push: "Couldn't reach ntfy.sh" | The container can't reach the internet | **LXC 302:** `curl -sI https://ntfy.sh` |
+| Test push sent, but nothing on the phone | The app isn't subscribed to that exact topic | Compare the topic on the Alerts page with the app's |
+| Test email: "must be an app password" | `AMG_SMTP_PASSWORD` is your Google password, or the app password was revoked | Step 10: make a new app password |
+| No email on Monday | The timer didn't run, or the send failed | Alerts page, "What went out"; **LXC 302:** `systemctl list-timers amg-alerts`, `journalctl -u amg-alerts -n 30` |
+| A push for work you'd done | Its receipt isn't in AMG yet | Add the receipt. Leave a car's alerts off until its history is complete |
 | `deploy.sh`: "✗ AMG didn't come back up" | The app fails at startup; the log printed below says why | Fix and redeploy; that deploy's database snapshot is in `/var/lib/amg/backups/` |
