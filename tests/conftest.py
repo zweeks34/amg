@@ -15,6 +15,10 @@ def data_dir(tmp_path, monkeypatch):
     path = tmp_path / "data"
     monkeypatch.setenv("AMG_DATA_DIR", str(path))
     monkeypatch.setattr(auth, "FAILED_LOGIN_DELAY", 0)
+    # Whatever .env says about alerts, no test sends a real push or email: a test that wants a channel sets it.
+    for name in ("AMG_BASE_URL", "AMG_NTFY_TOPIC", "AMG_NTFY_URL", "AMG_NTFY_TOKEN", "AMG_SMTP_HOST", "AMG_SMTP_PORT",
+                 "AMG_SMTP_USER", "AMG_SMTP_PASSWORD", "AMG_EMAIL_TO"):
+        monkeypatch.delenv(name, raising=False)
     return path
 
 

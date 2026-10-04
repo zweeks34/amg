@@ -1,0 +1,49 @@
+{#- The weekly email, in HTML. alerts/mail.py writes the same in plain text.
+    Mail clients ignore stylesheets, so every style is inline; the colours are
+    the app's: ink, shop-floor gray, safety yellow and signal red. -#}
+{%- set ink = "#16202b" -%}
+{%- set steel = "#5a6672" -%}
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>{{ subject }}</title></head>
+<body style="margin:0;padding:24px 16px;background:#e3e6e8;color:{{ ink }};font:16px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif">
+<div style="max-width:560px;margin:0 auto">
+  <p style="margin:0 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:{{ steel }}">AMG · this week</p>
+  <h1 style="margin:0 0 20px;font:700 26px/1.15 'Arial Narrow',system-ui,sans-serif;border-bottom:4px solid #f2b705;padding-bottom:8px">{{ subject[5:] | capitalize }}</h1>
+
+  {% for w in watches %}
+  <div style="background:#f7f8f9;border:1px solid #c9cfd5;border-radius:6px;padding:16px;margin:0 0 16px">
+    <h2 style="margin:0 0 8px;font:700 20px/1.2 'Arial Narrow',system-ui,sans-serif">
+      <a href="{{ base_url }}/vehicles/{{ w.car.id }}" style="color:{{ ink }}">{{ w.car.name }}</a></h2>
+    {% if not w.has_schedule %}
+    <p style="margin:0;color:{{ steel }}">No maintenance schedule yet, so there's nothing to watch.</p>
+    {% else %}
+      {% for heading, jobs, colour in (("Overdue", w.overdue, "#c4372b"), ("Due soon", w.due, "#f2b705")) if jobs %}
+      <p style="margin:12px 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ colour }};margin-right:6px"></span>{{ heading }}</p>
+      <ul style="margin:0;padding-left:20px">
+        {% for job in jobs %}<li>{{ job.name }} <span style="color:{{ steel }}">· {{ job.when }}{% if job.cost %} · ~{{ job.cost | dollars }}{% endif %}</span></li>{% endfor %}
+      </ul>
+      {% endfor %}
+      {% if not w.jobs %}<p style="margin:0">Nothing due or overdue.</p>{% endif %}
+      {% if w.state.missed %}<p style="margin:12px 0 0">Missed earlier: {{ w.state.missed }}. <a href="{{ base_url }}/vehicles/{{ w.car.id }}" style="color:{{ ink }}">The car's page</a> lists them.</p>{% endif %}
+      {% if w.coming_up %}
+      <p style="margin:12px 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:{{ steel }}">Coming up</p>
+      <ul style="margin:0;padding-left:20px">
+        {% for r in w.coming_up %}<li>{{ r.name }} <span style="color:{{ steel }}">· {{ r.when }}{% if r.cost %} · ~{{ r.cost | dollars }}{% endif %}</span></li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% set line = budget_line(w) %}
+      {% if line %}<p style="margin:12px 0 0;padding-top:12px;border-top:1px solid #dde1e5">{{ line }}</p>{% endif %}
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {% if to_check %}
+  <p style="margin:0 0 16px"><a href="{{ base_url }}/receipts" style="color:{{ ink }}">{{ to_check }} receipt{{ "s" if to_check != 1 }} to check</a>.</p>
+  {% endif %}
+  <p style="margin:0;font-size:14px;color:{{ steel }}">The attached {{ calendar_file }} has the next 12 months of jobs. {{ import_how }}
+    Links open when you're home or on the VPN.</p>
+</div>
+</body>
+</html>

@@ -12,6 +12,7 @@ variable exported in the shell or by systemd wins over the file.
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -38,3 +39,52 @@ def cookie_secure() -> bool:
     cookie would never be sent back. Set AMG_COOKIE_SECURE=1 behind TLS.
     """
     return os.environ.get("AMG_COOKIE_SECURE", "").strip().lower() in {"1", "true", "yes"}
+
+
+def base_url() -> str:
+    """Where links in alerts point: the app as you reach it at home or on the VPN."""
+    return (os.environ.get("AMG_BASE_URL") or "http://amg.home.arpa").strip().rstrip("/")
+
+
+@dataclass(frozen=True)
+class Ntfy:
+    url: str        # the server, e.g. https://ntfy.sh
+    topic: str
+    token: str      # for a protected topic; empty for none
+
+
+def ntfy() -> Ntfy | None:
+    """Push settings, or None when no topic is set — no topic, no pushes."""
+    topic = os.environ.get("AMG_NTFY_TOPIC", "").strip()
+    if not topic:
+        return None
+    url = (os.environ.get("AMG_NTFY_URL") or "https://ntfy.sh").strip().rstrip("/")
+    return Ntfy(url, topic, os.environ.get("AMG_NTFY_TOKEN", "").strip())
+
+
+@dataclass(frozen=True)
+class Smtp:
+    host: str
+    port: int
+    user: str
+    password: str
+    to: str
+
+
+def smtp() -> Smtp | None:
+    """Email settings, or None unless both the user and the password are set.
+
+    Gmail shows an app password in groups of four; the spaces aren't part of it.
+    """
+    user = os.environ.get("AMG_SMTP_USER", "").strip()
+    password = os.environ.get("AMG_SMTP_PASSWORD", "").replace(" ", "").strip()
+    if not (user and password):
+        return None
+    port = os.environ.get("AMG_SMTP_PORT", "").strip()
+    return Smtp(
+        host=(os.environ.get("AMG_SMTP_HOST") or "smtp.gmail.com").strip(),
+        port=int(port) if port.isdigit() else 587,
+        user=user,
+        password=password,
+        to=os.environ.get("AMG_EMAIL_TO", "").strip() or user,
+    )

@@ -4,9 +4,10 @@
     python -m amg.cli migrate            # apply pending migrations (the app also does this at startup)
     python -m amg.cli backup             # database and stored files, zipped into data/backups/
     python -m amg.cli restore FILE.zip   # put a backup back (stop the app first)
+    python -m amg.cli alerts [--dry-run] # push what's newly due, and the weekly email (the timer runs this daily)
 
 On the server the ``amg`` command (deploy/amg) runs these as the app's user:
-``amg backup``, ``amg set-password``.
+``amg backup``, ``amg set-password``, ``amg alerts --dry-run``.
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ def main(argv: list[str] | None = None) -> int:
     restoring.add_argument("zip", type=Path, help="a zip made by `backup` or the Back up page")
     restoring.add_argument("--replace", action="store_true",
                            help="move the current database aside and use the backup's")
+    alerting = commands.add_parser("alerts", help="push what's newly due, and send the weekly email when it's due")
+    alerting.add_argument("--dry-run", action="store_true", help="print what would go out; send and record nothing")
     args = parser.parse_args(argv)
 
     if problem := _wrong_user():
@@ -42,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
         return _backup(args.out, include_files=not args.no_files)
     if args.command == "restore":
         return _restore(args.zip, args.replace)
+    if args.command == "alerts":
+        from .alerts import run
+
+        return run.main(["--dry-run"] if args.dry_run else [])
 
     conn = db.connect()
     try:
