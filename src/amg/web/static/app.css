@@ -993,6 +993,25 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .rcard__file { font-size: 0.75rem; overflow-wrap: anywhere; }
 
 .ledger__row--receipt { grid-template-columns: 6.5rem minmax(8rem, 1fr) 1fr 6rem; }
+@media (max-width: 48rem) {
+  .ledger__row--receipt {
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "date total" "who who" "what what";
+  }
+}
+
+/* Finding a confirmed receipt: the search takes the room, the choices wrap
+   under it on a phone. A search's matches sit under their row, the words in
+   safety yellow. */
+.finder { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem 1rem; min-width: 0; }
+.finder .field { flex: 1 1 8rem; min-width: 0; }
+.finder .finder__search { flex: 2 1 16rem; }
+.finder__found { min-width: 0; }   /* a grid item in .block: don't let the ledger widen the page */
+.finder__count { margin: 0; color: var(--ink-2); }
+.finder__count:not(:empty) { margin-bottom: 0.75rem; }
+.ledger__found { grid-column: 1 / -1; display: grid; gap: 0.125rem; font-size: 0.875rem; color: var(--ink-2); }
+.ledger__label { font: 600 0.75rem/1.2 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.ledger__found mark { padding: 0 0.125em; border-radius: 2px; background: var(--due); color: var(--on-due); }
 
 /* The review: the scan beside the draft. A two-pane workspace, so its page
    runs wider than the reading column every other page keeps to. */

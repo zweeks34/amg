@@ -17,7 +17,7 @@ from ..ingest import background, drafts, vin as vins
 from ..ingest.drafts import Draft
 from ..ingest.receipts import DOCUMENT_KINDS, ReceiptExtraction
 from ..repo import documents, odometer, receipts, services, vehicles
-from . import forms, line_editor
+from . import forms, line_editor, receipt_finder
 from .deps import get_conn
 from .routes_services import KIND_LABELS, editor_types
 from .templating import render
@@ -41,8 +41,16 @@ _FIELDS = (
 
 
 @router.get("/receipts")
-def inbox(request: Request, confirmed: int | None = None, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
-    return _inbox(request, conn, confirmed=confirmed)
+def inbox(
+    request: Request,
+    confirmed: int | None = None,
+    q: str = "",
+    car: str = "",
+    year: str = "",
+    sort: str = "",
+    conn: sqlite3.Connection = Depends(get_conn),
+) -> Response:
+    return _inbox(request, conn, confirmed=confirmed, finder=receipt_finder.Finder.read(q, car, year, sort))
 
 
 @router.get("/receipts/list")
@@ -228,18 +236,31 @@ def _receipt_or_404(conn: sqlite3.Connection, receipt_id: int) -> dict:
     return receipt
 
 
-def _inbox(request: Request, conn: sqlite3.Connection, status_code: int = 200, **notices) -> Response:
+def _inbox(request: Request, conn: sqlite3.Connection, status_code: int = 200,
+           finder: receipt_finder.Finder | None = None, **notices) -> Response:
     confirmed = notices.pop("confirmed", None)
-    return render(
+    groups = receipts.inbox(conn)
+    options = receipt_finder.choices(groups["confirmed"])
+    finder = (finder or receipt_finder.Finder()).within(options)
+    type_names = {row["code"]: row["name"] for row in services.list_types(conn)}
+    response = render(
         request,
         "receipts.html",
         status_code=status_code,
         active="receipts",
-        groups=receipts.inbox(conn),
+        groups=groups,
+        finder=finder,
+        options=options,
+        sorts=receipt_finder.SORTS,
+        found=receipt_finder.find(groups["confirmed"], finder, type_names),
         cars=[dict(r) for r in conn.execute("SELECT id, name FROM vehicles WHERE archived_at IS NULL ORDER BY name")],
         just_confirmed=receipts.get(conn, confirmed) if confirmed else None,
         **notices,
     )
+    if request.headers.get("HX-Request"):
+        # The search box asked: keep the address bar in step, without a history entry per keystroke.
+        response.headers["HX-Replace-Url"] = finder.url()
+    return response
 
 
 def _raw_from(draft: Draft) -> dict[str, str]:

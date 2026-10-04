@@ -9,9 +9,9 @@ import pytest
 import receipt_fixtures as fx  # tests/ is on pytest's path
 from PIL import Image
 
-from amg.ingest import background
+from amg.ingest import background, drafts
 from amg.ingest import receipts as reader
-from amg.repo import receipts, services, vehicles
+from amg.repo import documents, jobs, receipts, services, vehicles
 
 OUTBACK_VIN = "1M8GDM9AXKP042788"
 OTHER_VIN = "2HGFC2F59JH000001"
@@ -265,6 +265,87 @@ def test_receipt_backed_service_links_back_and_releases_on_delete(signed_in, con
 
     signed_in.post(f"/services/{event_id}/delete")
     assert receipts.get(conn, receipt_id)["status"] == "read"
+
+
+# ---------- Finding a confirmed receipt ----------
+
+
+def _confirmed(conn, car, day, shop, total, work):
+    """A receipt read and confirmed for the car, straight through the repo."""
+    document, _ = documents.store(conn, _pdf(f"{day} {shop}"), f"{shop}.pdf")
+    job_id = jobs.create(conn, "read_receipts")
+    receipt_id = receipts.create(conn, document["id"], job_id)
+    receipts.claim_next(conn, job_id)
+    extraction = fx.extraction(date=day, shop_name=shop, odometer=None, lines=[fx.line(work, total, ())],
+                               recommendations=[], subtotal=total, tax=0, total=total)
+    types = {row["code"]: dict(row) for row in services.list_types(conn)}
+    receipts.mark_read(conn, receipt_id, extraction.model_dump(), drafts.from_extraction(extraction, types), [], fx.USAGE)
+    receipts.confirm(conn, receipt_id, receipts.get(conn, receipt_id)["draft"], car)
+    return receipt_id
+
+
+@pytest.fixture
+def history(conn, outback):
+    """Three receipts, confirmed out of date order, across two cars and three years."""
+    forester = vehicles.create(conn, vehicles.VehicleFields(name="Forester"))
+    return {
+        "2019": _confirmed(conn, outback, "2019-08-15", "Corner Garage", 77.79, "Oil change"),
+        "2024": _confirmed(conn, outback, "2024-03-11", "Midas", 412.37, "Front brake pads"),
+        "2022": _confirmed(conn, forester, "2022-05-02", "Midas", 1234.00, "Timing belt kit"),
+    }, forester
+
+
+def _listed(page: str, ids: dict) -> list[str]:
+    """Which of the receipts the page lists, in its order."""
+    return sorted((key for key in ids if f'href="/receipts/{ids[key]}"' in page),
+                  key=lambda key: page.index(f'href="/receipts/{ids[key]}"'))
+
+
+def test_confirmed_receipts_are_listed_newest_receipt_date_first(signed_in, history):
+    ids, _ = history
+    assert _listed(signed_in.get("/receipts").text, ids) == ["2024", "2022", "2019"]
+    assert _listed(signed_in.get("/receipts?sort=oldest").text, ids) == ["2019", "2022", "2024"]
+    assert _listed(signed_in.get("/receipts?sort=total").text, ids) == ["2022", "2024", "2019"]
+
+
+def test_a_search_shows_only_what_matches_and_why(signed_in, history):
+    ids, _ = history
+    page = signed_in.get("/receipts?q=brake").text
+    assert _listed(page, ids) == ["2024"]
+    assert "Showing 1 of 3." in page and "Front <mark>brake</mark> pads" in page
+    assert 'value="brake"' in page and "Confirmed (3)" in page
+
+
+def test_car_year_and_search_narrow_together(signed_in, history):
+    ids, forester = history
+    assert _listed(signed_in.get(f"/receipts?q=midas&car={forester}").text, ids) == ["2022"]
+    assert _listed(signed_in.get("/receipts?q=midas&year=2024").text, ids) == ["2024"]
+    page = signed_in.get(f"/receipts?q=oil&car={forester}&sort=oldest").text
+    assert _listed(page, ids) == []
+    assert 'No confirmed receipts match. <a href="/receipts?sort=oldest">Show all 3</a>' in page
+
+
+def test_car_and_year_are_only_offered_when_there_is_a_choice(signed_in, conn, outback):
+    _confirmed(conn, outback, "2024-03-11", "Midas", 412.37, "Front brake pads")
+    _confirmed(conn, outback, "2024-06-01", "Midas", 50.00, "Wiper blades")
+    page = signed_in.get(f"/receipts?car={outback}&year=2024").text
+    assert 'name="q"' in page and 'name="sort"' in page
+    assert 'name="car"' not in page and 'name="year"' not in page
+    assert "Showing" not in page                                   # and nothing filters out of sight
+
+
+def test_the_search_box_keeps_the_address_bar_in_step(signed_in, history):
+    response = signed_in.get("/receipts?q=brake&car=&year=&sort=newest", headers={"HX-Request": "true"})
+    assert response.headers["HX-Replace-Url"] == "/receipts?q=brake"
+    assert "HX-Replace-Url" not in signed_in.get("/receipts?q=brake").headers
+
+
+def test_polling_while_reading_leaves_the_confirmed_list_alone(signed_in, conn, history, monkeypatch):
+    monkeypatch.setattr(background, "spawn", lambda job_id: None)   # stays queued
+    _upload(signed_in, ("new.pdf", _pdf("new")))
+    polled = signed_in.get("/receipts/list").text
+    assert 'hx-trigger="every 2s"' in polled
+    assert "Confirmed (" not in polled and 'name="q"' not in polled
 
 
 # ---------- Files ----------

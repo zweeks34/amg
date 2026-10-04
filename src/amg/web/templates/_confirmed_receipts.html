@@ -1,0 +1,101 @@
+{#- The confirmed receipts, and how to find one: search, car, year and sort.
+
+    The form asks for the page again as you type, and swaps in only the list
+    and the count beside it — the form itself stays put, so the box keeps its
+    focus and what you've typed. -#}
+{% if groups.confirmed %}
+<section class="block" aria-labelledby="confirmed-heading">
+  <h2 class="h3" id="confirmed-heading">Confirmed ({{ groups.confirmed | length }})</h2>
+  <form class="finder" method="get" action="/receipts" role="search" aria-label="Find a confirmed receipt"
+        hx-get="/receipts" hx-trigger="input delay:250ms, submit" hx-sync="this:replace"
+        hx-select="#confirmed-results" hx-target="#confirmed-results" hx-swap="outerHTML"
+        hx-select-oob="#confirmed-count:innerHTML">
+    <div class="field finder__search">
+      <label for="find-q">Search</label>
+      <input id="find-q" type="search" name="q" value="{{ finder.q }}" placeholder="Shop, work, notes or amount"
+             autocomplete="off" enterkeyhint="search">
+    </div>
+    {% if options.cars | length > 1 %}
+    <div class="field">
+      <label for="find-car">Car</label>
+      <select id="find-car" name="car">
+        <option value="">All cars</option>
+        {% for car in options.cars %}<option value="{{ car.id }}"{% if car.id == finder.car %} selected{% endif %}>{{ car.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if options.years | length > 1 %}
+    <div class="field">
+      <label for="find-year">Year</label>
+      <select id="find-year" name="year">
+        <option value="">Any year</option>
+        {% for year in options.years %}<option value="{{ year }}"{% if year == finder.year %} selected{% endif %}>{{ year }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="field">
+      <label for="find-sort">Sort</label>
+      <select id="find-sort" name="sort">
+        {% for key, words in sorts.items() %}<option value="{{ key }}"{% if key == finder.sort %} selected{% endif %}>{{ words }}</option>{% endfor %}
+      </select>
+    </div>
+  </form>
+
+  <div class="finder__found">
+    <p class="finder__count" id="confirmed-count" role="status">
+      {%- if finder.active and found -%}
+      Showing {{ found | length }} of {{ groups.confirmed | length }}. <a href="{{ finder.cleared() }}">Show all</a>
+      {%- elif finder.active -%}
+      No confirmed receipts match. <a href="{{ finder.cleared() }}">Show all {{ groups.confirmed | length }}</a>
+      {%- endif -%}
+    </p>
+
+    <div id="confirmed-results">
+      {% if found %}
+      <ol class="ledger sheet sheet--flush">
+        {% for r in found %}
+        <li>
+          <a class="ledger__row ledger__row--receipt" href="/receipts/{{ r.id }}">
+            <span class="ledger__date mono">{{ r.performed_on }}</span>
+            <span class="ledger__who">{{ r.shop }}</span>
+            <span class="ledger__what muted">{{ r.vehicle_name or "" }}</span>
+            <span class="ledger__total mono">{{ r.total_cents | money if r.total_cents is not none else "" }}</span>
+            {% if r.found %}
+            <span class="ledger__found">
+              {% for hit in r.found %}
+              <span>{% if hit.label %}<span class="ledger__label">{{ hit.label }}</span> {% endif %}{{ hit.text }}{% if hit.covers %} <span class="muted">· {{ hit.covers }}</span>{% endif %}</span>
+              {% endfor %}
+              {% if r.more %}<span class="muted">+{{ r.more }} more</span>{% endif %}
+            </span>
+            {% endif %}
+          </a>
+        </li>
+        {% endfor %}
+      </ol>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if groups.discarded %}
+<details class="archived">
+  <summary>Discarded ({{ groups.discarded | length }})</summary>
+  <ul class="archived__list">
+    {% for r in groups.discarded %}
+    <li>
+      <a href="/receipts/{{ r.id }}">{{ r.filename }}</a>
+      <form method="post" action="/receipts/{{ r.id }}/restore">
+        <button class="btn btn--quiet" type="submit">Restore</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+
+{% if not (groups.reading or groups.to_check or groups.failed or groups.confirmed or groups.discarded) %}
+<div class="sheet empty empty--small">
+  <p>No receipts yet. Upload a few above — AMG reads them while you wait, then shows you each one to check.</p>
+</div>
+{% endif %}

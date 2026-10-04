@@ -239,6 +239,17 @@ def test_possible_duplicates(conn, receipt):
     assert [d["id"] for d in receipts.possible_duplicates(conn, second, draft)] == [first]
 
 
+def test_confirmed_receipts_come_newest_receipt_date_first(conn, outback, receipt):
+    newer = receipt(fx.extraction(date="2024-03-11", shop_name="Midas"))
+    older = receipt(fx.extraction(date="2019-08-15", shop_name="Corner Garage"))
+    for receipt_id in (newer, older):   # the older one confirmed last
+        receipts.confirm(conn, receipt_id, receipts.get(conn, receipt_id)["draft"], outback)
+    confirmed = receipts.inbox(conn)["confirmed"]
+    assert [r["id"] for r in confirmed] == [newer, older]
+    assert confirmed[0]["lines"][0]["description"] == "Synthetic oil and filter change"   # what search reads
+    assert (confirmed[0]["invoice_number"], confirmed[0]["vehicle_archived"]) == ("A100", 0)
+
+
 def test_discard_and_restore(conn, receipt):
     receipt_id = receipt()
     receipts.discard(conn, receipt_id)

@@ -1,5 +1,8 @@
-{#- The receipt lists. While anything is being read (and its reader is alive),
-    this block asks for itself again every two seconds and swaps itself in. -#}
+{#- The receipts still on their way: being read, to check, and couldn't read.
+    While anything is being read (and its reader is alive), this block asks for
+    itself again every two seconds and swaps itself in. Confirmed receipts are
+    in _confirmed_receipts.html, out of its reach: nothing there changes while
+    reading, and a swap would wipe the search box mid-word. -#}
 {% set busy = groups.reading | rejectattr("stalled") | list %}
 {% set kinds = {"estimate": "Estimate", "deposit": "Deposit", "inspection_report": "Inspection", "other": "Not an invoice"} %}
 <div id="receipt-lists" class="rlists"
@@ -67,45 +70,5 @@
       {% endfor %}
     </ul>
   </section>
-  {% endif %}
-
-  {% if groups.confirmed %}
-  <section class="block" aria-labelledby="confirmed-heading">
-    <h2 class="h3" id="confirmed-heading">Confirmed ({{ groups.confirmed | length }})</h2>
-    <ol class="ledger sheet sheet--flush">
-      {% for r in groups.confirmed %}
-      <li>
-        <a class="ledger__row ledger__row--receipt" href="/receipts/{{ r.id }}">
-          <span class="ledger__date mono">{{ r.performed_on }}</span>
-          <span class="ledger__who">{{ r.shop }}</span>
-          <span class="ledger__what muted">{{ r.vehicle_name or "" }}</span>
-          <span class="ledger__total mono">{{ r.total_cents | money if r.total_cents is not none else "" }}</span>
-        </a>
-      </li>
-      {% endfor %}
-    </ol>
-  </section>
-  {% endif %}
-
-  {% if groups.discarded %}
-  <details class="archived">
-    <summary>Discarded ({{ groups.discarded | length }})</summary>
-    <ul class="archived__list">
-      {% for r in groups.discarded %}
-      <li>
-        <a href="/receipts/{{ r.id }}">{{ r.filename }}</a>
-        <form method="post" action="/receipts/{{ r.id }}/restore">
-          <button class="btn btn--quiet" type="submit">Restore</button>
-        </form>
-      </li>
-      {% endfor %}
-    </ul>
-  </details>
-  {% endif %}
-
-  {% if not (groups.reading or groups.to_check or groups.failed or groups.confirmed or groups.discarded) %}
-  <div class="sheet empty empty--small">
-    <p>No receipts yet. Upload a few above — AMG reads them while you wait, then shows you each one to check.</p>
-  </div>
   {% endif %}
 </div>

@@ -124,7 +124,8 @@ def inbox(conn: sqlite3.Connection) -> dict[str, list[dict]]:
     groups: dict[str, list[dict]] = {"reading": [], "to_check": [], "failed": [], "confirmed": [], "discarded": []}
     stalled_jobs: dict[int, bool] = {}
     rows = conn.execute(
-        "SELECT r.*, d.filename, d.page_count, d.uploaded_at, v.name AS vehicle_name"
+        "SELECT r.*, d.filename, d.page_count, d.uploaded_at, v.name AS vehicle_name,"
+        "       v.archived_at IS NOT NULL AS vehicle_archived"
         "  FROM receipts r JOIN documents d ON d.id = r.document_id"
         "  LEFT JOIN vehicles v ON v.id = r.vehicle_id"
         " ORDER BY r.id"
@@ -138,6 +139,11 @@ def inbox(conn: sqlite3.Connection) -> dict[str, list[dict]]:
             total_cents=draft.get("total_cents"),
             document_kind=draft.get("document_kind", "invoice"),
             warning_count=len(json.loads(row["warnings_json"] or "[]")),
+            # What searching the confirmed receipts reads.
+            invoice_number=draft.get("invoice_number", ""),
+            lines=draft.get("lines", []),
+            recommendations=draft.get("recommendations", []),
+            notes=draft.get("notes", ""),
         )
         if row["status"] in ("queued", "reading"):
             if row["job_id"] not in stalled_jobs:
@@ -149,7 +155,8 @@ def inbox(conn: sqlite3.Connection) -> dict[str, list[dict]]:
             groups["to_check"].append(item)
         else:
             groups[row["status"]].append(item)
-    groups["confirmed"].sort(key=lambda r: r["confirmed_at"] or "", reverse=True)
+    # Newest receipt date first; on the same day, the one added last.
+    groups["confirmed"].sort(key=lambda r: (r["performed_on"] or "", r["id"]), reverse=True)
     return groups
 
 
