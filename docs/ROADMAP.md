@@ -25,7 +25,7 @@ before the next begins.
 | Vehicles | Gasoline, hybrid, EV | EVs log kWh and mi/kWh instead of gallons and MPG |
 | Units | Miles, US gallons, USD, kWh | |
 | Fuel entry | Quick phone form at the pump or charger | |
-| Alerts | Dashboard badges, weekly email digest, ntfy push, `.ics` calendar feed | Email and ntfy only need outbound access, so they reach you off the VPN |
+| Alerts | Dashboard badges, ntfy push, weekly email digest, the calendar as an `.ics` file to import | Email and ntfy only need outbound access, so they reach you off the VPN. A subscribed calendar feed can't work: Google Calendar's servers can't reach a VPN-only app (phase 8) |
 | Auth | One password (stdlib `hashlib.scrypt`), long-lived HMAC-signed session cookie | Keeps guests on the LAN out; you rarely see the login screen |
 | UI | "Service Interval Chart" direction via the frontend-design skill | The app's core question — what did I miss? — *is* the chart |
 | Hosting | New app LXC on Proxmox, new server block on the existing nginx LXC, reached over NordVPN | Mirrors paint-decoder's deployment |
@@ -418,16 +418,71 @@ total looks believable to you. *That last part is yours.*
 
 **For:** hearing about due and missed work without opening the app.
 
-- [ ] Daily systemd timer runs `python -m amg.alerts.run` (`--dry-run` prints instead of sending)
-- [ ] ntfy push when an item becomes due soon or overdue
-- [ ] Weekly email digest via `smtplib` (Gmail app password)
-- [ ] `/calendar/<token>.ics` feed; token regenerable from settings
+- [x] Daily systemd timer (`deploy/amg-alerts.timer`, 8:00, catching up after a boot) runs `python -m amg.alerts.run`, or `amg alerts`; `--dry-run` prints instead of sending
+- [x] ntfy push when a job comes due soon or goes overdue: one push per car per run, tapping it opens the car
+- [x] Weekly email digest via `smtplib` (Gmail app password), the first run of each week: overdue, due soon, missed, coming up and the year's budget per car, and receipts to check. It goes out even when nothing's due
+- [x] ~~`/calendar/<token>.ics` feed; token regenerable from settings~~ → the next 12 months as an `.ics` **file**, attached to the weekly email and downloadable from the Alerts page, to import into Google Calendar. A subscribed feed can't work: Google's servers fetch it, and they can't reach a VPN-only app
+- [x] Alerts page (`/alerts`): each channel's settings with a test send, the per-car switch, the calendar file, the last run and what went out
 
-**Data owned:** `alert_log` — each alert sent once per item, occurrence, channel
-and level.
+**Decisions:**
 
-**Tests pin:** no duplicate alerts across runs; the ICS feed parses; the token
-rejects a wrong value.
+- **Alerts are per car, off until turned on, and turning on takes stock:**
+  what's already due or overdue is logged as known, not pushed. Keep a car
+  off while its old receipts are still going in: until they're all in, work
+  that was done looks overdue.
+- **What counts as the same alert:** a job (service types + action, as the
+  price book keys it) and its *round*, the last service that did it. One push
+  when the round comes due soon, one when it goes overdue, and none of the
+  first after the second. A missed occurrence doesn't start a new round, so
+  an undone job isn't pushed again; the weekly email keeps saying so. Doing
+  the job starts the next round. A new schedule with the same jobs alerts
+  nothing new.
+- **One push per car per run**, the jobs listed in it, so a bad day doesn't
+  buzz six times. Overdue is high priority.
+- **The weekly email always goes**, "nothing due this week" included: an
+  email that stops coming is how you'd notice the alerts had stopped.
+- **The calendar's event IDs count occurrences since the car's records
+  begin** (the 9th oil change), so dates passing, a job done late and the
+  odometer moving a date all describe the same event. Whether Google moves an
+  imported event or adds a copy on re-import is for you to see; if it copies,
+  the way to refresh is a fresh calendar.
+- **No new dependencies:** ntfy's JSON publish over `urllib.request`, and
+  `smtplib`/`email`. Settings are `.env` (`AMG_NTFY_*`, `AMG_SMTP_*`,
+  `AMG_EMAIL_TO`, `AMG_BASE_URL`); tests clear them, so no test sends for
+  real whatever your `.env` says.
+
+**Data owned:** `vehicles.alerts`, the switch; `alert_log`, every alert
+claimed before it goes out, `UNIQUE (channel, subject, level)` so it goes
+once, with failures given back for the next run. The last run's time and
+summary are in `settings`.
+
+**Can go wrong:** two runs at once (the timer and `amg alerts`) → the claim
+lets only one send. A run that dies mid-send → its claim stays, so that
+alert isn't sent twice. ntfy or Gmail unreachable, or a wrong setting → the
+alert is logged as failed with the reason (on the Alerts page), the run exits
+1 so systemd shows it, and the next day's run tries again. The container off
+at 8:00 → the timer runs it after boot; a week whose Monday was missed gets
+its email on the first run that week. A topic on ntfy.sh is readable by
+anyone who knows it → a long random one. A receipt history still being
+uploaded → see the switch above.
+
+**Tests pin:** no duplicate alerts across runs (the same day, the next,
+straight to overdue, a missed round, a new schedule, a claim already taken);
+a done job alerting again; taking stock; one push for several jobs; a failed
+push or email tried again; the email once per ISO week, late if Monday was
+missed; the digest's words, its HTML escaped, the `.ics` attached; SMTP with
+STARTTLS or SSL and a refused login explained; the calendar file parsing
+(folded at 75 octets, escaped, CRLF) with UIDs that survive dates passing and
+the job being done; the page's switch, test sends and download behind the
+login.
+
+**Done when:** on the server, with ntfy and Gmail in `.env`, **Send a test
+push** reaches your phone and **Send a test email** your inbox;
+`amg alerts --dry-run` lists what it would send; after the next 8:00 run
+`systemctl list-timers amg-alerts` and the Alerts page show it ran; the
+`.ics` imports into a Google calendar, and you've seen whether a second
+import moves events or copies them; and the first Monday email arrives.
+*That's yours.*
 
 ---
 
