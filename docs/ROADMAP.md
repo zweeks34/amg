@@ -436,7 +436,7 @@ rejects a wrong value.
 **For:** looking back, and handing over a car's history when you sell it.
 
 - [ ] Report builder: vehicle, date range, service type or category, shop
-- [ ] Search across receipts: what Claude read and you confirmed — shops, line descriptions, notes
+- [x] Search across receipts: what Claude read and you confirmed — shops, line descriptions, notes. Came forward onto the receipts page: search (every word must match; a line's service types and the total count too), car and year filters, and sorting, newest receipt date first by default
 - [ ] Output as a printable page or CSV
 - [ ] Presets: full history, spend by year and category, fuel-economy trend
 - [ ] Sale packet: history plus every receipt merged into one PDF (PyMuPDF)
