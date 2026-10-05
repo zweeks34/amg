@@ -35,13 +35,13 @@ def miles(value: int | None) -> str:
 
 
 def dollars(cents: int | None) -> str:
-    """Whole dollars, for estimates and budgets: 118000 → $1,180."""
-    return "—" if cents is None else f"${round(cents / 100):,}"
+    """Whole dollars, for estimates and budgets: 118000 → $1,180; a credit, -$20."""
+    return "—" if cents is None else f"{'-' if cents < 0 else ''}${round(abs(cents) / 100):,}"
 
 
 def money(cents: int | None) -> str:
-    """Dollars and cents, for what was actually paid: 14648 → $146.48."""
-    return "—" if cents is None else f"${cents / 100:,.2f}"
+    """Dollars and cents, for what was actually paid: 14648 → $146.48; a credit, -$20.00."""
+    return "—" if cents is None else f"{'-' if cents < 0 else ''}${abs(cents) / 100:,.2f}"
 
 
 def axis(value: float, span: float) -> str:

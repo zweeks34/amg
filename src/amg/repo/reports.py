@@ -10,6 +10,21 @@ from __future__ import annotations
 import sqlite3
 
 
+def cars(conn: sqlite3.Connection) -> list[dict]:
+    """Every car, the ones in the garage first, then the archived ones; A to Z within each."""
+    return [dict(row) for row in conn.execute(
+        "SELECT * FROM vehicles ORDER BY archived_at IS NOT NULL, name COLLATE NOCASE, id"
+    )]
+
+
+def has_services(conn: sqlite3.Connection) -> bool:
+    return conn.execute("SELECT 1 FROM service_events WHERE confirmed = 1 LIMIT 1").fetchone() is not None
+
+
+def has_fills(conn: sqlite3.Connection) -> bool:
+    return conn.execute("SELECT 1 FROM fuel_logs LIMIT 1").fetchone() is not None
+
+
 def visits(conn: sqlite3.Connection, car_id: int | None = None, start: str | None = None,
            end: str | None = None) -> list[dict]:
     """Confirmed services, newest first, between two ISO dates (both included).

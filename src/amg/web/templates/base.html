@@ -43,6 +43,8 @@
     <form class="colophon__signout" method="post" action="/logout">
       <button class="btn btn--quiet" type="submit">Sign out</button>
     </form>
+    <a href="/reports" {% if active == 'reports' %}aria-current="page"{% endif %}>Reports</a>
+    &nbsp;·&nbsp;
     <a href="/service-types">Service types</a>
     &nbsp;·&nbsp;
     <a href="/alerts" {% if active == 'alerts' %}aria-current="page"{% endif %}>Alerts</a>

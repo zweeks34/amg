@@ -1,0 +1,62 @@
+{#- Spending by year: categories down, years across. Each year adds up to what was paid. In whole dollars, so a
+    decade fits across a laptop screen (the CSV has the cents); on a phone the table scrolls inside its own box,
+    the category column pinned, and on paper it prints landscape. -#}
+{% if spending and spending.rows %}
+<style media="print">@page { size: landscape; }</style>
+<dl class="figures sheet">
+  <div class="figure">
+    <dt>{{ "On " ~ service_words if history.by_service else "Paid" }}</dt>
+    <dd class="figure__value mono">{{ spending.total | money }}</dd>
+    <dd class="figure__note">{{ span_words(history.first, history.last) }}</dd>
+  </div>
+  <div class="figure">
+    <dt>A year</dt>
+    <dd class="figure__value mono">{{ (spending.total / spending.years | length) | round | int | dollars }}</dd>
+    <dd class="figure__note">on average, over {{ spending.years | length }} year{{ "s" if spending.years | length != 1 }}</dd>
+  </div>
+  <div class="figure">
+    <dt>Services</dt>
+    <dd class="figure__value mono">{{ history.count }}</dd>
+  </div>
+</dl>
+
+<div class="tablewrap sheet sheet--flush" role="region" aria-labelledby="spend-caption" tabindex="0">
+  <table class="sumtable">
+    <caption class="vh" id="spend-caption">Spending by category and year</caption>
+    <thead>
+      <tr>
+        <th scope="col">Category</th>
+        {% for year in spending.years %}<th scope="col" class="num">{{ year }}</th>{% endfor %}
+        <th scope="col" class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in spending.rows %}
+      <tr>
+        <th scope="row">{{ row.label }}</th>
+        {% for year in spending.years %}<td class="num mono">{{ row.cells[year] | dollars if year in row.cells else "" }}</td>{% endfor %}
+        <td class="num mono">{{ row.total | dollars }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th scope="row">Total</th>
+        {% for year in spending.years %}<td class="num mono">{{ spending.totals[year] | dollars if spending.totals[year] else "" }}</td>{% endfor %}
+        <td class="num mono">{{ spending.total | dollars }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+<p class="aside">{% if not history.by_service %}Other is lines with no service type, shop fees and supplies, and any
+  difference between the lines and what you paid, a discount say. A service with no total counts its lines and tax.
+  {% endif %}Amounts are to the nearest dollar; the CSV has the cents.</p>
+{% elif history.visits %}
+<div class="sheet empty empty--small">
+  <p>None of the {{ history.count }} matching service{{ "s" if history.count != 1 }} has an amount to add up.</p>
+</div>
+{% else %}
+<div class="sheet empty empty--small">
+  <p>No services match. <a href="{{ filters.cleared() }}">Clear filters</a> to see them all.</p>
+</div>
+{% endif %}

@@ -1,0 +1,66 @@
+{#- Fuel economy month by month, a section a car. A month's miles, quantity and economy are its measured stretches,
+    full to full, counted in the month each ended; what was spent is every fill that month. -#}
+{% from "_fuel_chart.html" import trend_chart %}
+{% if sections %}
+{% for s in sections %}
+{% set u = s.units %}
+<section class="block reportcar" aria-labelledby="fuel-{{ s.car.id }}">
+  <h2 class="h3" id="fuel-{{ s.car.id }}">{{ s.car.name }}</h2>
+  <dl class="figures sheet">
+    <div class="figure">
+      <dt>{{ u.economy_name }}</dt>
+      {% set e = (economy_words(s.whole.economy, u) or "—").split(" ", 1) %}
+      <dd class="figure__value mono">{{ e[0] }}{% if e | length > 1 %}<span class="figure__unit"> {{ e[1] }}</span>{% endif %}</dd>
+      <dd class="figure__note">{{ span_words(s.months[-1].month ~ "-01", s.months[0].month ~ "-01") }}</dd>
+    </div>
+    <div class="figure">
+      <dt>Cost a mile</dt>
+      <dd class="figure__value mono">{{ cents_a_mile(s.whole.cost_per_mile) or "—" }}</dd>
+    </div>
+    <div class="figure">
+      <dt>Spent</dt>
+      <dd class="figure__value mono">{{ s.whole.spent | money }}</dd>
+      <dd class="figure__note">{{ s.whole.fills }} {{ u.fill }}{{ "s" if s.whole.fills != 1 }}</dd>
+    </div>
+  </dl>
+  {% if s.trend %}<div class="sheet">{{ trend_chart(s.trend) }}</div>{% endif %}
+  <div class="tablewrap sheet sheet--flush" role="region" aria-labelledby="fuel-caption-{{ s.car.id }}" tabindex="0">
+    <table class="sumtable">
+      <caption class="vh" id="fuel-caption-{{ s.car.id }}">{{ s.car.name }}, month by month</caption>
+      <thead>
+        <tr>
+          <th scope="col">Month</th>
+          <th scope="col" class="num">{{ u.fill | capitalize }}s</th>
+          <th scope="col" class="num">Miles</th>
+          <th scope="col" class="num">{{ "Gallons" if u.quantity == "gal" else "kWh" }}</th>
+          <th scope="col" class="num">{{ u.economy_name }}</th>
+          <th scope="col" class="num">A mile</th>
+          <th scope="col" class="num">Spent</th>
+          <th scope="col" class="num">Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in s.months %}
+        <tr>
+          <th scope="row">{{ m.label }}</th>
+          <td class="num mono">{{ m.fills }}</td>
+          <td class="num mono">{{ "{:,}".format(m.miles) if m.miles else "" }}</td>
+          <td class="num mono">{{ "%.1f" | format(m.quantity) if m.quantity else "" }}</td>
+          <td class="num mono">{{ (economy_words(m.economy, u) or "").split(" ")[0] }}</td>
+          <td class="num mono">{{ cents_a_mile(m.cost_per_mile) or "" }}</td>
+          <td class="num mono">{{ m.spent | money if m.spent else "" }}</td>
+          <td class="num mono">{{ price_words(m.unit_price, u) or "" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+<p class="aside">Miles, quantity and economy are measured from one full fill-up or charge to the next, and counted
+  in the month it ended. Spent and price take in every one that month, partial ones included.</p>
+{% else %}
+<div class="sheet empty empty--small">
+  <p>No fill-ups or charges in these dates. <a href="{{ filters.cleared() }}">Clear filters</a> to see them all.</p>
+</div>
+{% endif %}

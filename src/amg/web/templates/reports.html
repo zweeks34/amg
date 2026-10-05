@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · Reports{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <h1 class="display">Reports</h1>
+  <p class="pagehead__lede">Look back over what's been done to your cars and what it cost. Print a report, take it to a
+    spreadsheet, or hand a car's history to its next owner.</p>
+  <nav class="horizon" aria-label="Report">
+    {% for key, words in views.items() %}<a href="{{ filters.url(key) }}"{% if key == filters.view %} aria-current="page"{% endif %}>{{ words }}</a>{% endfor %}
+  </nav>
+</header>
+
+<p class="printhead">{{ heading }}</p>
+
+{% if not anything %}
+<div class="sheet empty empty--small">
+  {% if filters.view == "fuel" %}
+  <p>Nothing to report yet. Log a fill-up or a charge and this shows its economy, month by month.</p>
+  {% else %}
+  <p>Nothing to report yet. Confirm receipts or log services and they show up here.</p>
+  {% endif %}
+</div>
+{% else %}
+<form class="finder reportfilters" method="get" action="/reports" aria-label="Narrow the report">
+  {% if filters.view != "history" %}<input type="hidden" name="view" value="{{ filters.view }}">{% endif %}
+  <div class="field">
+    <label for="report-car">Car</label>
+    <select id="report-car" name="car">
+      <option value="">All cars</option>
+      {% for c in options.cars %}<option value="{{ c.id }}"{% if c.id == filters.car %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field field--date">
+    <label for="report-from">From</label>
+    <input id="report-from" type="date" name="from" value="{{ filters.start or '' }}">
+  </div>
+  <div class="field field--date">
+    <label for="report-to">To</label>
+    <input id="report-to" type="date" name="to" value="{{ filters.end or '' }}">
+  </div>
+  {% if filters.uses_service %}
+  <div class="field">
+    <label for="report-service">Service</label>
+    <select id="report-service" name="service">
+      <option value="">Any service</option>
+      {% for group in options.services %}
+      <optgroup label="{{ group.category }}">
+        {% for o in group.options %}<option value="{{ o.value }}"{% if o.value == filters.service %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="report-shop">Shop</label>
+    <input id="report-shop" type="text" name="shop" value="{{ filters.shop }}" list="report-shops" autocomplete="off"
+           placeholder="Any shop">
+    <datalist id="report-shops">
+      {% for name in options.shops %}<option value="{{ name }}"></option>{% endfor %}
+      <option value="Your own work"></option>
+    </datalist>
+  </div>
+  {% endif %}
+  <button class="btn btn--secondary reportfilters__go" type="submit">Show the report</button>
+</form>
+
+{% if filters.active %}
+<p class="reportfilters__clear"><a href="{{ filters.cleared() }}">Clear filters</a></p>
+{% endif %}
+
+<div class="report">
+  {% include "_report_" ~ filters.view ~ ".html" %}
+</div>
+
+<div class="reportactions">
+  <button class="btn btn--secondary" type="button" x-data x-cloak @click="window.print()">Print</button>
+  <a class="btn btn--secondary" href="{{ filters.csv_url() }}" download>Download CSV</a>
+</div>
+{% endif %}
+{% endblock %}

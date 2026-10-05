@@ -1,0 +1,57 @@
+{#- The History report: what was done, newest first. Narrowed to a service, each visit shows only the lines that
+    did it and counts the rest. -#}
+{% if history.visits %}
+<dl class="figures sheet">
+  <div class="figure">
+    <dt>Services</dt>
+    <dd class="figure__value mono">{{ history.count }}</dd>
+    <dd class="figure__note">{{ span_words(history.first, history.last) }}</dd>
+  </div>
+  <div class="figure">
+    <dt>Paid</dt>
+    <dd class="figure__value mono">{{ history.paid_cents | money }}</dd>
+    <dd class="figure__note">for {{ "these visits" if history.count != 1 else "this visit" }}, whole</dd>
+  </div>
+  {% if history.by_service %}
+  <div class="figure">
+    <dt>On {{ service_words }}</dt>
+    <dd class="figure__value mono">{{ history.matched_cents | money }}</dd>
+    <dd class="figure__note">the matching lines</dd>
+  </div>
+  {% endif %}
+</dl>
+
+<ol class="visits sheet sheet--flush">
+  {% for v in history.visits %}
+  <li class="visit">
+    <a class="visit__head" href="/services/{{ v.id }}">
+      <span class="visit__date mono">{{ v.performed_on }}</span>
+      <span class="visit__miles mono">{{ v.odometer | miles if v.odometer is not none else "" }}</span>
+      <span class="visit__who">{{ v.who }}{% if not filters.car %} <span class="visit__car">{{ v.car_name }}</span>{% endif %}</span>
+      <span class="visit__total mono">{{ v.paid | money if v.paid is not none else "" }}</span>
+    </a>
+    {% if v.shown or v.others %}
+    <ul class="visit__lines">
+      {% for line in v.shown %}
+      <li class="visit__line">
+        <span class="visit__desc">{{ line.description }}
+          {%- for c in line.covers %} <span class="chip chip--small{% if c.action == 'inspect' %} chip--inspect{% endif %}">{{ c.name }}{% if c.action == "inspect" %} <span class="chip__note">inspected</span>{% endif %}</span>{% endfor %}</span>
+        <span class="visit__amount mono">{{ line.amount_cents | money if line.amount_cents is not none else "" }}</span>
+      </li>
+      {% endfor %}
+      {% if v.others %}
+      <li class="visit__line visit__others">
+        <span>and {{ v.others }} other line{{ "s" if v.others != 1 }}</span>
+        <span class="visit__amount mono">{{ v.others_cents | money }}</span>
+      </li>
+      {% endif %}
+    </ul>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<div class="sheet empty empty--small">
+  <p>No services match. <a href="{{ filters.cleared() }}">Clear filters</a> to see them all.</p>
+</div>
+{% endif %}

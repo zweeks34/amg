@@ -140,7 +140,10 @@
 </section>
 
 <section class="block" aria-labelledby="history-heading">
-  <h2 class="h3" id="history-heading">Service history</h2>
+  <div class="block__head">
+    <h2 class="h3" id="history-heading">Service history</h2>
+    {% if history %}<a class="btn btn--quiet" href="/reports?car={{ car.id }}">Report</a>{% endif %}
+  </div>
   {% if history %}
   <ol class="ledger sheet sheet--flush">
     {% for event in history %}
