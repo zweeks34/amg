@@ -75,6 +75,14 @@
 <div class="reportactions">
   <button class="btn btn--secondary" type="button" x-data x-cloak @click="window.print()">Print</button>
   <a class="btn btn--secondary" href="{{ filters.csv_url() }}" download>Download CSV</a>
+  {% if car and filters.view == "history" %}
+  <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/sale-packet.pdf" download>Download the sale packet (PDF)</a>
+  {% endif %}
 </div>
+{% if car and filters.view == "history" %}
+<p class="aside reportactions__note">The sale packet is for a buyer: all of {{ car.name }}'s history, oldest first,
+  whatever the filters say, with every confirmed receipt after it. Your notes are left out. The scans go in as they
+  are, so your name and address on a receipt show.</p>
+{% endif %}
 {% endif %}
 {% endblock %}

@@ -83,3 +83,23 @@ def test_reports_need_a_session(client, conn):
     rf.garage(conn)
     assert client.get("/reports", follow_redirects=False).status_code == 303
     assert client.get("/reports/history.csv", follow_redirects=False).status_code == 303
+
+
+def test_the_sale_packet_downloads_for_a_chosen_car(signed_in, conn):
+    car = rf.car(conn, "Outback", year=2016, make="Subaru", model="Outback")
+    rf.receipt(conn, car, rf.pdf_bytes("MIDAS"), "midas.pdf", date="2017-08-09", shop_name="Midas")
+    page = signed_in.get(f"/reports?car={car}").text
+    assert f'href="/vehicles/{car}/sale-packet.pdf" download>Download the sale packet (PDF)</a>' in page
+    assert "your name and address on a receipt show" in page
+    assert "sale-packet.pdf" not in signed_in.get("/reports").text                       # no car chosen
+    assert "sale-packet.pdf" not in signed_in.get(f"/reports?view=spending&car={car}").text
+    response = signed_in.get(f"/vehicles/{car}/sale-packet.pdf")
+    assert response.headers["content-type"] == "application/pdf" and response.content.startswith(b"%PDF")
+    assert (f'filename="2016-subaru-outback-service-history-{date.today().isoformat()}.pdf"'
+            in response.headers["content-disposition"])
+    assert signed_in.get("/vehicles/999/sale-packet.pdf").status_code == 404
+
+
+def test_the_sale_packet_needs_a_session(client, conn):
+    car = rf.car(conn, "Outback")
+    assert client.get(f"/vehicles/{car}/sale-packet.pdf", follow_redirects=False).status_code == 303

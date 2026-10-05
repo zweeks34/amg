@@ -1,4 +1,4 @@
-"""Reports: the History, Spending and Fuel views, and each one as a CSV.
+"""Reports: the History, Spending and Fuel views, each one as a CSV, and a car's sale packet.
 
 Every report is a GET with its filters in the address bar (reports/filters.py),
 so a report is a link you can keep, print, or download as it stands.
@@ -6,18 +6,23 @@ so a report is a link you can keep, print, or download as it stands.
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
+import tempfile
 from datetime import date
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from starlette.responses import Response
+from starlette.background import BackgroundTask
+from starlette.responses import FileResponse, Response
 
-from ..reports import csvs, fuel, history, spending
+from ..reports import csvs, fuel, history, packet, spending
 from ..reports.filters import VIEWS, Filters, service_label, service_options, span_words
 from ..repo import reports
 from . import fuel_status
 from .deps import get_conn
+from .routes_vehicles import vehicle_or_404
 from .templating import render
 
 router = APIRouter()
@@ -74,6 +79,24 @@ def download(view: str, car: str = "", start: str = Query("", alias="from"), end
     name = f"amg-{view}-{slug(car_name)}-{date.today().isoformat()}.csv"
     return Response(text, media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.get("/vehicles/{vehicle_id}/sale-packet.pdf")
+def sale_packet(vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    """A car's whole history and every confirmed receipt, as one PDF. Built in the system temp directory and
+    deleted once sent, like a backup download: it's the size of the car's scans."""
+    car = vehicle_or_404(conn, vehicle_id)
+    handle, name = tempfile.mkstemp(prefix="amg-packet-", suffix=".pdf")
+    os.close(handle)
+    path = Path(name)
+    try:
+        packet.write(conn, car, path)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return FileResponse(path, media_type="application/pdf",
+                        filename=f"{slug(packet.title(car))}-service-history-{date.today().isoformat()}.pdf",
+                        background=BackgroundTask(path.unlink, missing_ok=True))
 
 
 def slug(text: str) -> str:

@@ -72,6 +72,17 @@ def visits(conn: sqlite3.Connection, car_id: int | None = None, start: str | Non
     return found
 
 
+def receipt_files(conn: sqlite3.Connection, car_id: int) -> dict[int, sqlite3.Row]:
+    """The stored file behind each of a car's confirmed services that came from a receipt, by service id."""
+    return {row["service_event_id"]: row for row in conn.execute(
+        "SELECT r.service_event_id, d.* FROM receipts r"
+        "  JOIN documents d ON d.id = r.document_id"
+        "  JOIN service_events e ON e.id = r.service_event_id"
+        " WHERE r.status = 'confirmed' AND e.confirmed = 1 AND e.vehicle_id = ?",
+        (car_id,),
+    )}
+
+
 def shops(conn: sqlite3.Connection) -> list[str]:
     """The shops your confirmed services name, each once whatever its capitals, A to Z."""
     seen: dict[str, str] = {}

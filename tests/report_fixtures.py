@@ -13,7 +13,14 @@ The Civic:
 
 from __future__ import annotations
 
-from amg.repo import services, vehicles
+from io import BytesIO
+
+import pymupdf
+import receipt_fixtures as fx
+from PIL import Image
+
+from amg.ingest import drafts
+from amg.repo import documents, jobs, receipts, services, vehicles
 from amg.repo.services import Coverage, EventInput, LineInput
 
 
@@ -51,3 +58,34 @@ def garage(conn) -> dict:
     ids["v6"] = visit(conn, civic, "2021-07-01", shop="MIDAS Auto",
                       lines=[line("Brake rotors", 30_000, "brake_rotors")], total=30_000)
     return ids
+
+
+# ---------- Receipts, for the sale packet and the data export ----------
+
+
+def pdf_bytes(*pages):
+    """A PDF with a page for each text given: the text is how a test finds the page again."""
+    with pymupdf.open() as doc:
+        for text in pages:
+            doc.new_page(width=612, height=792).insert_text((72, 72), text)
+        return doc.tobytes()
+
+
+def image_bytes(fmt="PNG"):
+    out = BytesIO()
+    Image.new("RGB", (400, 600), "white").save(out, fmt)
+    return out.getvalue()
+
+
+def receipt(conn, car, data, filename, confirm=True, **fields):
+    """A receipt read from a stored file; confirmed onto the car unless asked not to. Returns (receipt, service)."""
+    document, _ = documents.store(conn, data, filename)
+    job = jobs.create(conn, "read_receipts")
+    receipt_id = receipts.create(conn, document["id"], job, car)
+    receipts.claim_next(conn, job)
+    extraction = fx.extraction(**fields)
+    types = {row["code"]: dict(row) for row in services.list_types(conn)}
+    draft = drafts.from_extraction(extraction, types, receipts.learned(conn))
+    receipts.mark_read(conn, receipt_id, extraction.model_dump(), draft, [], fx.USAGE)
+    event = receipts.confirm(conn, receipt_id, draft, car) if confirm else None
+    return receipt_id, event

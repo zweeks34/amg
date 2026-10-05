@@ -1,0 +1,43 @@
+{#- The sale packet's front pages, laid out as PDF by reports/packet.py (PyMuPDF's Story, which takes plain HTML
+    and a little CSS — no app.css, no web fonts). For a buyer: the car, and every service, oldest first. -#}
+<body>
+<h1>{{ title }}</h1>
+<p class="sub">Service history, prepared {{ today }} from the owner's records</p>
+
+<table class="facts">
+  <tr>
+    {% if car.vin %}<td style="width: 34%"><span class="label">VIN</span><br><span class="mono">{{ car.vin }}</span></td>{% endif %}
+    {% if odometer %}<td style="width: 36%"><span class="label">ODOMETER</span><br>{{ "{:,}".format(odometer.miles) }} mi on {{ odometer.read_on }}</td>{% endif %}
+    {% if car.in_service_date %}<td style="width: 30%"><span class="label">IN SERVICE SINCE</span><br>{{ car.in_service_date }}</td>{% endif %}
+  </tr>
+</table>
+
+{% if rows %}
+<p>{{ rows | length }} service{{ "s" if rows | length != 1 }}, {{ month(first) }}{% if month(first) != month(last) %} to {{ month(last) }}{% endif %}.
+  {% if attached %}The receipt for {{ "each" if attached == rows | length else attached ~ " of them" }} follows this
+  table, in the same order{% if attached != rows | length %}; the rest were done by the owner or have no receipt on file{% endif %}.{% endif %}</p>
+
+<table class="history">
+  <tr>
+    <th>DATE</th>
+    <th class="num">MILES</th>
+    <th>DONE BY</th>
+    <th>WORK</th>
+    <th class="num">PAID</th>
+    <th class="num">RECEIPT</th>
+  </tr>
+  {% for row in rows %}
+  <tr>
+    <td class="mono">{{ row.date }}</td>
+    <td class="num mono">{{ row.miles | replace(" mi", "") }}</td>
+    <td>{{ row.done_by }}</td>
+    <td>{{ row.work }}</td>
+    <td class="num mono">{{ row.paid }}</td>
+    <td class="num{% if row.receipt == 'file missing' %} muted{% endif %}">{{ row.receipt }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No services are on file for this car yet.</p>
+{% endif %}
+</body>

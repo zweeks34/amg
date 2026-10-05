@@ -97,7 +97,7 @@ def service_options(types: list, categories: list[str]) -> list[dict]:
     order = {name: n for n, name in enumerate(categories)}
     return [
         {"category": category,
-         "options": [{"value": CATEGORY + category, "label": f"Any {_lower_first(category)} work"}]
+         "options": [{"value": CATEGORY + category, "label": f"Any {lower_first(category)} work"}]
                     + [{"value": row["code"], "label": row["name"]} for row in rows]}
         for category, rows in sorted(groups.items(), key=lambda item: (order.get(item[0], len(order)), item[0]))
     ]
@@ -106,8 +106,8 @@ def service_options(types: list, categories: list[str]) -> list[dict]:
 def service_label(service: str, type_names: dict[str, str]) -> str:
     """A service as a sentence names it: "brakes", "brake pads"."""
     if service.startswith(CATEGORY):
-        return _lower_first(service[len(CATEGORY):])
-    return _lower_first(type_names.get(service, service))
+        return lower_first(service[len(CATEGORY):])
+    return lower_first(type_names.get(service, service))
 
 
 def span_words(start: str | None, end: str | None) -> str:
@@ -140,6 +140,6 @@ def _month(day: str) -> str:
     return f"{date.fromisoformat(day):%b %Y}"
 
 
-def _lower_first(text: str) -> str:
+def lower_first(text: str) -> str:
     """Sentence case inside a sentence, keeping acronyms: "Hybrid and EV" → "hybrid and EV"; "12-volt battery" stays."""
     return text if text[:2].isupper() else text[:1].lower() + text[1:]
