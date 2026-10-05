@@ -490,15 +490,68 @@ import moves events or copies them; and the first Monday email arrives.
 
 **For:** looking back, and handing over a car's history when you sell it.
 
-- [ ] Report builder: vehicle, date range, service type or category, shop
+- [x] Report builder (`/reports`, footer link; each car's service history has a Report button): car, from and to dates, a service type or a whole category, and a shop (part of the name, any capitals; "own work" finds yours). Every filter set has to match, and they live in the address bar, so a report is a link
 - [x] Search across receipts: what Claude read and you confirmed — shops, line descriptions, notes. Came forward onto the receipts page: search (every word must match; a line's service types and the total count too), car and year filters, and sorting, newest receipt date first by default
-- [ ] Output as a printable page or CSV
-- [ ] Presets: full history, spend by year and category, fuel-economy trend
-- [ ] Sale packet: history plus every receipt merged into one PDF (PyMuPDF)
-- [ ] "Download your data" zip
+- [x] Output as a printable page or CSV: **Print** prints the report alone, headed with what it is ("Service history · Outback · Brakes · from Jan 2019 · printed …"); **Download CSV** is what the view shows
+- [x] Presets, as the page's three views: **History** (newest first; narrowed to a service, the lines that did it, the rest counted), **Spending** (categories down, years across) and **Fuel** (month by month per car, with the trend chart a dot a month)
+- [x] Sale packet (`/vehicles/{id}/sale-packet.pdf`): the car, its VIN and odometer, and every service oldest first, laid out by PyMuPDF's Story with the page each receipt starts on; then every confirmed receipt as stored, each with a bookmark
+- [x] "Download your data" zip (`/reports/your-data.zip`): cars, service history, fuel, odometer, schedules and prices as CSV; every confirmed receipt named by date, shop and car; the manuals schedules were read from; a README
 
-**Tests pin:** filters combine correctly; CSV round-trips; the packet contains
-every confirmed receipt for the car.
+**Decisions:**
+
+- **Confirmed services only, archived cars included.** A receipt waiting to
+  be checked is in nobody's history; a car you've sold still has one, and its
+  packet is wanted after it's gone.
+- **Spending adds up to what you paid.** A line's amount goes under its
+  category (the first of its service types in catalogue order, or the one
+  asked for), tax under Tax, and whatever a printed total leaves over — shop
+  supplies, an untagged line, a discount the invoice didn't itemise — under
+  Other. A service with no total counts its lines and tax. Narrowed to a
+  service, only its lines count. The table is in whole dollars, so a decade
+  fits across a laptop and on paper (it prints landscape); the CSV has cents.
+- **A month's fuel economy is its measured stretches,** full to full, counted
+  in the month each ended: miles over quantity, never an average of tanks.
+  Spent and price are every fill that month, partial ones included.
+- **CSV for a spreadsheet:** UTF-8 with a byte-order mark (Excel), amounts as
+  plain numbers, ISO dates, and text that would read as a formula
+  ("-Oil filter") given a leading apostrophe. The History CSV is a row a
+  line, the service's columns on each, and Visit # to count services once.
+- **The sale packet is for a buyer:** oldest first, the work in service-type
+  names, "Owner's own work" for yours; your notes left out. Scans go in as
+  they are, so a name and address on a receipt show — the page says so.
+  A stored file that's gone is marked "file missing" and the rest still go in.
+- **Your data is a copy to read, not a backup:** nothing in it goes back
+  into AMG. Back up keeps the database; the two pages point at each other.
+- Money now puts a credit's minus first everywhere: -$20.00, not $-20.00.
+
+**Data owned:** none new — reports read what earlier phases keep.
+
+**Can go wrong:** a shop spelled three ways → the shop filter matches part of
+a name, and the suggestions list each spelling once. A line covering two
+categories → counted once, under the first. A decade of years → the table
+scrolls inside its own box on a phone, never the page, and prints landscape.
+A large packet or zip → built in the system temp directory and deleted once
+sent, like a backup. A receipt history still being uploaded → reports say
+only what's confirmed; make the packet again once it's all in.
+
+**Tests pin:** filters combine correctly (car × dates × service type or
+category × shop, alone and together; dates inclusive; From after To swapped;
+unconfirmed services never counted; a car or service not on offer dropped);
+CSV round-trips (read back, every value as the report said it, commas, quotes,
+line breaks, "°" and "é" intact, guarded cells, the Amount column summing to
+the report); the packet contains every confirmed receipt for the car (a
+two-page PDF, a PNG and a JPG, a bookmark each, the table's page numbers
+pointing at them; a receipt waiting and another car's left out; notes left
+out; a missing file said). Spending's columns adding up, with a discount and a
+two-category line; fuel by month not an average of tanks; the data zip's
+sheets, names and README; the pages, downloads and their login.
+
+**Done when:** on the server, each car's History report matches its car page;
+Spending's yearly totals look right to you; a CSV opens in Excel or Google
+Sheets with the amounts as numbers; a printed (or print-to-PDF) report reads
+cleanly; the Outback's sale packet opens with a bookmark for every confirmed
+receipt; and the data zip opens with its receipts sensibly named. *That's
+yours.*
 
 ---
 
