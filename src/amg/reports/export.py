@@ -10,6 +10,8 @@ Back up page's zip does that). It holds:
     odometer.csv          every reading, and where it came from
     schedules.csv         each car's maintenance schedule
     prices.csv            the prices the budget uses: yours, and Claude's estimates
+    inspections-and-registration.csv
+                          every safety inspection, emissions inspection and registration logged
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use was read from
 
@@ -25,7 +27,8 @@ import zipfile
 from datetime import date
 from pathlib import Path
 
-from ..repo import documents, reports, schedules, services
+from ..engine.renewals import KINDS
+from ..repo import documents, renewals, reports, schedules, services
 from . import csvs, history
 from .filters import Filters
 
@@ -52,6 +55,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         "odometer.csv": _odometer(conn),
         "schedules.csv": _schedules(conn),
         "prices.csv": _prices(conn, names),
+        "inspections-and-registration.csv": _renewals(conn),
     }
     missing: list[str] = []
     taken: set[str] = set()
@@ -136,6 +140,15 @@ def _prices(conn: sqlite3.Connection, names: dict[str, str]) -> str:
     return csvs.sheet(columns, rows)
 
 
+def _renewals(conn: sqlite3.Connection) -> str:
+    columns = ("Car", "What", "Done on", "Expires", "Cost", "Note", "Service")
+    rows = [[csvs.text(row["car_name"]), KINDS[row["kind"]].name, row["done_on"] or "", row["expires_on"],
+             csvs.amount(row["cost_cents"]), csvs.text(row["note"]),
+             csvs.text(" ".join(part for part in (row["service_on"], row["service_shop"]) if part))]
+            for row in renewals.everything(conn)]
+    return csvs.sheet(columns, rows)
+
+
 # ---------- Files ----------
 
 
@@ -178,6 +191,10 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
   odometer.csv          every odometer reading, and where it came from
   schedules.csv         each car's maintenance schedule
   prices.csv            the prices the budget uses: yours, and Claude's estimates
+  inspections-and-registration.csv
+                        every safety inspection, emissions inspection and
+                        registration logged: when it was done, when it
+                        expires, and the service it was logged from
 
 Files, as you uploaded them:
 

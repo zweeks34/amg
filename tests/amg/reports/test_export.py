@@ -10,7 +10,8 @@ from datetime import date
 import report_fixtures as rf  # tests/ is on pytest's path
 
 from amg.reports import csvs, export
-from amg.repo import documents, fuel, odometer, prices, receipts, schedules, vehicles
+from amg.repo import documents, fuel, odometer, prices, receipts, renewals, schedules, vehicles
+from amg.repo.renewals import RenewalInput
 from amg.repo.schedules import ItemInput
 
 TODAY = date(2026, 10, 4)
@@ -48,11 +49,17 @@ def test_everything_is_there(conn, tmp_path):
                                                        interval_miles=6_000, interval_months=6, source="manual",
                                                        document_id=manual["id"], page=31)], {})
     prices.set_yours(conn, outback, ["engine_oil", "oil_filter"], "replace", "Oil and filter", 8_500)
+    inspected = rf.visit(conn, outback, "2026-09-01", shop="Corner Garage",
+                         lines=[rf.line("State inspection", 2_000, "state_inspection", action="perform")])
+    renewals.create(conn, outback, RenewalInput("safety", "2027-09-30", "2026-09-01", 2_000,
+                                                service_event_id=inspected))
+    renewals.create(conn, outback, RenewalInput("registration", "2027-03-31", note="Online, 2 years"))
 
     zf, missing = build(conn, tmp_path)
     names = sorted(zf.namelist())
     assert names == [
-        "README.txt", "cars.csv", "fuel.csv", "manuals/2016 Outback manual.pdf", "odometer.csv", "prices.csv",
+        "README.txt", "cars.csv", "fuel.csv", "inspections-and-registration.csv", "manuals/2016 Outback manual.pdf",
+        "odometer.csv", "prices.csv",
         "receipts/2015-11-02 Bob's - Old Tacoma.pdf",
         "receipts/2019-03-04 Midas - Outback (2).pdf",
         "receipts/2019-03-04 Midas - Outback.pdf",
@@ -67,7 +74,7 @@ def test_everything_is_there(conn, tmp_path):
     assert [(c["Name"], c["Archived"] != "") for c in cars] == [("Outback", False), ("Old Tacoma", True)]
     assert cars[0]["VIN"] == "4S4BSANC5G3200001" and cars[0]["Year"] == "2016" and cars[0]["Powertrain"] == "Gas"
     history = sheet(zf, "service-history.csv")
-    assert {row["Date"] for row in history} == {"2015-11-02", "2019-03-04", "2020-05-06", "2021-06-01"}
+    assert {row["Date"] for row in history} == {"2015-11-02", "2019-03-04", "2020-05-06", "2021-06-01", "2026-09-01"}
     assert sheet(zf, "fuel.csv")[0] == {
         "Car": "Outback", "Date": "2026-09-01", "Odometer": "92000", "Energy": "Gas", "Quantity": "12.5",
         "Unit": "gal", "Cost": "43.75", "Full": "Yes", "Missed one before": "No", "Place": "", "Note": ""}
@@ -77,6 +84,12 @@ def test_everything_is_there(conn, tmp_path):
     item = sheet(zf, "schedules.csv")[0]
     assert (item["Item"], item["Every miles"], item["Every months"], item["Services"], item["From"], item["Page"]) == (
         "Oil and filter", "6000", "6", "Engine oil; Oil filter", "Owner's manual", "31")
+    assert sheet(zf, "inspections-and-registration.csv") == [
+        {"Car": "Outback", "What": "Safety inspection", "Done on": "2026-09-01", "Expires": "2027-09-30",
+         "Cost": "20.00", "Note": "", "Service": "2026-09-01 Corner Garage"},
+        {"Car": "Outback", "What": "Registration", "Done on": "", "Expires": "2027-03-31", "Cost": "", "Note": "Online, 2 years",
+         "Service": ""},
+    ]
     price = sheet(zf, "prices.csv")[0]
     assert (price["Job"], price["From"], price["Low"], price["High"]) == ("Oil and filter", "You", "85.00", "85.00")
 
@@ -100,6 +113,7 @@ def test_a_missing_file_is_said(conn, tmp_path):
 def test_an_empty_garage_still_downloads(conn, tmp_path):
     zf, _ = build(conn, tmp_path)
     assert sheet(zf, "cars.csv") == [] and "0 car(s)" in zf.read("README.txt").decode("utf-8")
+    assert sheet(zf, "inspections-and-registration.csv") == []
 
 
 def test_names_a_file_can_hold():
