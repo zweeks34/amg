@@ -165,10 +165,17 @@ def trend(state: FuelStatus) -> dict | None:
     found = state.stretches
     if len(found) < 2:
         return None
-    units = state.units
     since, span = _span(state)
-    average = engine.economy(found, since=since)
-    values = [s.economy for s in found] + [average]
+    flagged = engine.unusual(found)
+    points = [(s.end.day, s.economy, s.end.day.isoformat(), s.end.id in flagged) for s in found]
+    per = "tank" if state.units.quantity == "gal" else "charge"
+    return chart(points, engine.economy(found, since=since), span, state.units, per)  # type: ignore[arg-type]
+
+
+def chart(points: list[tuple[date, float, str, bool]], average: float, span: str, units: Units, per: str) -> dict:
+    """An economy trend for the SVG, from (day, economy, label, unusual) points oldest first: positions as 0–100,
+    gridlines at round numbers, and the average as a line. ``per`` is what each dot is: a tank, a charge, a month."""
+    values = [value for _, value, _, _ in points] + [average]
     low, high = min(values), max(values)
     steps = _STEPS[units.quantity]
     step = next((s for s in steps if (high - low) / s <= 4), steps[-1])
@@ -178,18 +185,18 @@ def trend(state: FuelStatus) -> dict | None:
     def y(value: float) -> float:
         return round(100 - (value - bottom) / (top - bottom) * 100, 3)
 
-    first, last = found[0].end.day, found[-1].end.day
+    first, last = points[0][0], points[-1][0]
     days = max(1, (last - first).days)
-    flagged = engine.unusual(found)
     count = round((top - bottom) / step)
     decimals = 0 if units.quantity == "gal" else 1
     return {
         "unit": units.economy,
-        "points": [{"x": round((s.end.day - first).days / days * 100, 3), "y": y(s.economy),
-                    "label": f"{s.end.day.isoformat()}: {economy_words(s.economy, units)}",
-                    "unusual": s.end.id in flagged} for s in found],
+        "per": per,
+        "points": [{"x": round((day - first).days / days * 100, 3), "y": y(value),
+                    "label": f"{label}: {economy_words(value, units)}", "unusual": unusual}
+                   for day, value, label, unusual in points],
         "ticks": [{"y": y(bottom + i * step), "label": f"{bottom + i * step:.{decimals}f}"} for i in range(count + 1)],
-        "average": {"y": y(average), "label": f"{economy_words(average, units)} average, {span}"},  # type: ignore[arg-type]
+        "average": {"y": y(average), "label": f"{economy_words(average, units)} average, {span}"},
         "first": f"{first:%b %Y}",
         "last": f"{last:%b %Y}",
     }

@@ -12,7 +12,7 @@
     </div>
     <div class="trend__plot">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img"
-           aria-label="{{ t.unit }} for each {{ 'tank' if t.unit == 'mpg' else 'charge' }}, {{ t.first }} to {{ t.last }}; {{ t.average.label }}">
+           aria-label="{{ t.unit }} for each {{ t.per }}, {{ t.first }} to {{ t.last }}; {{ t.average.label }}">
         {% for tick in t.ticks %}<line class="trend__grid" x1="0" x2="100" y1="{{ tick.y }}" y2="{{ tick.y }}"/>{% endfor %}
         <line class="trend__avg" x1="0" x2="100" y1="{{ t.average.y }}" y2="{{ t.average.y }}"/>
         <polyline class="trend__line" points="{% for p in t.points %}{{ p.x }},{{ p.y }} {% endfor %}"/>
@@ -25,7 +25,7 @@
   </div>
   <div class="trend__dates" aria-hidden="true"><span>{{ t.first }}</span><span>{{ t.last }}</span></div>
   <figcaption class="trend__caption">
-    <span class="trend__legend"><span class="trend__key" aria-hidden="true"></span>{{ t.unit }} each {{ 'tank' if t.unit == 'mpg' else 'charge' }}</span>
+    <span class="trend__legend"><span class="trend__key" aria-hidden="true"></span>{{ t.unit }} each {{ t.per }}</span>
     <span class="trend__legend"><span class="trend__key trend__key--avg" aria-hidden="true"></span>{{ t.average.label }}</span>
   </figcaption>
 </figure>
