@@ -555,6 +555,70 @@ yours.*
 
 ---
 
+## Phase 10 — Inspections and registration
+
+**For:** never letting a safety inspection, an emissions inspection or the
+registration lapse.
+
+- [x] Each car's page has a row for each (no emissions row on an electric car unless one's logged): when it expires in the schedule's marks and words — "Expires Oct 31 · in 26 days", "Expired Sep 30 · 5 days ago" — a form to log the next one, and its history, each record editable and deletable. Archived cars have none
+- [x] AMG's guess at the expiry, always a month's end: an inspection counts from the day it was done, a registration renewal from the old expiry (or the day you renewed, if it had lapsed); how long one lasts is what your last two records show in whole years, else 12 months (24 for emissions)
+- [x] An inspection in the service history — a State inspection or Emissions test line on a confirmed service — that would move the expiry later is offered: **Log it** fills the form from the receipt and links the record to it while the dates match. With nothing logged yet, only one whose sticker could still be on the car
+- [x] The garage card says what's due soon or expired
+- [x] Reminders: a push 30 days before, another in the last week, one the day after it expires; the weekly email's Overdue and Due soon lists; each expiry in the calendar file
+- [x] Download your data gets `inspections-and-registration.csv`
+
+**Decisions:**
+
+- **Not part of the maintenance schedule.** The state sets these dates, not
+  the manual, and they run to the date on the sticker or card rather than
+  miles and months from when work was done. AMG builds in no state's rules:
+  you type the expiry, and its guess is only that.
+- **A receipt never decides.** It says an inspection happened, not what the
+  sticker says, so it's an offer you save, like everything Claude reads.
+- **Reminders don't wait for the car's alerts switch.** The switch keeps job
+  alerts quiet while old receipts are still going in; a date you typed
+  yourself can't be wrong that way. A car with its alerts off is in the
+  daily run and the weekly email for its dates alone ("Maintenance alerts
+  are off for this car"), and turning alerts on takes stock of jobs only.
+- **One push per car per run still,** dates and jobs together; with several
+  in it the title is the counts ("Outback: 1 overdue, 1 due soon"), since a
+  registration isn't a job. Expired says expired, not overdue.
+- **Costs are kept, not budgeted** — small and fixed, and the budget engine
+  is jobs and fuel. A later step if wanted.
+
+**Data owned:** `renewals` — a row per inspection or renewal: kind, when
+done (optional), when it expires, cost, note, and the service it was logged
+from. A kind's current one is the latest expiry. Alerts reuse `alert_log`:
+the subject is `{car}:renewal:{kind}:{expires}` at level due or overdue, with
+`:week` added for the last week's push.
+
+**Can go wrong:** a date typed wrong → edit it; the reminders follow the new
+date (a corrected date is a new round, so it can alert again). Inspected
+early → the guess counts from the inspection, and the sticker is the truth.
+A failed inspection on a receipt → offered until the passing one is logged.
+Logging from a receipt and changing the date → no longer linked to it. A
+state with no emissions testing, or none at all → leave that row untracked.
+
+**Tests pin:** the status edges (31/30 days, 8/7, the day itself, the day
+after); month ends and leap years; the guess for an early inspection, a
+registration renewed on time and lapsed, an interval learned from two
+records, and the defaults; when a receipt is offered and when not (already
+logged, wouldn't move the expiry, a sticker long expired, waiting to be
+checked, another car's); linking only while the dates match; the forms'
+errors; the pushes at 30 days, the last week and expired, each once, a new
+expiry alerting afresh, a first sighting in the last week pushed once; going
+with the car's alerts off and its jobs not; taking stock of jobs only; the
+email for each kind of car; the calendar's fixed UIDs, expired ones left out;
+the export's sheet.
+
+**Done when:** on the server, each car's dates are entered and read right
+on its page and the garage; the Outback's registration reminder arrives as
+a push and in Monday's email while its job alerts stay off (once ntfy and
+Gmail work); and an imported calendar shows the expiry dates. *That's
+yours.*
+
+---
+
 ## Parked
 
 - Mathpix as a third reader for the worst scans — credentials are in `.env`, but
