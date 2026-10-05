@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_renewal_fields.html" import renewal_fields %}
+{% block title %}Edit the {{ kind.name | lower }} · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}#renewals">{{ car.name }}</a></p>
+  <h1 class="display">{{ kind.name }}</h1>
+  {% if service %}
+  <p class="pagehead__lede">Logged from <a href="/services/{{ service.id }}">the service on {{ service.performed_on }}
+    {%- if service.shop %} at {{ service.shop }}{% endif %}</a>. Change the date it was done and it's no longer
+    linked to that service.</p>
+  {% endif %}
+</header>
+
+<form class="sheet form" method="post" action="/renewals/{{ renewal.id }}/edit">
+  <div class="form__body">
+    {{ renewal_fields("f", words, raw, errors, words.expires) }}
+  </div>
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">Save changes</button>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}#renewals">Cancel</a>
+  </div>
+</form>
+
+<div class="zone" x-data="{ confirming: false }">
+  <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true">Delete this {{ kind.name | lower }}</button>
+  <form method="post" action="/renewals/{{ renewal.id }}/delete" class="confirm" x-show="confirming" x-cloak>
+    <span>Delete the {{ kind.name | lower }} good through {{ renewal.expires_on }}?</span>
+    <button class="btn btn--danger" type="submit">Delete it</button>
+    <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>
+  </form>
+</div>
+{% endblock %}

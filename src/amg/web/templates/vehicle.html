@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_forms.html" import input %}
-{% from "_chart.html" import interval_chart, next_up as next_up_list %}
+{% from "_chart.html" import interval_chart, mark, next_up as next_up_list %}
+{% from "_renewal_fields.html" import renewal_fields %}
 
 {% macro reading_rows(rows) %}
 <ol class="points">
@@ -116,6 +117,67 @@
   </div>
   {% endif %}
 </section>
+
+{% if renewals is not none %}
+<section class="block" id="renewals" aria-labelledby="renewals-heading">
+  <h2 class="h3" id="renewals-heading">Inspections and registration</h2>
+  <ul class="renewals sheet sheet--flush">
+    {% for row in renewals %}
+    {% set code = row.kind.code %}
+    {% set back = renewal_form if renewal_form and renewal_form.kind == code else none %}
+    <li class="renewal" x-data="{ open: {{ 'true' if back else 'false' }} }">
+      <div class="renewal__row">
+        {% if row.mark %}{{ mark(row.mark, row.mark_label) }}{% else %}<span aria-hidden="true"></span>{% endif %}
+        <span class="renewal__name">{{ row.kind.name }}</span>
+        <span class="renewal__when{% if not row.standing %} muted{% endif %}">{{ row.said }}</span>
+        {% if not row.offer %}
+        <button class="btn btn--quiet renewal__act" type="button" x-show="!open"
+                @click="open = true; $nextTick(() => $refs.first.focus())">{{ row.action }}</button>
+        {% endif %}
+      </div>
+      {% if row.offer %}
+      <p class="renewal__offer" x-show="!open">
+        <span>Your service history shows <a href="/services/{{ row.offer.id }}">{{ row.offer.said }}</a>.</span>
+        <button class="btn btn--secondary renewal__act" type="button" @click="open = true; $nextTick(() => $refs.first.focus())"
+                aria-label="Log {{ row.offer.said }}">Log it</button>
+      </p>
+      {% endif %}
+      {% set raw = back.raw if back else row.form %}
+      <form class="renewal__form" method="post" action="/vehicles/{{ car.id }}/renewals" x-show="open"{% if not back %} x-cloak{% endif %}>
+        <input type="hidden" name="kind" value="{{ code }}">
+        {% if raw.service_event_id %}<input type="hidden" name="service_event_id" value="{{ raw.service_event_id }}">{% endif %}
+        {{ renewal_fields("f-" ~ code, row.words, raw, back.errors if back else {}, row.hint, focus=True) }}
+        <div class="form__actions">
+          <button class="btn btn--primary" type="submit">{{ row.words.save }}</button>
+          <button class="btn btn--quiet" type="button" @click="open = false">Cancel</button>
+        </div>
+      </form>
+      {% if row.records %}
+      <details class="renewal__past">
+        <summary>History ({{ row.records | length }})</summary>
+        <ol class="renewal__records">
+          {% for r in row.records %}
+          <li class="renewal__record">
+            <span>Expires <span class="mono">{{ r.expires_on }}</span></span>
+            <span class="renewal__detail">
+              {%- set bits = [] %}
+              {%- if r.done_on %}{% set _ = bits.append(row.words.done ~ " " ~ r.done_on) %}{% endif %}
+              {%- if r.cost_cents is not none %}{% set _ = bits.append(r.cost_cents | money) %}{% endif %}
+              {%- if r.note %}{% set _ = bits.append(r.note) %}{% endif %}
+              {{- bits | join(" · ") }}
+              {%- if r.service_event_id %}{{ " · " if bits }}<a href="/services/{{ r.service_event_id }}">The service</a>{% endif -%}
+            </span>
+            <a class="btn btn--quiet" href="/renewals/{{ r.id }}/edit" aria-label="Edit the {{ row.kind.name | lower }} good through {{ r.expires_on }}">Edit</a>
+          </li>
+          {% endfor %}
+        </ol>
+      </details>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 {% set u = fuel.units %}
 <section class="block" id="fuel" aria-labelledby="fuel-heading">

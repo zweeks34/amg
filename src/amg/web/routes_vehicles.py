@@ -12,6 +12,7 @@ from starlette.responses import RedirectResponse, Response
 from ..ingest import vin as vins
 from ..repo import odometer, schedules, services, vehicles
 from . import budget, forms
+from . import renewals as renewal_words
 from . import fuel_status
 from . import status as car_status
 from .deps import get_conn
@@ -128,7 +129,7 @@ def restore_vehicle(vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn
 @router.get("/vehicles/{vehicle_id}")
 def vehicle_page(request: Request, vehicle_id: int, attested: int | None = None,
                  conn: sqlite3.Connection = Depends(get_conn)) -> Response:
-    return _page(request, conn, vehicle_id, attested=bool(attested))
+    return car_page(request, conn, vehicle_id, attested=bool(attested))
 
 
 @router.post("/vehicles/{vehicle_id}/odometer")
@@ -142,7 +143,7 @@ async def add_reading(request: Request, vehicle_id: int, conn: sqlite3.Connectio
     if not errors and (clash := odometer.conflict(conn, vehicle_id, read_on, miles)):
         errors["miles"] = clash.message()
     if errors:
-        return _page(request, conn, vehicle_id, reading=raw, reading_errors=errors, status_code=422)
+        return car_page(request, conn, vehicle_id, reading=raw, reading_errors=errors, status_code=422)
     odometer.add(conn, vehicle_id, read_on, miles, raw["note"])
     return RedirectResponse(f"/vehicles/{vehicle_id}#odometer", status_code=303)
 
@@ -159,7 +160,8 @@ def delete_reading(reading_id: int, conn: sqlite3.Connection = Depends(get_conn)
 # ---------- Helpers ----------
 
 
-def _page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_code: int = 200, **extra) -> Response:
+def car_page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_code: int = 200, **extra) -> Response:
+    """The car's page; ``extra`` carries a form that came back with errors, or a notice."""
     car = vehicle_or_404(conn, vehicle_id)
     state = car_status.load(conn, car)
     plan = budget.load(conn, car, 12, state=state)
@@ -186,6 +188,8 @@ def _page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status_co
         # The server's local date — the deploy guide sets the container's time zone to yours.
         reading=extra.get("reading", {"read_on": date.today().isoformat()}),
         reading_errors=extra.get("reading_errors", {}),
+        renewals=None if car["archived_at"] else renewal_words.rows(conn, car),
+        renewal_form=extra.get("renewal_form"),
     )
 
 

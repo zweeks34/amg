@@ -725,6 +725,55 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
 /* A grid item sizes to its content unless told otherwise; the chart must scroll inside it instead. */
 .chartbox { min-width: 0; }
 
+/* The car page: inspections and registration. A row a kind, laid out like next up, its form opening under it. */
+.renewals { margin: 0; padding: 0; list-style: none; }
+.renewal { padding: 0.875rem var(--gutter); border-top: 1px solid var(--rule-soft); }
+.renewal:first-child { border-top: 0; }
+.renewal__row {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  grid-template-areas: "mark name act" "mark when act";
+  align-items: center;
+  column-gap: 0.75rem;
+}
+.renewal__row > :first-child { grid-area: mark; justify-self: center; }
+.renewal__name { grid-area: name; font: 600 1.25rem/1.1 var(--display); }
+.renewal__when { grid-area: when; font: 400 0.8125rem/1.3 var(--mono); color: var(--ink-2); }
+.renewal__when.muted { font-family: var(--body); color: var(--steel); }
+.renewal__act { min-height: 2.25rem; font-size: 0.9375rem; }
+.renewal__row > .renewal__act { grid-area: act; }
+/* What the service history shows, and what to do about it, under the name. */
+.renewal__offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0.625rem 0 0 2.25rem;
+  font-size: 0.9375rem;
+}
+.renewal__form { display: grid; gap: 1.25rem; margin: 1rem 0 0.25rem 2.25rem; }
+.renewal__past { margin: 0.5rem 0 0 2.25rem; }
+.renewal__past > summary { cursor: pointer; padding: 0.25rem 0; font-size: 0.875rem; color: var(--ink-2); }
+.renewal__records { margin: 0.25rem 0 0; padding: 0; list-style: none; }
+.renewal__record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.75rem;
+  padding: 0.375rem 0;
+  border-top: 1px solid var(--rule-soft);
+  font-size: 0.9375rem;
+}
+.renewal__detail { grid-column: 1; font-size: 0.8125rem; color: var(--ink-2); }
+.renewal__record > .btn { grid-column: 2; grid-row: 1 / span 2; min-height: 2.25rem; font-size: 0.9375rem; }
+/* Phones: the button goes under the words rather than squeezing them into a column. */
+@media (max-width: 30rem) {
+  .renewal__row { grid-template-columns: 1.5rem minmax(0, 1fr); grid-template-areas: "mark name" "mark when" ". act"; }
+  .renewal__row > .renewal__act { justify-self: start; margin: 0.25rem 0 0 -0.75rem; }
+  .renewal__offer, .renewal__form, .renewal__past { margin-left: 0; }
+}
+
 .archived { margin-top: 2.5rem; }
 .archived summary {
   cursor: pointer;

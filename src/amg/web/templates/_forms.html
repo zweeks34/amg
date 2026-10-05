@@ -1,21 +1,22 @@
 {#- Form fields that render their label, hint and error the same way everywhere.
-    `attrs` is extra markup written in templates, never user input. -#}
+    `attrs` is extra markup written in templates, never user input. `prefix` starts each id: a page with
+    several forms of the same fields gives each its own. -#}
 
-{% macro described(name, errors, hint) -%}
-{%- if errors.get(name) %} aria-invalid="true" aria-describedby="f-{{ name }}-error"
-{%- elif hint %} aria-describedby="f-{{ name }}-hint"{% endif -%}
+{% macro described(name, errors, hint, prefix="f") -%}
+{%- if errors.get(name) %} aria-invalid="true" aria-describedby="{{ prefix }}-{{ name }}-error"
+{%- elif hint %} aria-describedby="{{ prefix }}-{{ name }}-hint"{% endif -%}
 {%- endmacro %}
 
-{% macro message(name, errors, hint) -%}
-{%- if errors.get(name) %}<p class="field__error" id="f-{{ name }}-error">{{ errors[name] }}</p>
-{%- elif hint %}<p class="field__hint" id="f-{{ name }}-hint">{{ hint }}</p>{% endif -%}
+{% macro message(name, errors, hint, prefix="f") -%}
+{%- if errors.get(name) %}<p class="field__error" id="{{ prefix }}-{{ name }}-error">{{ errors[name] }}</p>
+{%- elif hint %}<p class="field__hint" id="{{ prefix }}-{{ name }}-hint">{{ hint }}</p>{% endif -%}
 {%- endmacro %}
 
-{% macro input(name, label, raw, errors, type="text", hint=None, cls="", attrs="") -%}
+{% macro input(name, label, raw, errors, type="text", hint=None, cls="", attrs="", prefix="f") -%}
 <div class="field {{ cls }}">
-  <label for="f-{{ name }}">{{ label }}</label>
-  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ raw.get(name, '') }}" {{ attrs | safe }}{{ described(name, errors, hint) }}>
-  {{ message(name, errors, hint) }}
+  <label for="{{ prefix }}-{{ name }}">{{ label }}</label>
+  <input id="{{ prefix }}-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ raw.get(name, '') }}" {{ attrs | safe }}{{ described(name, errors, hint, prefix) }}>
+  {{ message(name, errors, hint, prefix) }}
 </div>
 {%- endmacro %}
 

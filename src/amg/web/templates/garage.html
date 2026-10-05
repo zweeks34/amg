@@ -47,12 +47,17 @@
         </div>
       </dl>
       {% set s = car.schedule %}
-      {% if s %}
+      {% if s or car.renewals %}
       <div class="carcard__status">
-        {% if s.next %}
+        {% if s and s.next %}
         <p class="carcard__next"><span class="mark mark--{{ s.next.status }}" aria-hidden="true"></span>
           <span><span class="carcard__label">Next:</span> {{ s.next.name }} <span class="muted">{{ s.next.when }}</span></span></p>
         {% endif %}
+        {% for r in car.renewals %}
+        <p class="carcard__next"><span class="mark mark--{{ r.mark }}" aria-hidden="true"></span>
+          <span><span class="carcard__label">{{ r.kind.name }}</span> <span class="muted">{{ r.when }}</span></span></p>
+        {% endfor %}
+        {% if s %}
         <ul class="tally" aria-label="Schedule">
           {% for key, word in (("overdue", "overdue"), ("due", "due soon"), ("missed", "missed")) if s[key] %}
           <li><span class="mark mark--{{ 'gap' if key == 'missed' else key }}" aria-hidden="true"></span>{{ s[key] }} {{ word }}</li>
@@ -60,6 +65,9 @@
           <li><span class="mark mark--done" aria-hidden="true"></span>Nothing overdue or missed</li>
           {% endfor %}
         </ul>
+        {% else %}
+        <p class="muted">No maintenance schedule yet.</p>
+        {% endif %}
       </div>
       {% else %}
       <p class="carcard__status muted">No maintenance schedule yet.</p>

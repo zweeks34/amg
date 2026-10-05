@@ -1,0 +1,13 @@
+{#- An inspection's or a registration's fields: the car page's forms (one a kind, so `prefix` keeps their ids
+    apart) and the edit page. -#}
+{% from "_forms.html" import input %}
+
+{% macro renewal_fields(prefix, words, raw, errors, hint, focus=False) -%}
+<div class="fieldgrid">
+  {{ input("done_on", words.done, raw, errors, type="date", prefix=prefix, attrs='x-ref="first"' if focus else "") }}
+  {{ input("expires_on", "Expires", raw, errors, type="date", hint=hint, prefix=prefix, attrs="required") }}
+  {{ input("cost", "Cost", raw, errors, hint="If you know it.", prefix=prefix,
+           attrs='inputmode="decimal" class="mono" autocomplete="off"') }}
+  {{ input("note", "Note", raw, errors, prefix=prefix) }}
+</div>
+{%- endmacro %}
