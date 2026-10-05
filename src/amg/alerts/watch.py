@@ -6,18 +6,26 @@ round can push twice — once when it comes due soon, once when it goes
 overdue — and a round that went straight to overdue doesn't get a late "due
 soon" after it. A missed occurrence doesn't start a new round: the job is
 still undone, and the weekly email keeps saying so.
+
+Inspections and registration ride along: one comes due 30 days before it
+expires, again in its last week, and goes overdue — expired — the day after.
+Its round is its expiry date, so logging the next one starts fresh. They don't
+wait for the car's alerts switch, which is there because job alerts are wrong
+while old receipts are still going in; a date you typed yourself isn't. A car
+with its alerts off is watched for those dates alone.
 """
 
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from ..engine import forecast
 from ..engine.schedule import ItemStatus
 from ..repo import alerts
 from ..web import budget
+from ..web import renewals as renewal_words
 from ..web import status as car_status
 from ..web.templating import dollars
 from . import ics
@@ -30,17 +38,25 @@ CALENDAR_MONTHS = 12
 
 @dataclass(frozen=True)
 class Watched:
-    """A job due soon or overdue now."""
+    """A job — or an inspection or registration — due soon or overdue now."""
     vehicle_id: int
     subject: str        # the job's round, as the alert log keys it
     level: str          # due or overdue
     name: str
-    when: str           # "1,200 mi overdue · due Sep 3"
+    when: str           # "1,200 mi overdue · due Sep 3"; "expires Oct 31 · in 26 days"
     cost: int | None
+    renewal: bool = False
 
     @property
     def line(self) -> str:
         return f"{self.name}: {self.when}" + (f" · ~{dollars(self.cost)}" if self.cost else "")
+
+    @property
+    def state(self) -> str:
+        """Overdue, due soon, or (an inspection or registration past its date) expired."""
+        if self.level == "overdue":
+            return "expired" if self.renewal else "overdue"
+        return "due soon"
 
 
 @dataclass
@@ -51,6 +67,13 @@ class CarWatch:
     plan: budget.CarBudget
     jobs: list[Watched]
     has_schedule: bool
+    renewals: list[renewal_words.Row] = field(default_factory=list)   # every kind the car can need
+    maintenance: bool = True    # its schedule watched too: the car's alerts are on
+
+    @property
+    def dates(self) -> list[renewal_words.Row]:
+        """The inspections and registration it has a date for."""
+        return [row for row in self.renewals if row.standing]
 
     @property
     def overdue(self) -> list[Watched]:
@@ -75,8 +98,17 @@ def subject(vehicle_id: int, item_status: ItemStatus) -> str:
     return f"{vehicle_id}:{codes}:{item.action}:{since}"
 
 
-def look(conn: sqlite3.Connection, car, today: date | None = None) -> CarWatch:
+def renewal_subject(vehicle_id: int, row: renewal_words.Row) -> str:
+    """An inspection's or registration's round: its expiry. The last week's reminder is one of its own."""
+    key = f"{vehicle_id}:renewal:{row.kind.code}:{row.records[0]['expires_on']}"
+    return key + (":week" if row.standing.state == "week" else "")
+
+
+def look(conn: sqlite3.Connection, car, today: date | None = None, maintenance: bool | None = None) -> CarWatch:
+    """What's due on a car. Its schedule's jobs count when its alerts are on (or ``maintenance`` says so);
+    its inspections and registration always."""
     today = today or date.today()
+    maintenance = bool(car["alerts"]) if maintenance is None else maintenance
     end = forecast.months(today, CALENDAR_MONTHS)[-1][1]
     state = car_status.load(conn, car, today, until=end)
     plan = budget.load(conn, car, CALENDAR_MONTHS, today, state=state)
@@ -85,13 +117,19 @@ def look(conn: sqlite3.Connection, car, today: date | None = None) -> CarWatch:
     urgent = sorted(((s, s.current) for s in state.statuses if s.current and s.current.status in rank),
                     key=lambda pair: (rank[pair[1].status], pair[1].due_day, pair[0].item.name))
     jobs: list[Watched] = []
-    for item_status, occurrence in urgent:
+    for item_status, occurrence in urgent if maintenance else ():
         key = subject(car["id"], item_status)
         if any(j.subject == key for j in jobs):
             continue   # two items asking for the same job: the more urgent speaks for both
         jobs.append(Watched(car["id"], key, occurrence.status, item_status.item.name,
                             car_status.when(occurrence, state), costs.get(item_status.item.id)))
-    return CarWatch(dict(car), state, plan, jobs, bool(state.items))
+    rows = renewal_words.rows(conn, car, today, offers=False)
+    for row in renewal_words.urgent(rows):
+        jobs.append(Watched(car["id"], renewal_subject(car["id"], row),
+                            "overdue" if row.standing.state == "expired" else "due", row.kind.name, row.when, None,
+                            renewal=True))
+    jobs.sort(key=lambda job: rank[job.level])   # stable: each keeps its place within overdue, then due soon
+    return CarWatch(dict(car), state, plan, jobs, bool(state.items), rows, maintenance)
 
 
 def news(jobs: list[Watched], logged: set[tuple[str, str]]) -> list[Watched]:
@@ -105,39 +143,56 @@ def push(watch: CarWatch, fresh: list[Watched], base_url: str) -> Push:
     overdue = sum(1 for j in fresh if j.level == "overdue")
     if len(fresh) == 1:
         job = fresh[0]
-        title = f"{name}: {job.name} {'overdue' if overdue else 'due soon'}"
+        title = f"{name}: {job.name} {job.state}"
         message = job.when + (f" · ~{dollars(job.cost)}" if job.cost else "")
     else:
         counts = [f"{overdue} overdue"] * bool(overdue) + [f"{len(fresh) - overdue} due soon"] * bool(len(fresh) - overdue)
-        title = f"{name}: {len(fresh)} jobs — {', '.join(counts)}"
+        title = f"{name}: {', '.join(counts)}"
         message = "\n".join(j.line for j in fresh)
     return Push(title, message, priority=4 if overdue else 3, tags=("warning",) if overdue else ("wrench",),
                 click=f"{base_url}/vehicles/{watch.car['id']}")
 
 
 def take_stock(conn: sqlite3.Connection, car, today: date | None = None) -> int:
-    """Log what's due now as known, without sending it: alerts start from now. Returns how many."""
-    watch = look(conn, car, today)
-    for job in watch.jobs:
+    """Log the jobs due now as known, without sending them: alerts start from now. Returns how many.
+
+    Inspections and registration aren't held back: they've been watched all along.
+    """
+    jobs = [job for job in look(conn, car, today, maintenance=True).jobs if not job.renewal]
+    for job in jobs:
         alerts.known(conn, CHANNEL, job.subject, job.level, car["id"], job.line)
-    return len(watch.jobs)
+    return len(jobs)
 
 
 # ---------- The calendar ----------
 
 
 def events(watches: list[CarWatch], base_url: str) -> list[ics.Event]:
-    """Every job falling due in the next 12 months, as all-day events.
+    """Every job falling due in the next 12 months, and when each inspection and registration expires, as
+    all-day events; a car's jobs only when its schedule is watched.
 
-    Overdue ones are left out: a file you import can't keep them on today. The
-    UID numbers each time the job falls due since the car's records begin —
-    the 9th oil change — so it stays the same as dates pass, as the job is done
-    late or early, and as the odometer moves a date: a newer file moves the
-    event rather than adding one.
+    Overdue (and expired) ones are left out: a file you import can't keep them
+    on today. A job's UID numbers each time it falls due since the car's
+    records begin — the 9th oil change — so it stays the same as dates pass,
+    as the job is done late or early, and as the odometer moves a date: a
+    newer file moves the event rather than adding one. An expiry's UID is the
+    car's and the kind's alone, so logging the next one moves it too.
     """
     found: list[ics.Event] = []
     for watch in watches:
         today, car = watch.state.today, watch.car
+        for row in watch.dates:
+            expires = date.fromisoformat(row.records[0]["expires_on"])
+            if expires >= today:
+                found.append(ics.Event(
+                    uid=f"amg-{car['id']}-{row.kind.code}@amg",
+                    day=expires,
+                    summary=f"{row.kind.name} expires · {car['name']}",
+                    description="Good through this day. AMG reminds you 30 days before, and again in the last week.",
+                    url=f"{base_url}/vehicles/{car['id']}",
+                ))
+        if not watch.maintenance:
+            continue
         end = forecast.months(today, CALENDAR_MONTHS)[-1][1]
         costs = watch.plan.item_costs()
         seen: set[tuple[str, str]] = set()

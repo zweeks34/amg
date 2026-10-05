@@ -25,6 +25,14 @@ def cars_on(conn: sqlite3.Connection) -> list[dict]:
         "SELECT * FROM vehicles WHERE alerts = 1 AND archived_at IS NULL ORDER BY name COLLATE NOCASE, id")]
 
 
+def cars_watched(conn: sqlite3.Connection) -> list[dict]:
+    """Cars the daily run looks at: alerts on, or an inspection or registration date to remind of; not archived."""
+    return [dict(row) for row in conn.execute(
+        "SELECT * FROM vehicles v WHERE archived_at IS NULL"
+        "   AND (alerts = 1 OR EXISTS (SELECT 1 FROM renewals r WHERE r.vehicle_id = v.id))"
+        " ORDER BY name COLLATE NOCASE, id")]
+
+
 def switch(conn: sqlite3.Connection, vehicle_id: int, on: bool) -> None:
     conn.execute("UPDATE vehicles SET alerts = ?, updated_at = ? WHERE id = ?", (int(on), now_iso(), vehicle_id))
 

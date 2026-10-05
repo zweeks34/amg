@@ -52,7 +52,7 @@ def test_doing_the_job_starts_a_new_round(conn, car, pushes):
     af.oil_change(conn, car, date(2026, 7, 5))
     _run(conn, date(2026, 7, 6))
     _run(conn, date(2026, 12, 10))                      # next due 2027-01-05; the wipers went overdue in September
-    assert [p.title for p in pushes] == ["Outback: Oil and filter overdue", "Outback: 2 jobs — 1 overdue, 1 due soon"]
+    assert [p.title for p in pushes] == ["Outback: Oil and filter overdue", "Outback: 1 overdue, 1 due soon"]
     assert "Oil and filter: by Jan 5, 2027 · ~$61" in pushes[1].message   # the $60 oil change, in December's money
 
 
@@ -83,7 +83,7 @@ def test_a_car_with_alerts_off_sends_nothing(conn, car, pushes):
 def test_several_new_jobs_make_one_push(conn, car, pushes):
     _run(conn, date(2026, 8, 10))                       # oil overdue; wipers (Sep 1) due soon
     (push,) = pushes
-    assert push.title == "Outback: 2 jobs — 1 overdue, 1 due soon"
+    assert push.title == "Outback: 1 overdue, 1 due soon"
     assert push.message == "Oil and filter: overdue since Jul 1\nWiper blades: by Sep 1"
     assert push.priority == 4
 

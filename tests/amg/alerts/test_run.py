@@ -28,7 +28,7 @@ def test_a_dry_run_says_what_would_go_and_records_nothing(conn, car, capsys):
     said: list[str] = []
     result = run.run(conn, MONDAY, dry_run=True, say=said.append)
     assert said[0] == "Pushes aren't set up (AMG_NTFY_TOPIC is empty): showing what they would say."
-    assert said[1] == ("Would push: Outback: 2 jobs — 1 overdue, 1 due soon\n"
+    assert said[1] == ("Would push: Outback: 1 overdue, 1 due soon\n"
                        "  Oil and filter: overdue since Jul 1\n  Wiper blades: by Sep 1")
     assert said[2].startswith("Would email (email not set up):\nAMG: 1 overdue, 1 due soon\n")
     assert result.email == "would send"
@@ -47,7 +47,8 @@ def test_a_channel_that_isnt_set_up_is_skipped_and_said(conn, car):
 def test_no_cars_on_says_how_to_turn_them_on(conn):
     said: list[str] = []
     run.run(conn, MONDAY, say=said.append)
-    assert said == ["No car has alerts turned on. Turn them on from the Alerts page."]
+    assert said == ["No car has alerts turned on, or an inspection or registration date. Turn alerts on from the "
+                    "Alerts page, or add the dates on a car's page."]
     assert alerts.last_run(conn)["summary"] == "nothing new to push; no cars on"
 
 
@@ -71,4 +72,4 @@ def test_the_run_records_itself_and_exits_1_when_a_send_fails(conn, car, on_mond
 def test_amg_alerts_runs_it(conn, car, on_monday, capsys):
     assert cli.main(["alerts", "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "Would push: Outback: 2 jobs" in out and out.rstrip().endswith("Dry run: 1 push; weekly email would go")
+    assert "Would push: Outback: 1 overdue, 1 due soon" in out and out.rstrip().endswith("Dry run: 1 push; weekly email would go")

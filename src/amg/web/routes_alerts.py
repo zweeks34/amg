@@ -69,9 +69,10 @@ def test_email(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -
 
 @router.get("/alerts/calendar.ics")
 def calendar(conn: sqlite3.Connection = Depends(get_conn)) -> Response:
-    """The next 12 months of jobs for every car in the garage, to import into a calendar."""
+    """The next 12 months of jobs for every car in the garage, and when inspections and registrations expire, to
+    import into a calendar."""
     active, _ = vehicles.garage(conn)
-    watches = [watch.look(conn, car) for car in active]
+    watches = [watch.look(conn, car, maintenance=True) for car in active]
     return Response(ics.calendar(watch.events(watches, config.base_url())), media_type="text/calendar; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{mail.CALENDAR_FILE}"'})
 

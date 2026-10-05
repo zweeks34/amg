@@ -15,16 +15,19 @@
   <div style="background:#f7f8f9;border:1px solid #c9cfd5;border-radius:6px;padding:16px;margin:0 0 16px">
     <h2 style="margin:0 0 8px;font:700 20px/1.2 'Arial Narrow',system-ui,sans-serif">
       <a href="{{ base_url }}/vehicles/{{ w.car.id }}" style="color:{{ ink }}">{{ w.car.name }}</a></h2>
-    {% if not w.has_schedule %}
-    <p style="margin:0;color:{{ steel }}">No maintenance schedule yet, so there's nothing to watch.</p>
+    {% for heading, jobs, colour in (("Overdue", w.overdue, "#c4372b"), ("Due soon", w.due, "#f2b705")) if jobs %}
+    <p style="margin:12px 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ colour }};margin-right:6px"></span>{{ heading }}</p>
+    <ul style="margin:0;padding-left:20px">
+      {% for job in jobs %}<li>{{ job.name }} <span style="color:{{ steel }}">· {{ job.when }}{% if job.cost %} · ~{{ job.cost | dollars }}{% endif %}</span></li>{% endfor %}
+    </ul>
+    {% endfor %}
+    {% if not w.maintenance %}
+      {% if not w.jobs %}<p style="margin:0">{{ dates_line(w) }}</p>{% endif %}
+      <p style="margin:12px 0 0;color:{{ steel }}">{{ off }}</p>
+    {% elif not w.has_schedule %}
+    <p style="margin:12px 0 0;color:{{ steel }}">{{ no_schedule }}</p>
     {% else %}
-      {% for heading, jobs, colour in (("Overdue", w.overdue, "#c4372b"), ("Due soon", w.due, "#f2b705")) if jobs %}
-      <p style="margin:12px 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase">
-        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ colour }};margin-right:6px"></span>{{ heading }}</p>
-      <ul style="margin:0;padding-left:20px">
-        {% for job in jobs %}<li>{{ job.name }} <span style="color:{{ steel }}">· {{ job.when }}{% if job.cost %} · ~{{ job.cost | dollars }}{% endif %}</span></li>{% endfor %}
-      </ul>
-      {% endfor %}
       {% if not w.jobs %}<p style="margin:0">Nothing due or overdue.</p>{% endif %}
       {% if w.state.missed %}<p style="margin:12px 0 0">Missed earlier: {{ w.state.missed }}. <a href="{{ base_url }}/vehicles/{{ w.car.id }}" style="color:{{ ink }}">The car's page</a> lists them.</p>{% endif %}
       {% if w.coming_up %}
@@ -42,7 +45,8 @@
   {% if to_check %}
   <p style="margin:0 0 16px"><a href="{{ base_url }}/receipts" style="color:{{ ink }}">{{ to_check }} receipt{{ "s" if to_check != 1 }} to check</a>.</p>
   {% endif %}
-  <p style="margin:0;font-size:14px;color:{{ steel }}">The attached {{ calendar_file }} has the next 12 months of jobs. {{ import_how }}
+  <p style="margin:0;font-size:14px;color:{{ steel }}">The attached {{ calendar_file }} has the next 12 months of jobs, and when inspections and registrations
+    expire. {{ import_how }}
     Links open when you're home or on the VPN.</p>
 </div>
 </body>

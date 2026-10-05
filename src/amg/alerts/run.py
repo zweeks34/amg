@@ -55,9 +55,10 @@ def calendar(watches: list[watch.CarWatch], base_url: str) -> str:
 def run(conn: sqlite3.Connection, today: date, dry_run: bool = False, say: Callable[[str], None] = print) -> Result:
     result = Result()
     base_url = config.base_url()
-    cars = alerts.cars_on(conn)
+    cars = alerts.cars_watched(conn)
     if not cars:
-        say("No car has alerts turned on. Turn them on from the Alerts page.")
+        say("No car has alerts turned on, or an inspection or registration date. Turn alerts on from the Alerts "
+            "page, or add the dates on a car's page.")
         result.email = "no cars"
         return _finish(conn, result, dry_run)
     watches = [watch.look(conn, car, today) for car in cars]

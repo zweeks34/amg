@@ -51,6 +51,7 @@ def test_the_html_part_escapes_and_the_calendar_is_attached(conn):
 
 def test_nothing_due_still_makes_an_email(conn):
     car = vehicles.create(conn, vehicles.VehicleFields(name="Runabout"))
+    alerts.switch(conn, car, True)
     message = _digest(conn, car)
     assert message["Subject"] == "AMG: nothing due this week"
     assert "No maintenance schedule yet" in message.get_body(("plain",)).get_content()

@@ -5,7 +5,8 @@
 <header class="pagehead">
   <h1 class="display">Alerts</h1>
   <p class="pagehead__lede">AMG tells you when a job comes due without you opening it: a push to your phone when
-    something comes due soon or goes overdue, and an email every Monday. Both reach you off the VPN.</p>
+    something comes due soon or goes overdue, and an email every Monday. Both reach you off the VPN. Inspections and
+    registration get a push 30 days before they expire and again in the last week.</p>
 </header>
 
 {% if problem %}
@@ -74,7 +75,8 @@
   </ul>
   <p class="aside">Turning a car's alerts on starts from now: what's already due or overdue goes in the weekly email,
     not a push. Leave a car off while you're still adding its old receipts. Until they're all in, AMG thinks some
-    work is overdue that was really done.</p>
+    work is overdue that was really done. Inspections and registration don't wait for this: once a car has a date
+    for one, AMG reminds you of it.</p>
   {% else %}
   <div class="sheet empty empty--small"><p>No cars yet. <a href="/vehicles/new">Add a car</a> to have AMG watch its schedule.</p></div>
   {% endif %}
@@ -83,7 +85,8 @@
 <section class="block" aria-labelledby="calendar-heading">
   <h2 class="h3" id="calendar-heading">Calendar</h2>
   <div class="sheet calendarbox">
-    <p>The next 12 months of jobs for every car, as all-day events on the days they fall due.</p>
+    <p>The next 12 months of jobs for every car, as all-day events on the days they fall due, and the day each
+      inspection and registration expires.</p>
     <p><a class="btn btn--secondary" href="/alerts/calendar.ics" download>Download the calendar (.ics)</a></p>
     <p class="field__hint">In Google Calendar: Settings → Import &amp; export → Import, into a calendar of its own
       (say “Car maintenance”). The weekly email brings a fresh file each Monday. If importing a newer one adds copies

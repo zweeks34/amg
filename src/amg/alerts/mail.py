@@ -1,5 +1,8 @@
 """The weekly email: what each car has overdue, due soon and coming up, and the calendar file.
 
+A car whose alerts are off is in it only for its inspection and registration
+dates, which are watched whatever the switch says.
+
 Sent through your own mail account (Gmail, with an app password) by SMTP. It
 goes out every week, even with nothing due: an email that stops coming is how
 you'd know the alerts have stopped working.
@@ -52,17 +55,31 @@ def _row(row: dict) -> str:
     return f"{row['name']}: {row['when']}" + (f" · ~{dollars(row['cost'])}" if row.get("cost") else "")
 
 
+def dates_line(watch: CarWatch) -> str:
+    """A car with nothing due, watched for its dates alone: when each expires."""
+    dates = "; ".join(f"{row.kind.name} {row.when}" for row in watch.dates)
+    return f"Nothing due: {dates}." if dates else "Nothing due."
+
+
+OFF = "Maintenance alerts are off for this car."
+NO_SCHEDULE = "No maintenance schedule yet, so no jobs to watch."
+
+
 def text(watches: list[CarWatch], to_check: int, base_url: str) -> str:
     lines = [subject(watches)]
     for watch in watches:
         car = watch.car
         lines += ["", car["name"].upper()]
-        if not watch.has_schedule:
-            lines.append("No maintenance schedule yet, so there's nothing to watch.")
+        for heading, jobs in (("Overdue", watch.overdue), ("Due soon", watch.due)):
+            if jobs:
+                lines += [heading] + [f"  • {job.line}" for job in jobs]
+        if not watch.maintenance:
+            if not watch.jobs:
+                lines.append(dates_line(watch))
+            lines.append(OFF)
+        elif not watch.has_schedule:
+            lines.append(NO_SCHEDULE)
         else:
-            for heading, jobs in (("Overdue", watch.overdue), ("Due soon", watch.due)):
-                if jobs:
-                    lines += [heading] + [f"  • {job.line}" for job in jobs]
             if not watch.jobs:
                 lines.append("Nothing due or overdue.")
             if watch.state.missed:
@@ -74,7 +91,8 @@ def text(watches: list[CarWatch], to_check: int, base_url: str) -> str:
         lines.append(f"{base_url}/vehicles/{car['id']}")
     if to_check:
         lines += ["", f"{to_check} receipt{'s' if to_check != 1 else ''} to check: {base_url}/receipts"]
-    lines += ["", f"The attached {CALENDAR_FILE} has the next 12 months of jobs. {IMPORT_HOW}"]
+    lines += ["", f"The attached {CALENDAR_FILE} has the next 12 months of jobs, and when inspections and "
+                  f"registrations expire. {IMPORT_HOW}"]
     return "\n".join(lines) + "\n"
 
 
@@ -84,7 +102,8 @@ def digest(watches: list[CarWatch], to_check: int, base_url: str, calendar: str)
     message.set_content(text(watches, to_check, base_url))
     html = templates.env.get_template("email/digest.html").render(
         subject=subject(watches), watches=watches, to_check=to_check, base_url=base_url, budget_line=budget_line,
-        row=_row, calendar_file=CALENDAR_FILE, import_how=IMPORT_HOW)
+        dates_line=dates_line, off=OFF, no_schedule=NO_SCHEDULE, row=_row, calendar_file=CALENDAR_FILE,
+        import_how=IMPORT_HOW)
     message.add_alternative(html, subtype="html")
     message.add_attachment(calendar.encode("utf-8"), maintype="text", subtype="calendar", filename=CALENDAR_FILE)
     return message
