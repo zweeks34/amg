@@ -112,3 +112,55 @@ def categories(conn: sqlite3.Connection) -> list[str]:
     return [row[0] for row in conn.execute(
         "SELECT category FROM service_types GROUP BY category ORDER BY min(sort), category"
     )]
+
+
+# ---------- Download your data ----------
+
+
+def fills(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Every fill-up and charge, car by car, oldest first."""
+    return conn.execute(
+        "SELECT f.*, v.name AS car_name FROM fuel_logs f JOIN vehicles v ON v.id = f.vehicle_id"
+        " ORDER BY v.name COLLATE NOCASE, v.id, f.filled_on, f.odometer, f.id"
+    ).fetchall()
+
+
+def odometer_points(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Every odometer reading AMG knows, car by car, wherever it was recorded."""
+    return conn.execute(
+        "SELECT p.read_on, p.miles, p.source, v.name AS car_name"
+        "  FROM odometer_points p JOIN vehicles v ON v.id = p.vehicle_id"
+        " ORDER BY v.name COLLATE NOCASE, v.id, p.read_on, p.miles"
+    ).fetchall()
+
+
+def prices(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """The prices the budget uses — yours, and Claude's estimates that came back — car by car."""
+    return conn.execute(
+        "SELECT p.*, v.name AS car_name FROM price_book p JOIN vehicles v ON v.id = p.vehicle_id"
+        " WHERE p.status = 'done'"
+        " ORDER BY v.name COLLATE NOCASE, v.id, p.name, p.source DESC"
+    ).fetchall()
+
+
+def receipt_downloads(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Every confirmed receipt's stored file, with the date, shop and car its service says, oldest first."""
+    return conn.execute(
+        "SELECT d.*, e.performed_on, e.shop, v.name AS car_name"
+        "  FROM receipts r"
+        "  JOIN documents d ON d.id = r.document_id"
+        "  JOIN service_events e ON e.id = r.service_event_id"
+        "  JOIN vehicles v ON v.id = e.vehicle_id"
+        " WHERE r.status = 'confirmed' AND e.confirmed = 1"
+        " ORDER BY e.performed_on, r.id"
+    ).fetchall()
+
+
+def manuals(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """The stored files a schedule in use was read from: owner's manuals, mostly."""
+    return conn.execute(
+        "SELECT * FROM documents WHERE id IN ("
+        "  SELECT document_id FROM schedule_items WHERE document_id IS NOT NULL"
+        "  UNION SELECT document_id FROM schedule_drafts WHERE status = 'confirmed' AND document_id IS NOT NULL"
+        ") ORDER BY filename, id"
+    ).fetchall()

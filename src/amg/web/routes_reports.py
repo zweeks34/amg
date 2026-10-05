@@ -1,4 +1,4 @@
-"""Reports: the History, Spending and Fuel views, each one as a CSV, and a car's sale packet.
+"""Reports: the History, Spending and Fuel views, each one as a CSV, a car's sale packet, and your data.
 
 Every report is a GET with its filters in the address bar (reports/filters.py),
 so a report is a link you can keep, print, or download as it stands.
@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.background import BackgroundTask
 from starlette.responses import FileResponse, Response
 
-from ..reports import csvs, fuel, history, packet, spending
+from ..reports import csvs, export, fuel, history, packet, spending
 from ..reports.filters import VIEWS, Filters, service_label, service_options, span_words
 from ..repo import reports
 from . import fuel_status
@@ -96,6 +96,21 @@ def sale_packet(vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -
         raise
     return FileResponse(path, media_type="application/pdf",
                         filename=f"{slug(packet.title(car))}-service-history-{date.today().isoformat()}.pdf",
+                        background=BackgroundTask(path.unlink, missing_ok=True))
+
+
+@router.get("/reports/your-data.zip")
+def your_data(conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    """Everything, as spreadsheets and the uploaded files. Temp file, deleted once sent, like the packet."""
+    handle, name = tempfile.mkstemp(prefix="amg-data-", suffix=".zip")
+    os.close(handle)
+    path = Path(name)
+    try:
+        export.write(conn, path)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return FileResponse(path, media_type="application/zip", filename=export.filename(),
                         background=BackgroundTask(path.unlink, missing_ok=True))
 
 

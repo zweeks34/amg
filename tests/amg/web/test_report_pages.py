@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import zipfile
 from datetime import date
 
 import report_fixtures as rf  # tests/ is on pytest's path
@@ -103,3 +105,19 @@ def test_the_sale_packet_downloads_for_a_chosen_car(signed_in, conn):
 def test_the_sale_packet_needs_a_session(client, conn):
     car = rf.car(conn, "Outback")
     assert client.get(f"/vehicles/{car}/sale-packet.pdf", follow_redirects=False).status_code == 303
+
+
+def test_your_data_downloads_from_the_reports_page(signed_in, conn):
+    car = rf.car(conn, "Outback")
+    rf.receipt(conn, car, rf.pdf_bytes("MIDAS"), "midas.pdf", date="2017-08-09", shop_name="Midas")
+    assert 'href="/reports/your-data.zip" download>Download your data (.zip)</a>' in signed_in.get("/reports").text
+    assert 'href="/reports#data-heading">Download your data</a>' in signed_in.get("/backup").text
+    response = signed_in.get("/reports/your-data.zip")
+    assert response.headers["content-type"] == "application/zip"
+    assert f'filename="amg-your-data-{date.today().isoformat()}.zip"' in response.headers["content-disposition"]
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        assert "receipts/2017-08-09 Midas - Outback.pdf" in zf.namelist()
+
+
+def test_your_data_needs_a_session(client, conn):
+    assert client.get("/reports/your-data.zip", follow_redirects=False).status_code == 303

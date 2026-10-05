@@ -66,17 +66,17 @@ def history_csv(history: History, filters: Filters) -> str:
                 number(line["quantity"]), amount(line["amount_cents"]), text(services(line)),
                 category(line, filters) if line["covers"] else "",
             ] + tail)
-    return _sheet(HISTORY_COLUMNS, rows)
+    return sheet(HISTORY_COLUMNS, rows)
 
 
 def spending_csv(spending: Spending | None) -> str:
     """The table as shown: categories down, years across, totals last."""
     if spending is None:
-        return _sheet(("Category", "Total"), [])
+        return sheet(("Category", "Total"), [])
     rows = [[text(row["label"])] + [amount(row["cells"].get(year)) for year in spending.years] + [amount(row["total"])]
             for row in spending.rows]
     rows.append(["Total"] + [amount(spending.totals[year]) for year in spending.years] + [amount(spending.total)])
-    return _sheet(["Category"] + [str(year) for year in spending.years] + ["Total"], rows)
+    return sheet(["Category"] + [str(year) for year in spending.years] + ["Total"], rows)
 
 
 def fuel_csv(sections: list[Section]) -> str:
@@ -92,10 +92,10 @@ def fuel_csv(sections: list[Section]) -> str:
                 number(month.cost_per_mile, 1), amount(month.spent),
                 number(month.unit_price / 100 if month.unit_price is not None else None, 3),
             ])
-    return _sheet(FUEL_COLUMNS, rows)
+    return sheet(FUEL_COLUMNS, rows)
 
 
-def _sheet(header, rows) -> str:
+def sheet(header, rows) -> str:
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(header)
