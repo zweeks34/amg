@@ -6,6 +6,7 @@ The Automobile Maintenance Genie (AMG) is an automobile maintenance manager.
 ## Specs
 - Full spec and wish-list: `docs/SPEC.md` — read before planning any new feature
 - Build plan, phase checklists and decisions: `docs/ROADMAP.md` — tick items off as they ship
+- Every approved plan, as approved: `docs/plans/` (index in its README) — a record of what was agreed and how it was built
 
 ## Stack
 - Python ≥3.12 (server LXC runs Ubuntu 24.04's 3.12; local is 3.14 — don't use 3.13+-only features)
@@ -40,6 +41,7 @@ The Automobile Maintenance Genie (AMG) is an automobile maintenance manager.
 
 ## Workflow
 - Propose a plan and wait for approval before multi-file changes
+- Once a plan is approved, save it verbatim to `docs/plans/YYYY-MM-DD-short-name.md` with the header the others have, add it to the index, and commit it with the work; when it ships, add its commits and an **As built** note for anything that changed
 - Small commits, conventional-commit messages
 
 ## Gotchas

@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The four month-bar options drawn on 2026-10-05 to choose from; A's colours with B's picker were built.
+     Figures are a made-up test Outback (scratch data), not real receipts. Published as an artifact:
+     https://claude.ai/artifact/GEnRoUH996dzvcN4JcPEeJ -->
+<title>Budget chart options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: AMG's own page — shop-floor ground, sheets for panels — one column of four lettered options, each a chart
+   drawn from the same test data, its trade-offs under it, then a recommendation. */
+:root {
+  --floor: #e3e6e8; --sheet: #f7f8f9; --band: #eef0f2;
+  --ink: #16202b; --ink-2: #3a4654; --steel: #5a6672; --rule: #c9cfd5; --rule-soft: #dde1e5;
+  --due: #f2b705; --tape-ink: #16202b;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --other: #a3adb7;   /* Engine, Brakes, Tires and wheels, the rest */
+  --on-s1: #ffffff;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Public Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+  --gutter: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --floor: #0f151b; --sheet: #18212a; --band: #1d2731;
+    --ink: #e6e9ec; --ink-2: #b7c0c9; --steel: #8f9ba8; --rule: #2f3b47; --rule-soft: #25303b;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --other: #5d6976;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --floor: #0f151b; --sheet: #18212a; --band: #1d2731;
+  --ink: #e6e9ec; --ink-2: #b7c0c9; --steel: #8f9ba8; --rule: #2f3b47; --rule-soft: #25303b;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --other: #5d6976;
+  color-scheme: dark;
+}
+@media (min-width: 48rem) { :root { --gutter: 32px; } }
+
+body { background: var(--floor); color: var(--ink); font: 400 1rem/1.5 var(--body); }
+.page { max-width: 60rem; margin: 0 auto; padding-inline: var(--gutter); padding-block: 2rem 4rem; display: grid; gap: 2.5rem; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.05; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2.25rem, 6vw, 3.25rem); }
+h2 { font-size: 1.75rem; }
+p { margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font: 600 0.8125rem/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--steel); }
+.lede { max-width: 38rem; color: var(--ink-2); }
+.head { display: grid; gap: 0.75rem; }
+
+.switch { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 4px; overflow: hidden; justify-self: start; }
+.switch button {
+  font: 600 0.875rem/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.6rem 0.9rem; border: 0; background: transparent; color: var(--ink); cursor: pointer;
+}
+.switch button + button { border-left: 1.5px solid var(--ink); }
+.switch button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+button:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--s1); outline-offset: 2px; }
+
+.option { display: grid; gap: 1rem; }
+.option__head { display: flex; align-items: baseline; gap: 0.75rem; }
+.letter {
+  flex: none; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 4px;
+  background: var(--ink); color: var(--sheet); font: 700 1.375rem/1 var(--display);
+}
+.option__idea { color: var(--ink-2); max-width: 40rem; }
+.sheet { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 1.25rem var(--gutter); min-width: 0; }
+.pros { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem 2rem; font-size: 0.9375rem; }
+.pros h3 { font: 600 0.8125rem/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--steel); margin-bottom: 0.4rem; }
+.pros ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; }
+
+/* Legend and chips */
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin: 0 0 0.9rem; padding: 0; list-style: none; font-size: 0.875rem; color: var(--ink-2); }
+.legend li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.sw { width: 0.75rem; height: 0.75rem; border-radius: 2px; flex: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1rem; }
+.chips button {
+  font: 500 0.8125rem/1 var(--body); padding: 0.45rem 0.7rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--rule); background: var(--band); color: var(--ink-2);
+}
+.chips button[aria-pressed="true"] { background: var(--s1); border-color: var(--s1); color: var(--on-s1); }
+.chips .amt { font-family: var(--mono); margin-left: 0.35rem; opacity: 0.85; }
+
+/* Month bars, as AMG draws them: an axis, a plot with gridlines, columns, and the safety-tape put-aside line. */
+.bars { display: grid; gap: 0.4rem; }
+.bars__frame { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: 0.5rem; }
+.bars__axis { position: relative; }
+.bars__axis span { position: absolute; right: 0; bottom: calc(var(--y) * 1%); transform: translateY(50%); font: 0.75rem/1 var(--mono); color: var(--steel); }
+.bars__plot { position: relative; height: 11rem; border-bottom: 2px solid var(--ink); }
+.bars__grid { position: absolute; left: 0; right: 0; bottom: calc(var(--y) * 1%); border-top: 1px solid var(--rule-soft); }
+.bars__cols { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 4px; }
+.bars--dense .bars__cols, .bars--dense .bars__labels { gap: 1px; }
+.col { display: flex; flex-direction: column-reverse; align-items: center; height: 100%; cursor: default; }
+.seg { width: min(24px, 100%); height: calc(var(--h) * 1%); box-sizing: border-box; flex: none; }
+.seg + .seg { border-bottom: 2px solid var(--sheet); }
+.seg:last-child { border-radius: 4px 4px 0 0; }
+.seg--ink { background: var(--ink); }
+.seg--dim { background: var(--rule); }
+.seg--hi { background: var(--s1); }
+.tape {
+  position: absolute; left: -4px; right: -4px; bottom: calc(var(--y) * 1%); height: 5px; transform: translateY(50%);
+  background: repeating-linear-gradient(135deg, var(--due) 0 6px, var(--tape-ink) 6px 12px); pointer-events: none;
+}
+.bars__labels { margin-left: 3.25rem; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 4px; font: 0.75rem/1 var(--mono); color: var(--steel); }
+.bars__labels span { text-align: center; white-space: nowrap; }
+.bars--dense .bars__labels span { text-align: left; }
+.caption { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: 0.8125rem; color: var(--ink-2); margin-top: 0.4rem; }
+.caption span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.tapekey { width: 1.5rem; height: 5px; background: repeating-linear-gradient(135deg, var(--due) 0 6px, var(--tape-ink) 6px 12px); }
+
+/* C: a strip per type */
+.strips { display: grid; gap: 0; }
+.strip { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "name" "plot"; gap: 0.35rem 1rem; padding: 0.6rem 0; }
+.strip + .strip { border-top: 1px solid var(--rule-soft); }
+.strip__name { grid-area: name; display: flex; justify-content: space-between; gap: 0.75rem; font-weight: 600; font-size: 0.9375rem; }
+.strip__name .mono { font-weight: 500; }
+.strip__plot { grid-area: plot; position: relative; height: 2.6rem; border-bottom: 1.5px solid var(--ink); display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 4px; }
+.strips--dense .strip__plot, .strips--dense .bars__labels { gap: 1px; }
+.strip__plot .col { justify-content: flex-start; }
+.strips .bars__labels { margin-left: 0; }
+@media (min-width: 40rem) {
+  .strip { grid-template-columns: 11rem minmax(0, 1fr); grid-template-areas: "name plot"; align-items: end; }
+  .strip__name { flex-direction: column; justify-content: end; gap: 0.1rem; }
+  .strips .bars__labels { margin-left: 12rem; }
+}
+
+/* D: types down, months across */
+.gridwrap { overflow-x: auto; }
+.tgrid { display: grid; grid-template-columns: 10rem repeat(var(--n), minmax(1.6rem, 1fr)) 4.25rem; align-items: center; min-width: calc(14.25rem + var(--n) * 1.6rem); }
+.tgrid--dense { grid-template-columns: 10rem repeat(var(--n), minmax(1.1rem, 1fr)) 4.25rem; min-width: calc(14.25rem + var(--n) * 1.1rem); }
+.tgrid > * { min-height: 2.4rem; display: grid; place-items: center; border-top: 1px solid var(--rule-soft); }
+.tgrid .th { min-height: 1.6rem; border-top: 0; font: 0.75rem/1 var(--mono); color: var(--steel); }
+.tgrid .rowname { place-items: center start; font-weight: 600; font-size: 0.875rem; position: sticky; left: 0; background: var(--sheet); padding-right: 0.5rem; z-index: 1; }
+.tgrid .rowtotal { place-items: center end; font: 500 0.875rem/1 var(--mono); }
+.dot { width: calc(var(--d) * 1.35rem); height: calc(var(--d) * 1.35rem); border-radius: 50%; background: var(--ink); }
+.tgrid--dense .dot { width: calc(var(--d) * 1rem); height: calc(var(--d) * 1rem); }
+.cell { cursor: default; }
+
+.tip {
+  position: fixed; z-index: 10; pointer-events: none; max-width: 16rem; padding: 0.55rem 0.7rem; border-radius: 4px;
+  background: var(--ink); color: var(--sheet); font-size: 0.8125rem; line-height: 1.35; box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+}
+.tip b { font-family: var(--display); font-size: 0.9375rem; letter-spacing: 0.04em; }
+
+.verdict { border-left: 4px solid var(--ink); }
+.verdict h2 { margin-bottom: 0.6rem; }
+.verdict p + p { margin-top: 0.6rem; }
+.note { font-size: 0.875rem; color: var(--steel); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <p class="eyebrow">AMG · Budget</p>
+    <h1>Month by month, by type</h1>
+    <p class="lede">Four ways to show what each month's maintenance goes on. The figures are a test Outback's, made up
+      to try these out, not your car's. Hover over or tap a column or dot to see its jobs, and switch to 3 years to see
+      how each copes with 36 months.</p>
+    <div class="switch" role="group" aria-label="How far ahead">
+      <button type="button" id="h12" aria-pressed="true">12 months</button>
+      <button type="button" id="h36" aria-pressed="false">3 years</button>
+    </div>
+  </header>
+
+  <section class="option" aria-labelledby="a-title">
+    <div class="option__head"><span class="letter" aria-hidden="true">A</span><h2 id="a-title">Stacked columns</h2></div>
+    <p class="option__idea">Today's chart with each month's column split by type. Each type keeps one colour everywhere in
+      AMG; only Engine, Brakes, and Tires and wheels get a colour, and everything else shares grey.</p>
+    <div class="sheet"><ul class="legend" id="a-legend"></ul><div id="a-chart"></div></div>
+    <div class="pros">
+      <div><h3>Good for</h3><ul><li>The total and what makes it up, in one look</li><li>Closest to the chart you have now</li></ul></div>
+      <div><h3>Watch out for</h3><ul><li>Only three colours stay easy to tell apart for colour-blind readers and in dark mode, so the rest share grey. Here, wipers, fees and the cabin filter come to $221 of grey, more than the brakes</li><li>Thin slivers at 3 years</li></ul></div>
+    </div>
+  </section>
+
+  <section class="option" aria-labelledby="b-title">
+    <div class="option__head"><span class="letter" aria-hidden="true">B</span><h2 id="b-title">Pick a type</h2></div>
+    <p class="option__idea">Today's chart, with the types listed above it. Pick one and its part of each month is
+      highlighted; pick "All types" for the chart as it is now.</p>
+    <div class="sheet"><div class="chips" id="b-chips" role="group" aria-label="Type to highlight"></div><div id="b-chart"></div></div>
+    <div class="pros">
+      <div><h3>Good for</h3><ul><li>One colour, so any number of types works</li><li>Fine at 3 years and on a phone</li><li>The By type list on the page can do the picking</li></ul></div>
+      <div><h3>Watch out for</h3><ul><li>One type at a time</li><li>Until you pick a type, it's today's chart</li></ul></div>
+    </div>
+  </section>
+
+  <section class="option" aria-labelledby="c-title">
+    <div class="option__head"><span class="letter" aria-hidden="true">C</span><h2 id="c-title">A strip per type</h2></div>
+    <p class="option__idea">A row of small month bars for each type, every row on the same scale, most expensive type
+      first. It sits under today's chart, which keeps the month totals and the put-aside tape.</p>
+    <div class="sheet" id="c-chart"></div>
+    <div class="pros">
+      <div><h3>Good for</h3><ul><li>Seeing when each type lands, with no colours and no tapping</li><li>Any number of types</li></ul></div>
+      <div><h3>Watch out for</h3><ul><li>Taller: about one line per type</li><li>An addition to today's chart, not a replacement</li></ul></div>
+    </div>
+  </section>
+
+  <section class="option" aria-labelledby="d-title">
+    <div class="option__head"><span class="letter" aria-hidden="true">D</span><h2 id="d-title">Type by month grid</h2></div>
+    <p class="option__idea">Types down, months across, with a dot sized by what that month's work costs and each
+      type's total at the end of its row.</p>
+    <div class="sheet"><div class="gridwrap" id="d-chart" tabindex="0" role="region" aria-label="Type by month grid"></div></div>
+    <div class="pros">
+      <div><h3>Good for</h3><ul><li>The most compact overview: quiet months and big ones stand out</li><li>Row totals beside the timing</li></ul></div>
+      <div><h3>Watch out for</h3><ul><li>Dot sizes are rough; the amount is in the hover</li><li>36 columns scroll sideways on a phone</li></ul></div>
+    </div>
+  </section>
+
+  <section class="sheet verdict" aria-labelledby="v-title">
+    <h2 id="v-title">My pick: B, with C as a close second</h2>
+    <p>Your budget is lumpy: most months have no jobs or one, and a car has six to ten types over a few years. That
+      suits a chart that shows one type clearly rather than all of them at once. B keeps the chart you know, needs no
+      new colours, and still works at 3 years and on a phone. If you'd rather see every type without picking, C does
+      that, at the cost of some height.</p>
+    <p>A is what most apps do, and it reads well when one or two types dominate. With three colours plus grey, though,
+      "Other" is often one of the biggest parts. A mix works too: A's colours for the three big types, plus B's picker
+      to bring any type forward.</p>
+    <p class="note">On every option, the month list under the chart still names each job and its price, so nothing
+      depends on telling colours or sizes apart.</p>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const DATA = {"12":{"perMonth":4890,"months":[["2026-10",[["Electrical",4820,"Wiper blades",1],["Inspections and registration",2800,"Emissions inspection",1],["Inspections and registration",4075,"Registration",0]]],["2026-11",[]],["2026-12",[["Tires and wheels",3217,"Tire rotation",0]]],["2027-01",[["Electrical",4820,"Wiper blades",0],["Brakes",13984,"Brake fluid",0],["Engine",3718,"Engine air filter",0]]],["2027-02",[["Engine",10050,"Oil and filter",0]]],["2027-03",[]],["2027-04",[]],["2027-05",[]],["2027-06",[["Cabin",3552,"Cabin air filter",0],["Tires and wheels",3217,"Tire rotation",0]]],["2027-07",[]],["2027-08",[["Engine",10050,"Oil and filter",0]]],["2027-09",[["Inspections and registration",2000,"Safety inspection",0]]]],"types":[["Engine",23818],["Brakes",13984],["Electrical",9640],["Inspections and registration",8875],["Tires and wheels",6434],["Cabin",3552]]},"36":{"perMonth":4476,"months":[["2026-10",[["Electrical",4820,"Wiper blades",1],["Inspections and registration",2800,"Emissions inspection",1],["Inspections and registration",4075,"Registration",0]]],["2026-11",[]],["2026-12",[["Tires and wheels",3217,"Tire rotation",0]]],["2027-01",[["Electrical",4820,"Wiper blades",0],["Brakes",13984,"Brake fluid",0],["Engine",3718,"Engine air filter",0]]],["2027-02",[["Engine",10050,"Oil and filter",0]]],["2027-03",[]],["2027-04",[]],["2027-05",[]],["2027-06",[["Cabin",3552,"Cabin air filter",0],["Tires and wheels",3217,"Tire rotation",0]]],["2027-07",[]],["2027-08",[["Engine",10050,"Oil and filter",0]]],["2027-09",[["Inspections and registration",2000,"Safety inspection",0]]],["2027-10",[["Inspections and registration",4075,"Registration",0]]],["2027-11",[]],["2027-12",[["Tires and wheels",3217,"Tire rotation",0]]],["2028-01",[["Electrical",4820,"Wiper blades",0]]],["2028-02",[["Engine",10050,"Oil and filter",0]]],["2028-03",[]],["2028-04",[]],["2028-05",[]],["2028-06",[["Cabin",3552,"Cabin air filter",0],["Tires and wheels",3217,"Tire rotation",0]]],["2028-07",[]],["2028-08",[["Engine",10050,"Oil and filter",0]]],["2028-09",[["Inspections and registration",2000,"Safety inspection",0]]],["2028-10",[["Inspections and registration",4075,"Registration",0],["Inspections and registration",2800,"Emissions inspection",0]]],["2028-11",[]],["2028-12",[["Tires and wheels",3217,"Tire rotation",0]]],["2029-01",[["Electrical",4820,"Wiper blades",0]]],["2029-02",[["Engine",10050,"Oil and filter",0]]],["2029-03",[]],["2029-04",[]],["2029-05",[]],["2029-06",[["Cabin",3552,"Cabin air filter",0],["Tires and wheels",3217,"Tire rotation",0]]],["2029-07",[["Brakes",13984,"Brake fluid",0],["Engine",3718,"Engine air filter",0]]],["2029-08",[["Engine",10050,"Oil and filter",0]]],["2029-09",[["Inspections and registration",2000,"Safety inspection",0]]]],"types":[["Engine",67736],["Brakes",27968],["Inspections and registration",23825],["Tires and wheels",19302],["Electrical",19280],["Cabin",10656]]}};
+const COLOURED = ["Engine", "Brakes", "Tires and wheels"];        // fixed colours, bottom of the stack up
+const VAR = { "Engine": "--s1", "Brakes": "--s2", "Tires and wheels": "--s3" };
+const STEPS = [2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+let horizon = "12", picked = "Engine";
+
+const dollars = c => "$" + Math.round(c / 100).toLocaleString("en-US");
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const monthName = ym => { const [y, m] = ym.split("-"); return MONTHS[+m - 1] + " " + y; };
+const total = items => items.reduce((sum, i) => sum + i[1], 0);
+function scaleFor(top) { const step = STEPS.find(s => top / s <= 4) || STEPS.at(-1); return { step, max: Math.ceil(top / step) * step }; }
+function labels(months) {
+  return months.map(([ym], i) => {
+    const [y, m] = ym.split("-");
+    if (months.length === 12) return MONTHS[+m - 1];
+    return +m === 1 ? y : "";
+  });
+}
+function tipFor(ym, items, only) {
+  const shown = only ? items.filter(only) : items;
+  const lines = shown.map(i => `${esc(i[2])} · ${dollars(i[1])}${i[3] ? " · due now" : ""}`).join("<br>");
+  return `<b>${monthName(ym)}</b> · ${dollars(total(shown))}<br>${lines || "Nothing due"}`;
+}
+function frame(months, cols, perMonth, dense) {
+  const top = Math.max(perMonth, ...months.map(([, items]) => total(items)));
+  const { step, max } = scaleFor(top);
+  const ticks = []; for (let v = step; v <= max; v += step) ticks.push(v);
+  return `<figure class="bars${dense ? " bars--dense" : ""}" style="--n:${months.length};margin:0">
+    <div class="bars__frame">
+      <div class="bars__axis" aria-hidden="true">${ticks.map(v => `<span style="--y:${v / max * 100}">${dollars(v)}</span>`).join("")}</div>
+      <div class="bars__plot">${ticks.map(v => `<span class="bars__grid" style="--y:${v / max * 100}"></span>`).join("")}
+        <div class="bars__cols">${cols(max)}</div>
+        <span class="tape" style="--y:${perMonth / max * 100}"></span></div>
+    </div>
+    <div class="bars__labels" aria-hidden="true">${labels(months).map(l => `<span>${l}</span>`).join("")}</div>
+  </figure>`;
+}
+const putAside = perMonth => `<span><span class="tapekey" aria-hidden="true"></span>Put aside ${dollars(perMonth)} a month</span>`;
+
+function drawA(d, dense) {
+  const groups = [...COLOURED, "Other"];
+  const swatch = t => t === "Other" ? "var(--other)" : `var(${VAR[t]})`;
+  document.getElementById("a-legend").innerHTML = groups.map(t => `<li><span class="sw" style="background:${swatch(t)}"></span>${t === "Other" ? "Other types" : t}</li>`).join("");
+  const cols = max => d.months.map(([ym, items]) => {
+    const segs = groups.map(g => [g, total(items.filter(i => (COLOURED.includes(i[0]) ? i[0] : "Other") === g))]).filter(([, c]) => c > 0);
+    return `<div class="col" tabindex="0" data-tip="${esc(tipFor(ym, items))}" aria-label="${monthName(ym)}: ${dollars(total(items))}">${segs.map(([g, c]) => `<span class="seg" style="--h:${c / max * 100};background:${swatch(g)}"></span>`).join("")}</div>`;
+  }).join("");
+  document.getElementById("a-chart").innerHTML = frame(d.months, cols, d.perMonth, dense) + `<p class="caption">${putAside(d.perMonth)}</p>`;
+}
+
+function drawB(d, dense) {
+  const chips = [["All types", total(d.months.flatMap(([, i]) => i))], ...d.types];
+  document.getElementById("b-chips").innerHTML = chips.map(([t, c]) => `<button type="button" data-type="${esc(t)}" aria-pressed="${t === picked}">${esc(t)}<span class="amt">${dollars(c)}</span></button>`).join("");
+  const all = picked === "All types";
+  const cols = max => d.months.map(([ym, items]) => {
+    const mine = all ? 0 : total(items.filter(i => i[0] === picked)), rest = total(items) - mine;
+    const segs = all ? [["seg--ink", rest]] : [["seg--hi", mine], ["seg--dim", rest]];
+    return `<div class="col" tabindex="0" data-tip="${esc(tipFor(ym, items, all ? null : i => i[0] === picked))}" aria-label="${monthName(ym)}">${segs.filter(([, c]) => c > 0).map(([k, c]) => `<span class="seg ${k}" style="--h:${c / max * 100}"></span>`).join("")}</div>`;
+  }).join("");
+  const key = all ? `<span><span class="sw" style="background:var(--ink)"></span>Maintenance and fees each month</span>`
+                  : `<span><span class="sw" style="background:var(--s1)"></span>${esc(picked)}</span><span><span class="sw" style="background:var(--rule)"></span>Everything else</span>`;
+  document.getElementById("b-chart").innerHTML = frame(d.months, cols, d.perMonth, dense) + `<p class="caption">${key}${putAside(d.perMonth)}</p>`;
+}
+
+function drawC(d, dense) {
+  const top = Math.max(...d.types.flatMap(([t]) => d.months.map(([, items]) => total(items.filter(i => i[0] === t)))));
+  const rows = d.types.map(([t, c]) => `<div class="strip"><p class="strip__name"><span>${esc(t)}</span><span class="mono">${dollars(c)}</span></p>
+      <div class="strip__plot" style="--n:${d.months.length}">${d.months.map(([ym, items]) => {
+        const v = total(items.filter(i => i[0] === t));
+        return `<div class="col" ${v ? `tabindex="0" data-tip="${esc(tipFor(ym, items, i => i[0] === t))}"` : ""}>${v ? `<span class="seg seg--ink" style="--h:${v / top * 100}"></span>` : ""}</div>`;
+      }).join("")}</div></div>`).join("");
+  document.getElementById("c-chart").innerHTML = `<div class="strips${dense ? " strips--dense" : ""}">${rows}
+    <div class="bars__labels" style="--n:${d.months.length}" aria-hidden="true">${labels(d.months).map(l => `<span>${l}</span>`).join("")}</div></div>
+    <p class="caption">Every row on one scale: the tallest bar is ${dollars(top)}.</p>`;
+}
+
+function drawD(d, dense) {
+  const top = Math.max(...d.types.flatMap(([t]) => d.months.map(([, items]) => total(items.filter(i => i[0] === t)))));
+  const head = `<span class="th rowname"></span>${labels(d.months).map((l, i) => `<span class="th">${dense ? l : l.slice(0, 1)}</span>`).join("")}<span class="th rowtotal">Total</span>`;
+  const rows = d.types.map(([t, c]) => `<span class="rowname">${esc(t)}</span>${d.months.map(([ym, items]) => {
+      const v = total(items.filter(i => i[0] === t));
+      return v ? `<span class="cell" tabindex="0" data-tip="${esc(tipFor(ym, items, i => i[0] === t))}"><span class="dot" style="--d:${Math.sqrt(v / top).toFixed(3)}"></span></span>` : "<span></span>";
+    }).join("")}<span class="rowtotal">${dollars(c)}</span>`).join("");
+  document.getElementById("d-chart").innerHTML = `<div class="tgrid${dense ? " tgrid--dense" : ""}" style="--n:${d.months.length}">${head}${rows}</div>`;
+}
+
+function draw() {
+  const d = DATA[horizon], dense = horizon === "36";
+  drawA(d, dense); drawB(d, dense); drawC(d, dense); drawD(d, dense);
+}
+
+const tip = document.getElementById("tip");
+function showTip(el) {
+  if (!el || !el.dataset.tip) { tip.hidden = true; return; }
+  tip.innerHTML = el.dataset.tip; tip.hidden = false;
+  const r = el.getBoundingClientRect(), t = tip.getBoundingClientRect();
+  const x = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 8);
+  const y = r.top - t.height - 8 < 8 ? r.bottom + 8 : r.top - t.height - 8;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+document.addEventListener("pointerover", e => showTip(e.target.closest("[data-tip]")));
+document.addEventListener("focusin", e => showTip(e.target.closest("[data-tip]")));
+document.addEventListener("focusout", () => { tip.hidden = true; });
+document.addEventListener("scroll", () => { tip.hidden = true; }, { passive: true });
+document.addEventListener("click", e => {
+  const chip = e.target.closest("#b-chips button");
+  if (chip) { picked = chip.dataset.type; drawB(DATA[horizon], horizon === "36"); }
+  const h = e.target.closest(".switch button");
+  if (h) {
+    horizon = h.id === "h36" ? "36" : "12";
+    document.querySelectorAll(".switch button").forEach(b => b.setAttribute("aria-pressed", String(b === h)));
+    draw();
+  }
+});
+draw();
+</script>
+
+</body>
+</html>

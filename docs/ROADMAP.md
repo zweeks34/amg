@@ -8,7 +8,8 @@ than carrying the correction around in our heads.
 
 Each phase says what it is for, the data it owns, what can go wrong, and what
 a test has to pin. Each ends with small conventional commits and a check-in
-before the next begins.
+before the next begins. The plan each step started from is kept, as approved,
+in [plans/](plans/README.md).
 
 ---
 
