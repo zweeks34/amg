@@ -368,6 +368,7 @@ page and moves today's estimated odometer. *That last part is yours.*
 - [x] Fuel/energy projection: miles a day (`Odometer.rate()`) × the fuel page's cost a mile, month by month
 - [x] Month-by-month budget per car (`/vehicles/{id}/budget`) and in total (`/budget`): put aside a month, due now, maintenance and fuel for the horizon, month bars, each month's jobs with where each price came from; the price list, where you set your own or ask Claude (a background job, one call per car, a few cents). The garage gets a line, and next up shows each job's cost
 - [x] By type (added after the phase shipped): the maintenance figure split by type of work on both budget pages — each type's total, share and a bar scaled to the biggest, and its jobs counted across the horizon ("3 times · 1 due now"), on the garage page with their car
+- [x] The month bars by type (added after the phase shipped): each bar stacked, Engine, Brakes, and Tires and wheels in a colour each and the rest in grey, with a legend; buttons above the bars pick out any one type and fade the rest
 
 **Decisions:**
 
@@ -392,6 +393,13 @@ page and moves today's estimated odometer. *That last part is yours.*
   what's coming and what went line up. Inspection and registration fees are
   a type of their own; inspections with no price of their own are left out,
   being part of a visit. The types add up to the maintenance figure.
+- **Three colours on the month bars, then a picker.** Chosen from four
+  options drawn for comparison (stacked, a picker, a strip per type, a type
+  by month grid). A colour per type would need ten; checked against AMG's
+  sheets in both themes, only three hues stay apart for colour-blind readers
+  without crowding the tape's yellow, overdue's red and done's green. So the
+  three big types keep a colour each, the same on every car, and the picker
+  brings any type forward instead of a fourth colour.
 
 **Data owned:** `price_book` — per car and per job (service types + action),
 so a price outlives the schedule item that asked for it.
