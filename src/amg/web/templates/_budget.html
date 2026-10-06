@@ -2,7 +2,10 @@
 
     The bars are maintenance a month, against a strip of safety tape at what's
     put aside each month: a bar above the tape is a month the savings pay for.
-    Fuel is left off them — it's steady, and paid as you go — and is in the list. -#}
+    Fuel is left off them — it's steady, and paid as you go — and is in the list.
+    Each bar is stacked by type of work, three types in a colour and the rest in
+    grey; picking a type above them brings its part of each month forward and
+    fades the rest. Without script the picker stays hidden and the stack stands. -#}
 {% from "_chart.html" import mark %}
 
 {% macro horizon_switch(count, horizons, url) -%}
@@ -14,7 +17,20 @@
 {%- endmacro %}
 
 {% macro bars(chart) -%}
-<figure class="mbars{% if chart.dense %} mbars--dense{% endif %}" style="--count: {{ chart.bars | length }}">
+<figure class="mbars{% if chart.dense %} mbars--dense{% endif %}" style="--count: {{ chart.bars | length }}"
+        x-data='{ picked: "", tones: {{ chart.tones | tojson }} }'
+        x-effect="$el.querySelectorAll('.mbars__seg').forEach(seg => {
+          seg.classList.toggle('is-picked', !!picked && seg.dataset.type === picked);
+          seg.classList.toggle('is-dim', !!picked && seg.dataset.type !== picked) })">
+  {% if chart.types | length > 1 %}
+  <div class="typepick" role="group" aria-label="Pick out a type of work" x-cloak>
+    <button type="button" aria-pressed="true" :aria-pressed="String(!picked)" @click="picked = ''">All types</button>
+    {%- for type in chart.types %}
+    <button type="button" data-type="{{ type.label }}" aria-pressed="false" :aria-pressed="String(picked === $el.dataset.type)"
+            @click="picked = $el.dataset.type"><span class="mbars__key mbars__seg--{{ type.colour }}" aria-hidden="true"></span>{{ type.label }} <span class="mono">{{ type.total | dollars }}</span></button>
+    {%- endfor %}
+  </div>
+  {% endif %}
   <div class="mbars__frame">
     <div class="mbars__axis" aria-hidden="true">
       {% for tick in chart.ticks %}<span style="--y: {{ tick.y }}">{{ tick.label }}</span>{% endfor %}
@@ -23,7 +39,9 @@
          aria-label="{{ chart.what }} each month, against putting aside {{ chart.per_month | dollars }} a month. The months are listed below.">
       {% for tick in chart.ticks %}<span class="mbars__grid" style="--y: {{ tick.y }}"></span>{% endfor %}
       <ol class="mbars__bars">
-        {% for bar in chart.bars %}<li class="mbars__bar" style="--h: {{ bar.h }}; --i: {{ loop.index0 }}" title="{{ bar.title }}"></li>{% endfor %}
+        {% for bar in chart.bars %}<li class="mbars__bar" style="--h: {{ bar.h }}; --i: {{ loop.index0 }}" title="{{ bar.title }}">
+          {%- for seg in bar.segs %}<span class="mbars__seg mbars__seg--{{ seg.colour }}{% if seg.gap %} mbars__seg--gap{% endif %}" data-type="{{ seg.type }}" style="flex: {{ seg.cents }} 1 0" title="{{ seg.title }}"></span>{% endfor -%}
+        </li>{% endfor %}
       </ol>
       <span class="mbars__tape" style="--y: {{ chart.line }}"></span>
     </div>
@@ -32,7 +50,11 @@
     {%- for bar in chart.bars %}<span>{% if chart.dense %}{{ bar.label }}{% else %}{{ bar.label[:1] }}<span class="mbars__rest">{{ bar.label[1:] }}</span>{% endif %}</span>{% endfor -%}
   </div>
   <figcaption class="trend__caption">
-    <span class="trend__legend"><span class="mbars__key" aria-hidden="true"></span>{{ chart.what }} each month</span>
+    {%- for tone in chart.colours %}
+    <span class="trend__legend" x-show="!picked"><span class="mbars__key mbars__seg--{{ tone.colour }}" aria-hidden="true"></span>{{ tone.label }}</span>
+    {%- endfor %}
+    <span class="trend__legend" x-show="picked" x-cloak><span class="mbars__key" :class="tones[picked] === 'other' ? '' : 'mbars__seg--' + tones[picked]" aria-hidden="true"></span><span x-text="picked"></span></span>
+    <span class="trend__legend" x-show="picked" x-cloak><span class="mbars__key mbars__key--dim" aria-hidden="true"></span>Everything else</span>
     <span class="trend__legend"><span class="mbars__tape mbars__tape--key" aria-hidden="true"></span>Put aside {{ chart.per_month | dollars }} a month</span>
   </figcaption>
 </figure>

@@ -361,8 +361,17 @@ def price_rows(plan: CarBudget, names: dict[int, str]) -> list[dict]:
     return rows
 
 
-def chart(months: list[Month], per_month: int, count: int) -> dict | None:
-    """The month bars: maintenance a month against what's put aside each month. Heights are 0–100."""
+def chart(months: list[Month], per_month: int, count: int,
+          categories: dict[int, tuple[int, str]] | None = None) -> dict | None:
+    """The month bars: maintenance a month against what's put aside each month. Heights are 0–100.
+
+    Each bar is stacked by type of work (``categories`` says each schedule
+    item's): Engine, Brakes, and Tires and wheels in a colour each from the
+    bottom up, then every other type in grey, in catalogue order. ``types``
+    are the picker's rows, the most expensive first, and ``colours`` the
+    legend's.
+    """
+    categories = categories or {}
     values = [m.maintenance for m in months]
     top = max(values + [per_month])
     if top <= 0:
@@ -376,9 +385,33 @@ def chart(months: list[Month], per_month: int, count: int) -> dict | None:
             return f"{month.start:%b}"
         return str(month.start.year) if month.start.month == 1 else ""
 
+    totals: dict[tuple[int, str], int] = {}
+
+    def parts(month: Month) -> list[dict]:
+        found: dict[tuple[int, str], int] = {}
+        for due, price in month.items:
+            if price is not None and price.cents > 0:
+                key = type_of(due, categories)
+                found[key] = found.get(key, 0) + price.cents
+        segs, below = [], None
+        for key in sorted(found, key=_stacking):
+            tone = colour(key[1])
+            segs.append({"type": key[1], "colour": tone, "cents": found[key], "gap": below not in (None, tone),
+                         "title": f"{month.start:%B %Y} · {key[1]}: {dollars(found[key])}"})
+            below = tone
+            totals[key] = totals.get(key, 0) + found[key]
+        return segs
+
+    bars = [{"h": round(m.maintenance / scale * 100, 2), "label": label(m),
+             "title": f"{m.start:%B %Y}: {dollars(m.maintenance)}", "segs": parts(m)} for m in months]
+    present = [key[1] for key in totals]
     return {
-        "bars": [{"h": round(m.maintenance / scale * 100, 2), "label": label(m),
-                  "title": f"{m.start:%B %Y}: {dollars(m.maintenance)}"} for m in months],
+        "bars": bars,
+        "types": [{"label": key[1], "total": cents, "colour": colour(key[1])}
+                  for key, cents in sorted(totals.items(), key=lambda item: (-item[1], item[0]))],
+        "tones": {label: colour(label) for label in present},
+        "colours": [{"label": label, "colour": colour(label)} for label in COLOURED if label in present]
+                   + ([{"label": "Other types", "colour": "other"}] if set(present) - set(COLOURED) else []),
         "ticks": [{"y": round(i * step / scale * 100, 2), "label": dollars(i * step)}
                   for i in range(1, round(scale / step) + 1)],
         "line": round(per_month / scale * 100, 2),
@@ -445,6 +478,25 @@ def combined_months(plans: list[CarBudget]) -> list[Month]:
 FEES = "Inspections and registration"
 _FEES_ORDER = 10    # after the catalogue's nine categories
 _OTHER = (9, "Inspections and other")   # an item with no service types, as the schedule shows it
+# A colour each on the month bars, the same everywhere; every other type shares grey. A fourth hue can't be told
+# from these three by everyone in both themes (the palette was checked against AMG's sheets, light and dark).
+COLOURED = ("Engine", "Brakes", "Tires and wheels")
+
+
+def type_of(due: Due | Fee, categories: dict[int, tuple[int, str]]) -> tuple[int, str]:
+    """A job's or fee's type, with its place in the catalogue: its schedule item's category, or the fees' own."""
+    return (_FEES_ORDER, FEES) if isinstance(due, Fee) else categories.get(due.item_id, _OTHER)
+
+
+def colour(label: str) -> str:
+    """The type's colour on the month bars: 1–3, or other."""
+    return str(COLOURED.index(label) + 1) if label in COLOURED else "other"
+
+
+def _stacking(key: tuple[int, str]) -> tuple:
+    """The coloured types from the bottom up, then the rest in catalogue order."""
+    order, label = key
+    return (0, COLOURED.index(label), "") if label in COLOURED else (1, order, label)
 
 
 def times_words(times: int) -> str:
@@ -466,7 +518,7 @@ def breakdown(plans: list[CarBudget]) -> list[dict]:
                 fee = isinstance(due, Fee)
                 if not fee and price is None and due.job.inspection:
                     continue
-                order, label = (_FEES_ORDER, FEES) if fee else plan.categories.get(due.item_id, _OTHER)
+                order, label = type_of(due, plan.categories)
                 group = groups.setdefault(label, {"label": label, "order": order, "total": 0, "priced": False,
                                                   "jobs": {}})
                 job = group["jobs"].setdefault((plan.car["id"], due.name), {

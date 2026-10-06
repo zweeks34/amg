@@ -336,3 +336,51 @@ def test_the_garage_by_type_names_each_jobs_car(signed_in, conn, car):
     page = signed_in.get("/budget").text
     assert '<span class="btype__jobmeta">Outback · 3 times · 1 due now</span>' in page
     assert '<span class="btype__jobmeta">Forester · once</span>' in page
+
+
+# ---------- The month bars by type ----------
+
+
+def test_each_bar_is_stacked_by_type_with_three_in_colour():
+    from amg.engine import forecast
+
+    day = date(2026, 11, 15)
+    month = forecast.Month(date(2026, 11, 1), date(2026, 11, 30))
+
+    def job(item_id, name):
+        return forecast.Due(item_id, name, forecast.Job(frozenset({name}), "replace"), "later", day, day, None)
+
+    def price(cents):
+        return forecast.Price(cents, cents, cents, "yours")
+
+    month.items += [(job(1, "Brake fluid"), price(14_000)), (job(2, "Engine air filter"), price(3_700)),
+                    (job(3, "Cabin air filter"), price(3_600)),
+                    (forecast.Fee("registration", "Registration", "later", day, day), price(4_100))]
+    chart = budget.chart([month], 2_000, 12, {1: (3, "Brakes"), 2: (1, "Engine"), 3: (7, "Cabin")})
+    (bar,) = chart["bars"]
+    assert [(s["type"], s["colour"], s["gap"]) for s in bar["segs"]] == [
+        ("Engine", "1", False), ("Brakes", "2", True), ("Cabin", "other", True),
+        ("Inspections and registration", "other", False)]                  # greys sit together
+    assert sum(s["cents"] for s in bar["segs"]) == month.maintenance == 25_400
+    assert bar["segs"][1]["title"] == "November 2026 · Brakes: $140"
+    assert [c["label"] for c in chart["colours"]] == ["Engine", "Brakes", "Other types"]
+    assert [(t["label"], t["total"]) for t in chart["types"]] == [
+        ("Brakes", 14_000), ("Inspections and registration", 4_100), ("Engine", 3_700), ("Cabin", 3_600)]
+    assert chart["tones"]["Cabin"] == "other" and chart["tones"]["Engine"] == "1"
+
+
+def test_the_bars_show_their_types_and_a_picker(signed_in, car):
+    page = signed_in.get(f"/vehicles/{car}/budget").text
+    assert 'class="mbars__seg mbars__seg--3" data-type="Tires and wheels"' in page
+    assert 'data-type="Engine"' in page and "Other types" not in page
+    picker = page.split('class="typepick"')[1].split("</div>")[0]
+    assert "All types" in picker and picker.index("Tires and wheels") < picker.index("Engine")
+    assert ">$75<" in picker and ">$68<" in picker
+
+
+def test_the_garage_bars_and_one_type_needs_no_picker(signed_in, conn, car):
+    other = next(c for c in vehicles.garage(conn)[0] if c["name"] == "Forester")
+    _schedule(conn, other["id"], [ItemInput("Tire rotation", "perform", ["tire_rotation"], interval_months=6)])
+    garage = signed_in.get("/budget").text.split('class="typepick"')[1].split("</div>")[0]
+    assert "Tires and wheels" in garage and ">$100<" in garage                 # both cars' rotations
+    assert 'class="typepick"' not in signed_in.get(f"/vehicles/{other['id']}/budget").text

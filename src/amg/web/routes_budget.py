@@ -45,7 +45,8 @@ def garage_budget(request: Request, months: int | None = None, conn: sqlite3.Con
         per_car=per_car,
         months=budget.combined(plans),
         types=budget.breakdown(plans),
-        chart=budget.chart(budget.combined_months(plans), sum(p.per_month for p in plans), count) if plans else None,
+        chart=budget.chart(budget.combined_months(plans), sum(p.per_month for p in plans), count,
+                           {k: v for p in plans for k, v in p.categories.items()}) if plans else None,
         fuel_word=budget.fuel_word([p.units for p in plans]),
     )
 
@@ -122,7 +123,7 @@ def _page(request: Request, conn: sqlite3.Connection, car, count: int, errors: d
         months=budget.month_rows(plan, names),
         types=budget.breakdown([plan]),
         prices=budget.price_rows(plan, names),
-        chart=budget.chart(plan.months, plan.per_month, count),
+        chart=budget.chart(plan.months, plan.per_month, count, plan.categories),
         fuel_words=budget.fuel_words(plan),
         only_budgeted=budget.only_budgeted(plan),
         fee_names=budget.fee_names(plan.fees_unpriced) if plan.fees_unpriced else "",
