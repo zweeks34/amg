@@ -126,8 +126,8 @@ def look(conn: sqlite3.Connection, car, today: date | None = None, maintenance: 
     rows = renewal_words.rows(conn, car, today, offers=False)
     for row in renewal_words.urgent(rows):
         jobs.append(Watched(car["id"], renewal_subject(car["id"], row),
-                            "overdue" if row.standing.state == "expired" else "due", row.kind.name, row.when, None,
-                            renewal=True))
+                            "overdue" if row.standing.state == "expired" else "due", row.kind.name, row.when,
+                            plan.fee_cost(row.kind.code), renewal=True))
     jobs.sort(key=lambda job: rank[job.level])   # stable: each keeps its place within overdue, then due soon
     return CarWatch(dict(car), state, plan, jobs, bool(state.items), rows, maintenance)
 

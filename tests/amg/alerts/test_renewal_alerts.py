@@ -143,3 +143,11 @@ def test_a_car_with_alerts_off_brings_only_its_dates_to_the_emailed_calendar(con
     assert summaries == ["Registration expires · Outback"]
     every = watch.events([watch.look(conn, vehicles.get(conn, car), af.JUNE_10, maintenance=True)], BASE)
     assert "Oil and filter · Outback" in [e.summary for e in every]     # the Alerts page's download: every job
+
+
+def test_a_reminder_says_what_it_cost_last_time(conn, bolt, pushes):
+    renewals.create(conn, bolt, RenewalInput("registration", "2026-10-31", "2025-10-20", 4_075))
+    _run(conn, date(2026, 10, 1))
+    assert [(p.title, p.message) for p in pushes] == [("Bolt: Registration due soon", "expires Oct 31 · in 30 days · ~$41")]
+    text = mail.text([watch.look(conn, vehicles.get(conn, bolt), date(2026, 10, 1))], 0, BASE)
+    assert "  • Registration: expires Oct 31 · in 30 days · ~$41\n" in text
