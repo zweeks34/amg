@@ -122,6 +122,8 @@ def _page(request: Request, conn: sqlite3.Connection, car, count: int, errors: d
         prices=budget.price_rows(plan, names),
         chart=budget.chart(plan.months, plan.per_month, count),
         fuel_words=budget.fuel_words(plan),
+        only_budgeted=budget.only_budgeted(plan),
+        fee_names=budget.fee_names(plan.fees_unpriced) if plan.fees_unpriced else "",
         errors=errors or {},
         raw=raw or {},
     )

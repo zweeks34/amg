@@ -16,19 +16,20 @@
   <div class="figure">
     <dt>Put aside</dt>
     <dd class="figure__value mono">{{ plan.per_month | dollars }}<span class="figure__unit"> a month</span></dd>
-    <dd class="figure__note">for maintenance{% if plan.due_now %} still to come{% endif %}</dd>
+    <dd class="figure__note">for {{ plan.what }}{% if plan.due_now %} still to come{% endif %}</dd>
   </div>
   {% if plan.due_now %}
   <div class="figure">
     <dt>Due now</dt>
     <dd class="figure__value mono">{{ plan.due_now | dollars }}</dd>
-    <dd class="figure__note">{{ plan.overdue }} overdue job{{ "s" if plan.overdue != 1 }}</dd>
+    <dd class="figure__note">{{ plan.due_now_note }}</dd>
   </div>
   {% endif %}
   <div class="figure">
     <dt>Maintenance</dt>
     <dd class="figure__value mono">{{ plan.maintenance | dollars }}</dd>
-    <dd class="figure__note">next {{ horizons[count] }}{% if plan.unpriced %}, {{ plan.unpriced }} not priced{% endif %}</dd>
+    <dd class="figure__note">next {{ horizons[count] }}{% if plan.fee_total %}, {{ plan.fee_total | dollars }} of it fees{% endif %}
+      {%- if plan.unpriced %}, {{ plan.unpriced }} not priced{% endif %}</dd>
   </div>
   <div class="figure">
     <dt>{{ plan.units.title }}</dt>
@@ -38,11 +39,17 @@
 </dl>
 
 {% if not plan.jobs %}
-<p class="notice budget__notice">{{ car.name }} has no maintenance schedule yet, so only {{ plan.units.title | lower }} is budgeted.
+<p class="notice budget__notice">{{ car.name }} has no maintenance schedule yet, so only {{ only_budgeted }} budgeted.
   <a href="/vehicles/{{ car.id }}/schedule">Set up the schedule</a>.</p>
 {% elif plan.unpriced %}
 <p class="notice budget__notice">{{ plan.unpriced }} upcoming job{{ "s have" if plan.unpriced != 1 else " has" }} no price yet, so the totals
   leave {{ "them" if plan.unpriced != 1 else "it" }} out. <a href="#prices">Price {{ "them" if plan.unpriced != 1 else "it" }}</a>.</p>
+{% endif %}
+{% set costless = plan.fees_unpriced %}
+{% if costless %}
+<p class="notice budget__notice">{{ fee_names }} {{ "has" if costless | length == 1 else "have" }} no cost yet, so the totals leave {{ "it" if costless | length == 1 else "them" }} out.
+  {% if costless | length == 1 %}<a href="/renewals/{{ costless[0].record_id }}/edit">Add what you paid</a>.
+  {%- else %}Add what you paid from each one's row below.{% endif %}</p>
 {% endif %}
 
 <section class="block" aria-labelledby="months-heading">
@@ -114,6 +121,10 @@
 </section>
 {% endif %}
 
-{{ inflation_note() }}
+{% if not plan.fees and not car.archived_at %}
+<p class="aside">Inspection and registration fees are budgeted once their dates are on
+  <a href="/vehicles/{{ car.id }}#renewals">the car's page</a>.</p>
+{% endif %}
+{{ inflation_note(plan.fees) }}
 </div>
 {% endblock %}

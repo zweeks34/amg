@@ -14,7 +14,7 @@
     <span class="bstrip__value mono">{{ budget.per_month | dollars }}</span>
     <span class="bstrip__unit">a month</span>
   </span>
-  <span class="bstrip__detail">Next 12 months: ~{{ budget.maintenance | dollars }} of maintenance
+  <span class="bstrip__detail">Next 12 months: ~{{ budget.maintenance | dollars }} of {{ budget.what }}
     {%- if budget.due_now %} ({{ budget.due_now | dollars }} of it overdue now){% endif %}
     {%- if budget.fuel is not none %}, ~{{ budget.fuel | dollars }} of {{ budget.fuel_word }}{% endif %}
     {%- if budget.unpriced %}, and {{ budget.unpriced }} job{{ "s" if budget.unpriced != 1 }} not priced yet{% endif %}.</span>

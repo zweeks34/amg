@@ -20,19 +20,20 @@
   <div class="figure">
     <dt>Put aside</dt>
     <dd class="figure__value mono">{{ (strip.per_month if strip else 0) | dollars }}<span class="figure__unit"> a month</span></dd>
-    <dd class="figure__note">for maintenance{% if strip and strip.due_now %} still to come{% endif %}</dd>
+    <dd class="figure__note">for {{ strip.what if strip else "maintenance" }}{% if strip and strip.due_now %} still to come{% endif %}</dd>
   </div>
   {% if strip and strip.due_now %}
   <div class="figure">
     <dt>Due now</dt>
     <dd class="figure__value mono">{{ strip.due_now | dollars }}</dd>
-    <dd class="figure__note">for overdue jobs</dd>
+    <dd class="figure__note">{{ strip.due_now_note }}</dd>
   </div>
   {% endif %}
   <div class="figure">
     <dt>Maintenance</dt>
     <dd class="figure__value mono">{{ (strip.maintenance if strip else 0) | dollars }}</dd>
-    <dd class="figure__note">next {{ horizons[count] }}{% if strip and strip.unpriced %}, {{ strip.unpriced }} not priced{% endif %}</dd>
+    <dd class="figure__note">next {{ horizons[count] }}{% if strip and strip.fees %}, {{ strip.fees | dollars }} of it fees{% endif %}
+      {%- if strip and strip.unpriced %}, {{ strip.unpriced }} not priced{% endif %}</dd>
   </div>
   <div class="figure">
     <dt>{{ fuel_word }}</dt>
@@ -82,6 +83,6 @@
   </ol>
 </section>
 
-{{ inflation_note() }}
+{{ inflation_note(strip and strip.fees) }}
 {% endif %}
 {% endblock %}

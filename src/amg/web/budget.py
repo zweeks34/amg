@@ -3,6 +3,13 @@
 engine/forecast.py does the arithmetic; this loads a car's schedule, receipts,
 quotes, price book and fuel log for it, and turns its answer into words —
 "Median of 3 visits, $38–205", "~$118 a month" — and into the month bars.
+
+Inspection and registration fees count with maintenance: each one the car has
+a date for, in the month it expires (due now once it has), at what you paid
+last time — the cost on its newest record that has one, else for an
+inspection the receipt line for it. The state sets these, so no inflation and
+no Claude. Once a kind has a date, a schedule item for the same inspection
+drops out of the budget, so it isn't counted twice.
 """
 
 from __future__ import annotations
@@ -13,11 +20,15 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from ..engine import forecast
-from ..engine.forecast import Job, Month, Price
+from ..engine import renewals as renewal_engine
+from ..engine.forecast import Due, Fee, Job, Month, Price
+from ..engine.renewals import KINDS, Kind
 from ..engine.schedule import in_effect
 from ..repo import jobs as job_repo
 from ..repo import prices
+from ..repo import renewals as renewal_repo
 from . import fuel_status
+from . import renewals as renewal_words
 from . import status as car_status
 from .templating import dollars
 
@@ -48,10 +59,21 @@ class CarBudget:
     fuel_span: str
     busy: list = field(default_factory=list)   # Claude's rows still being priced
     stalled: bool = False
+    fees: dict[str, dict] = field(default_factory=dict)   # each kind it has a date for: kind, price, record_id
 
     @property
     def maintenance(self) -> int:
+        """Jobs and fees together."""
         return sum(m.maintenance for m in self.months)
+
+    @property
+    def fee_total(self) -> int:
+        return sum(m.fees for m in self.months)
+
+    @property
+    def what(self) -> str:
+        """What the maintenance figure is, in a sentence."""
+        return "maintenance and fees" if self.fee_total else "maintenance"
 
     @property
     def fuel(self) -> int | None:
@@ -59,12 +81,32 @@ class CarBudget:
 
     @property
     def due_now(self) -> int:
-        """What overdue jobs cost: due now, so not something to save up for."""
+        """What overdue jobs and expired fees cost: due now, so not something to save up for."""
         return sum(price.cents for due, price in self.months[0].items if due.status == "overdue" and price is not None)
 
     @property
     def overdue(self) -> int:
-        return sum(1 for due, _ in self.months[0].items if due.status == "overdue")
+        """Overdue jobs."""
+        return sum(1 for due, _ in self.months[0].items if isinstance(due, Due) and due.status == "overdue")
+
+    @property
+    def expired(self) -> list[str]:
+        """The inspections and registration past their date."""
+        return [due.name for due, _ in self.months[0].items if isinstance(due, Fee) and due.status == "overdue"]
+
+    @property
+    def due_now_note(self) -> str:
+        return due_now_note(self.overdue, self.expired)
+
+    @property
+    def fees_unpriced(self) -> list[dict]:
+        """The kinds falling due in the horizon with no cost to go on."""
+        found = {due.kind for m in self.months for due, price in m.items if isinstance(due, Fee) and price is None}
+        return [fee for code, fee in self.fees.items() if code in found]
+
+    def fee_cost(self, kind: str) -> int | None:
+        fee = self.fees.get(kind)
+        return fee["price"].cents if fee and fee["price"] is not None else None
 
     @property
     def per_month(self) -> int:
@@ -106,11 +148,13 @@ def load(conn: sqlite3.Connection, car, count: int = 12, today: date | None = No
     book = prices.for_car(conn, car["id"])
     yours = {(r["codes"], r["action"]): r["low_cents"] for r in book if r["source"] == "you"}
     claude = {(r["codes"], r["action"]): r for r in book if r["source"] == "claude"}
+    fees, paying = _fees(conn, car, today, end)
+    dated = {KINDS[code].service_type for code in fees} - {None}   # inspections the fees budget for
 
     found: dict[tuple[str, str], dict] = {}
     item_jobs: dict[int, tuple[str, str]] = {}
     for item_id, row in state.items.items():
-        if not row["codes"] or not in_effect(row, car["severe_service"]):
+        if not row["codes"] or not in_effect(row, car["severe_service"]) or set(row["codes"]) <= dated:
             continue
         job = Job(frozenset(row["codes"]), row["action"])
         item_jobs[item_id] = job.key
@@ -126,13 +170,42 @@ def load(conn: sqlite3.Connection, car, count: int = 12, today: date | None = No
     fuel = fuel_status.load(conn, car, today)
     cents_a_mile, span = fuel_status.cost_a_mile(fuel)
     rate = state.odometer.rate()
-    months = forecast.budget(forecast.upcoming(state.statuses, today, end), {k: j["price"] for k, j in found.items()},
-                             today, count, rate, cents_a_mile)
+    dues = [due for due in forecast.upcoming(state.statuses, today, end)
+            if not (due.job.codes and due.job.codes <= dated)]
+    months = forecast.budget(dues, {k: j["price"] for k, j in found.items()}, today, count, rate, cents_a_mile, paying)
     busy = [r for r in claude.values() if r["status"] in ("queued", "asking")]
     stalled = any((job := job_repo.get(conn, job_id)) is None or job_repo.is_stalled(job)
                   for job_id in {r["job_id"] for r in busy})
     return CarBudget(dict(car), count, today, months, found, item_jobs, fuel.units, rate, cents_a_mile, span, busy,
-                     stalled)
+                     stalled, fees)
+
+
+def _fees(conn: sqlite3.Connection, car, today: date, end: date) -> tuple[dict[str, dict], list[tuple[Fee, Price | None]]]:
+    """Each kind the car has a date for, priced; and every time one falls due by ``end``."""
+    kinds: dict[str, dict] = {}
+    paying: list[tuple[Fee, Price | None]] = []
+    for code, logged in renewal_repo.for_car(conn, car["id"]).items():
+        kind = KINDS[code]
+        price = fee_price(conn, car["id"], kind, logged)
+        kinds[code] = {"kind": kind, "price": price, "record_id": logged[0]["id"]}
+        records = [renewal_words.record(row) for row in logged]
+        for day, expiry in renewal_engine.coming(kind, records, today, end):
+            status = renewal_words.MARKS[renewal_engine.standing(expiry, today).state]
+            paying.append((Fee(code, kind.name, status, day, expiry), price))
+    return {code: kinds[code] for code in KINDS if code in kinds}, paying
+
+
+def fee_price(conn: sqlite3.Connection, vehicle_id: int, kind: Kind, logged: list) -> Price | None:
+    """What you paid last time: the newest record with a cost, else (an inspection) its newest receipt line."""
+    for row in logged:
+        if row["cost_cents"] is not None:
+            day = date.fromisoformat(row["done_on"]) if row["done_on"] else None
+            return Price(row["cost_cents"], row["cost_cents"], row["cost_cents"], "paid", day=day)
+    service = renewal_repo.latest_service(conn, vehicle_id, kind.service_type) if kind.service_type else None
+    if service and service["cost_cents"] is not None and service["cost_cents"] >= 0:
+        cents = service["cost_cents"]
+        return Price(cents, cents, cents, "paid", day=date.fromisoformat(service["performed_on"]))
+    return None
 
 
 def garage(conn: sqlite3.Connection, cars: list, count: int = 12, today: date | None = None) -> list[CarBudget]:
@@ -195,8 +268,61 @@ def fuel_words(plan: CarBudget) -> str:
     return f"~{plan.rate:,.0f} mi a day at {fuel_status.cents_a_mile(plan.cents_a_mile)} a mile, {plan.fuel_span}"
 
 
+def fee_when(fee: Fee, today: date) -> str:
+    """'Expires Mar 31, 2027', or 'Expired Sep 30'."""
+    return f"{'Expired' if fee.status == 'overdue' else 'Expires'} {_day(fee.due_day, today)}"
+
+
+def fee_source(price: Price | None) -> str:
+    if price is None:
+        return "No cost yet"
+    return f"Paid {price.day:%b %Y}" if price.day else "Paid last time"
+
+
+def _and(words: list[str]) -> str:
+    return words[0] if len(words) == 1 else f"{', '.join(words[:-1])} and {words[-1]}"
+
+
+def due_now_note(overdue: int, expired: list[str]) -> str:
+    """What's due now: '3 overdue jobs, registration expired'."""
+    parts = [f"{overdue} overdue job{'s' if overdue != 1 else ''}"] if overdue else []
+    if expired:
+        parts.append(f"{_and([name.lower() for name in expired])} expired")
+    return ", ".join(parts)
+
+
+def fee_names(fees: list[dict]) -> str:
+    """'The registration', 'The safety inspection and the registration'."""
+    words = _and([f"the {fee['kind'].name.lower()}" for fee in fees])
+    return words[:1].upper() + words[1:]
+
+
+def only_budgeted(plan: CarBudget) -> str:
+    """With no schedule: 'fuel is', 'fuel and the registration are'."""
+    words = [plan.units.title.lower()] + [f"the {fee['kind'].name.lower()}" for fee in plan.fees.values()]
+    return f"{_and(words)} {'is' if len(words) == 1 else 'are'}"
+
+
+def _job_row(due: Due | Fee, price: Price | None, plan: CarBudget, names: dict[int, str]) -> dict:
+    if isinstance(due, Fee):
+        return {"name": due.name, "status": due.status,
+                "label": renewal_words.LABELS["expired"] if due.status == "overdue" else None,
+                "when": fee_when(due, plan.today), "cost": None if price is None else price.cents,
+                "source": fee_source(price), "claude": False, "unpriced": price is None,
+                "fix": f"/renewals/{plan.fees[due.kind]['record_id']}/edit" if price is None else None}
+    return {
+        "name": due.name,
+        "status": due.status,
+        "when": when_words(due, plan.today),
+        "cost": None if price is None else price.cents,
+        "source": source_words(price, due.job, names),
+        "claude": price is not None and price.source == "claude",
+        "unpriced": price is None and not due.job.inspection,
+    }
+
+
 def month_rows(plan: CarBudget, names: dict[int, str]) -> list[dict]:
-    """The month list: each month's jobs at their prices, then fuel."""
+    """The month list: each month's jobs and fees at their prices, then fuel."""
     rows = []
     for index, month in enumerate(plan.months):
         rows.append({
@@ -206,18 +332,7 @@ def month_rows(plan: CarBudget, names: dict[int, str]) -> list[dict]:
             "fuel": month.fuel,
             "fuel_miles": None if month.fuel_miles is None else round(month.fuel_miles),
             "total": month.total,
-            "jobs": [
-                {
-                    "name": due.name,
-                    "status": due.status,
-                    "when": when_words(due, plan.today),
-                    "cost": None if price is None else price.cents,
-                    "source": source_words(price, due.job, names),
-                    "claude": price is not None and price.source == "claude",
-                    "unpriced": price is None and not due.job.inspection,
-                }
-                for due, price in month.items
-            ],
+            "jobs": [_job_row(due, price, plan, names) for due, price in month.items],
         })
     return rows
 
@@ -267,6 +382,7 @@ def chart(months: list[Month], per_month: int, count: int) -> dict | None:
         "line": round(per_month / scale * 100, 2),
         "per_month": per_month,
         "dense": count > 12,
+        "what": "Maintenance and fees" if any(m.fees for m in months) else "Maintenance",
     }
 
 
@@ -284,12 +400,17 @@ def strip(plans: list[CarBudget]) -> dict | None:
     fuel = [p.fuel for p in plans if p.fuel is not None]
     if not maintenance and not fuel:
         return None
+    fees = sum(p.fee_total for p in plans)
+    expired = {name for p in plans for name in p.expired}
     return {
         "maintenance": maintenance,
+        "fees": fees,
+        "what": "maintenance and fees" if fees else "maintenance",
         "fuel": sum(fuel) if fuel else None,
         "fuel_word": fuel_word([p.units for p in plans if p.fuel is not None]).lower(),
         "per_month": sum(p.per_month for p in plans),
         "due_now": sum(p.due_now for p in plans),
+        "due_now_note": due_now_note(sum(p.overdue for p in plans), [k.name for k in KINDS.values() if k.name in expired]),
         "unpriced": sum(p.unpriced for p in plans),
     }
 

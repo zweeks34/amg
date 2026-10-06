@@ -1,4 +1,4 @@
-"""Inspections and registration: when each is due, and the expiry AMG suggests."""
+"""Inspections and registration: when each is due, the expiry AMG suggests, and when each is paid for."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from amg.engine.renewals import KINDS, Record, Standing, end_of_month, interval, offer, standing, suggest
+from amg.engine.renewals import KINDS, Record, Standing, coming, end_of_month, interval, offer, standing, suggest
 
 SAFETY, EMISSIONS, REGISTRATION = KINDS["safety"], KINDS["emissions"], KINDS["registration"]
 TODAY = date(2026, 10, 5)
@@ -83,3 +83,27 @@ def test_a_receipt_is_offered_when_it_moves_the_expiry():
 def test_with_nothing_logged_only_a_sticker_that_could_still_be_on():
     assert offer(SAFETY, date(2026, 2, 10), 3, [], TODAY) == date(2027, 2, 28)
     assert offer(SAFETY, date(2019, 3, 4), 1, [], TODAY) is None
+
+
+# ---------- When each is paid for ----------
+
+YEAR_OUT = date(2027, 10, 31)     # the end of a 12-month budget from TODAY
+
+
+def test_paid_in_the_month_it_expires_then_every_interval_after():
+    assert coming(REGISTRATION, [Record(date(2027, 3, 31), date(2026, 3, 10))], TODAY, YEAR_OUT) == [
+        (date(2027, 3, 31), date(2027, 3, 31))]
+    three_years = coming(REGISTRATION, [Record(date(2027, 3, 31), date(2026, 3, 10))], TODAY, date(2029, 10, 31))
+    assert [day for day, _ in three_years] == [date(2027, 3, 31), date(2028, 3, 31), date(2029, 3, 31)]
+
+
+def test_an_expired_one_is_paid_now_and_the_next_counted_from_today():
+    assert coming(SAFETY, [Record(date(2026, 8, 31))], TODAY, YEAR_OUT) == [
+        (TODAY, date(2026, 8, 31)), (date(2027, 10, 31), date(2027, 10, 31))]
+
+
+def test_a_two_year_one_and_one_beyond_the_horizon():
+    assert coming(EMISSIONS, [Record(date(2027, 4, 30))], TODAY, YEAR_OUT) == [(date(2027, 4, 30), date(2027, 4, 30))]
+    assert coming(EMISSIONS, [Record(date(2027, 4, 30))], TODAY, date(2029, 10, 31))[1][0] == date(2029, 4, 30)
+    assert coming(EMISSIONS, [Record(date(2027, 11, 30))], TODAY, YEAR_OUT) == []
+    assert coming(SAFETY, [], TODAY, YEAR_OUT) == []                                  # nothing logged: nothing known

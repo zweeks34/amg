@@ -115,5 +115,22 @@ def offer(kind: Kind, service_day: date, service_id: int, records: Sequence[Reco
     return expiry if expiry >= today else None
 
 
+def coming(kind: Kind, records: Sequence[Record], today: date, end: date) -> list[tuple[date, date]]:
+    """When each renewal falls by ``end``, for the budget: (the day it's paid, the expiry it replaces).
+
+    The one in force is paid in the month it expires, or today if it already
+    has; each after it an interval later, counted from then. Nothing logged,
+    nothing known.
+    """
+    if not records:
+        return []
+    months = interval(kind, records)
+    found, expiry = [], records[0].expires_on
+    while (day := max(expiry, today)) <= end:
+        found.append((day, expiry))
+        expiry = end_of_month(add_months(day, months))
+    return found
+
+
 def _months(start: date, end: date) -> int:
     return (end.year - start.year) * 12 + end.month - start.month

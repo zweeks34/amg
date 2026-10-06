@@ -42,7 +42,7 @@ def budget_line(watch: CarWatch) -> str | None:
     plan = watch.plan
     if not (plan.maintenance or plan.unpriced):
         return None
-    line = f"~{dollars(plan.maintenance)} of maintenance in the next 12 months"
+    line = f"~{dollars(plan.maintenance)} of {plan.what} in the next 12 months"
     if plan.due_now:
         line += f", {dollars(plan.due_now)} of it overdue now"
     line += f": put aside {dollars(plan.per_month)} a month" + (" for the rest" if plan.due_now else "")

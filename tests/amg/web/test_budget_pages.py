@@ -25,7 +25,10 @@ import pytest
 
 from amg.ingest import background, claude
 from amg.ingest.prices import JobPrice, PriceEstimates
-from amg.repo import fuel, prices, schedules, services, vehicles
+from amg.engine.renewals import end_of_month
+from amg.engine.schedule import add_months
+from amg.repo import fuel, prices, renewals, schedules, services, vehicles
+from amg.repo.renewals import RenewalInput
 from amg.repo.schedules import ItemInput
 from amg.web import budget
 
@@ -192,3 +195,85 @@ def test_the_bars_scale_to_a_round_figure_and_label_the_months():
     dense = budget.chart(month_list(24), 10_000, 24)
     assert dense["dense"] and [(i, b["label"]) for i, b in enumerate(dense["bars"]) if b["label"]] == [(3, "2027"), (15, "2028")]
     assert budget.chart([forecast.Month(date(2026, 10, 3), date(2026, 10, 31))], 0, 12) is None   # nothing to draw
+
+
+# ---------- Inspection and registration fees ----------
+#
+# The same Outback, with its registration renewed 8 months ago for $40.75 and
+# good to the end of the month 4 months from now, and an emissions inspection
+# that expired last month, priced from a receipt's $28 Emissions test line. So
+# over 12 months: $143 + $40.75 + $28 = $211.75, $25 + $28 = $53 of it due
+# now, and ($211.75 − $53) / 12 = $13.23 a month.
+
+
+def _end_of_month(day):
+    return end_of_month(day).isoformat()
+
+
+def _fees(conn, car):
+    registration = renewals.create(conn, car, RenewalInput(
+        "registration", _end_of_month(add_months(TODAY, 4)), add_months(TODAY, -8).isoformat(), 4_075))
+    renewals.create(conn, car, RenewalInput("emissions", _end_of_month(add_months(TODAY, -1))))
+    tested = TODAY - timedelta(days=300)
+    services.create_event(conn, car, services.EventInput(
+        performed_on=tested.isoformat(), source="shop", shop="Corner Garage",
+        lines=[services.LineInput("Emissions test", "labor", amount_cents=2_800,
+                                  covers=[services.Coverage("emissions_test", "perform")])]))
+    return registration, tested
+
+
+def test_fees_land_in_their_months_at_what_was_paid_last_time(signed_in, conn, car):
+    page = signed_in.get(f"/vehicles/{car}/budget").text
+    assert "Inspection and registration fees are budgeted once their dates are on" in page
+    _, tested = _fees(conn, car)
+    plan = budget.load(conn, vehicles.get(conn, car))
+    assert (plan.maintenance, plan.fee_total, plan.due_now, plan.per_month) == (21_175, 6_875, 5_300, 1_323)
+    assert (plan.overdue, plan.expired, plan.unpriced) == (3, ["Emissions inspection"], 2)   # fees aren't jobs
+
+    page = signed_in.get(f"/vehicles/{car}/budget").text
+    assert "for maintenance and fees still to come" in page
+    assert ">$53<" in page and "3 overdue jobs, emissions inspection expired" in page
+    assert ">$212<" in page and "next 12 months, $69 of it fees, 2 not priced" in page
+    assert '<span class="bitem__name">Registration</span>' in page and f"Paid {add_months(TODAY, -8):%b %Y}" in page
+    assert f"Paid {tested:%b %Y}" in page                                   # the receipt's line, as it was
+    assert 'aria-label="Expired"' in page and "Expired " in page
+    assert "Maintenance and fees each month" in page and "what you paid last time, since the state sets them" in page
+    assert "budgeted once their dates are on" not in page
+
+
+def test_the_garage_and_the_car_page_count_the_fees(signed_in, conn, car):
+    _fees(conn, car)
+    assert "~$212 of maintenance and fees ($53 of it overdue now)" in signed_in.get("/").text
+    assert "~$212 of maintenance and fees in the next 12 months, $53 of it overdue now" in signed_in.get(f"/vehicles/{car}").text
+    page = signed_in.get("/budget").text
+    assert "next 12 months, $69 of it fees" in page and "3 overdue jobs, emissions inspection expired" in page
+
+
+def test_a_fee_with_no_cost_is_left_out_and_says_where_to_add_it(signed_in, conn, car):
+    registration = renewals.create(conn, car, RenewalInput("registration", _end_of_month(add_months(TODAY, 2))))
+    page = signed_in.get(f"/vehicles/{car}/budget").text
+    assert ">$143<" in page and "No cost yet" in page
+    assert "The registration has no cost yet, so the totals leave it out." in page
+    assert page.count(f'href="/renewals/{registration}/edit">Add what you paid</a>') == 2   # the notice and its row
+    assert "of it fees" not in page
+
+    renewals.create(conn, car, RenewalInput("emissions", _end_of_month(add_months(TODAY, 3))))
+    page = signed_in.get(f"/vehicles/{car}/budget").text
+    assert "The emissions inspection and the registration have no cost yet, so the totals leave them out." in page
+    assert "Add what you paid from each one's row below." in page
+
+
+def test_a_schedules_state_inspection_isnt_counted_twice(conn):
+    civic = vehicles.create(conn, vehicles.VehicleFields(
+        name="Civic", in_service_date=(TODAY - timedelta(days=400)).isoformat()))
+    _schedule(conn, civic, [
+        ItemInput("Oil and filter", "replace", ["engine_oil", "oil_filter"], interval_months=12),
+        ItemInput("State inspection", "perform", ["state_inspection"], interval_months=12),
+    ])
+    plan = budget.load(conn, vehicles.get(conn, civic))
+    assert plan.unpriced == 4 and "state_inspection" in {job["codes"] for job in plan.jobs.values()}
+
+    renewals.create(conn, civic, RenewalInput("safety", _end_of_month(add_months(TODAY, 3)), cost_cents=2_000))
+    plan = budget.load(conn, vehicles.get(conn, civic))
+    assert plan.unpriced == 2 and [job["name"] for job in plan.jobs.values()] == ["Oil and filter"]
+    assert (plan.maintenance, plan.fee_total) == (2_000, 2_000)

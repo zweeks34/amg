@@ -75,7 +75,7 @@
   </div>
   {% endif %}
   {% if plan.maintenance or plan.unpriced %}
-  <p class="budgetline">~{{ plan.maintenance | dollars }} of maintenance in the next 12 months
+  <p class="budgetline">~{{ plan.maintenance | dollars }} of {{ plan.what }} in the next 12 months
     {%- if plan.due_now %}, {{ plan.due_now | dollars }} of it overdue now{% endif %}: put aside
     {{ plan.per_month | dollars }} a month{% if plan.due_now %} for the rest{% endif %}
     {%- if plan.unpriced %} ({{ plan.unpriced }} job{{ "s" if plan.unpriced != 1 }} not priced yet){% endif %}.

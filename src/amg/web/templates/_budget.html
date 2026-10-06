@@ -20,7 +20,7 @@
       {% for tick in chart.ticks %}<span style="--y: {{ tick.y }}">{{ tick.label }}</span>{% endfor %}
     </div>
     <div class="mbars__plot" role="img"
-         aria-label="Maintenance each month, against putting aside {{ chart.per_month | dollars }} a month. The months are listed below.">
+         aria-label="{{ chart.what }} each month, against putting aside {{ chart.per_month | dollars }} a month. The months are listed below.">
       {% for tick in chart.ticks %}<span class="mbars__grid" style="--y: {{ tick.y }}"></span>{% endfor %}
       <ol class="mbars__bars">
         {% for bar in chart.bars %}<li class="mbars__bar" style="--h: {{ bar.h }}; --i: {{ loop.index0 }}" title="{{ bar.title }}"></li>{% endfor %}
@@ -32,7 +32,7 @@
     {%- for bar in chart.bars %}<span>{% if chart.dense %}{{ bar.label }}{% else %}{{ bar.label[:1] }}<span class="mbars__rest">{{ bar.label[1:] }}</span>{% endif %}</span>{% endfor -%}
   </div>
   <figcaption class="trend__caption">
-    <span class="trend__legend"><span class="mbars__key" aria-hidden="true"></span>Maintenance each month</span>
+    <span class="trend__legend"><span class="mbars__key" aria-hidden="true"></span>{{ chart.what }} each month</span>
     <span class="trend__legend"><span class="mbars__tape mbars__tape--key" aria-hidden="true"></span>Put aside {{ chart.per_month | dollars }} a month</span>
   </figcaption>
 </figure>
@@ -50,12 +50,13 @@
     <ul class="bitems">
       {% for job in month.jobs %}
       <li class="bitem">
-        {{ mark(job.status, status_words[job.status]) }}
+        {{ mark(job.status, job.label or status_words[job.status]) }}
         <span class="bitem__name">{{ job.name }}</span>
         <span class="bitem__cost mono">{{ job.cost | dollars if job.cost is not none else "—" }}</span>
         <span class="bitem__meta">
           <span class="bitem__when mono">{{ job.when }}</span>
-          <span class="bitem__source{% if job.claude %} is-claude{% elif job.unpriced %} is-unpriced{% endif %}">{{ job.source }}</span>
+          <span class="bitem__source{% if job.claude %} is-claude{% elif job.unpriced %} is-unpriced{% endif %}">{{ job.source }}
+            {%- if job.fix %} · <a href="{{ job.fix }}">Add what you paid</a>{% endif %}</span>
         </span>
       </li>
       {% endfor %}
@@ -72,7 +73,8 @@
 </ol>
 {%- endmacro %}
 
-{% macro inflation_note() -%}
+{% macro inflation_note(fees=False) -%}
 <p class="aside">What you paid in past years is brought up to today's prices at 4% a year, about what US car
-  maintenance and repair prices have risen over the last ten years. Every figure is an estimate in today's money.</p>
+  maintenance and repair prices have risen over the last ten years. Every figure is an estimate in today's money.
+  {%- if fees %} Inspection and registration fees are what you paid last time, since the state sets them.{% endif %}</p>
 {%- endmacro %}

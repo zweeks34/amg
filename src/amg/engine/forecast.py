@@ -21,7 +21,8 @@ whose share comes to nothing (warranty work, a $0 line) isn't a price at all,
 so it can't drag an estimate towards zero.
 
 Older prices are brought up to today's at INFLATION a year. Fuel is miles a
-day times the cost a mile, month by month.
+day times the cost a mile, month by month. Inspection and registration fees
+come in priced (web/budget.py), each in the month it falls due.
 
 Pure: no database, no I/O.
 """
@@ -195,6 +196,16 @@ class Due:
     miles: int | None
 
 
+@dataclass(frozen=True)
+class Fee:
+    """An inspection or registration to pay for: engine/renewals.py says when."""
+    kind: str               # safety, emissions, registration
+    name: str
+    status: str             # overdue (expired), due, later
+    day: date               # when it lands in the budget: its expiry, or today if that's passed
+    due_day: date           # the expiry
+
+
 def upcoming(statuses: Iterable[ItemStatus], today: date, end: date) -> list[Due]:
     """Every occurrence still to come by ``end``, soonest first; an overdue one is due today."""
     found = [
@@ -232,13 +243,18 @@ def fuel_cents(rate: float, cents_a_mile: float, start: date, end: date) -> int:
 class Month:
     start: date
     end: date
-    items: list[tuple[Due, Price | None]] = field(default_factory=list)
+    items: list[tuple[Due | Fee, Price | None]] = field(default_factory=list)   # jobs and fees, by day
     fuel_miles: float | None = None
     fuel: int | None = None
 
     @property
     def maintenance(self) -> int:
+        """Jobs and fees together."""
         return sum(price.cents for _, price in self.items if price is not None)
+
+    @property
+    def fees(self) -> int:
+        return sum(price.cents for due, price in self.items if isinstance(due, Fee) and price is not None)
 
     @property
     def total(self) -> int:
@@ -246,18 +262,22 @@ class Month:
 
     @property
     def unpriced(self) -> list[Due]:
-        """Jobs with no price that aren't inspections (those are usually part of a visit)."""
-        return [due for due, price in self.items if price is None and not due.job.inspection]
+        """Jobs with no price that aren't inspections (those are usually part of a visit). Fees aren't jobs."""
+        return [due for due, price in self.items
+                if price is None and isinstance(due, Due) and not due.job.inspection]
 
 
 def budget(dues: Iterable[Due], prices: Mapping[tuple[str, str], Price | None], today: date, count: int,
-           rate: float | None = None, cents_a_mile: float | None = None) -> list[Month]:
-    """Month by month: what falls due, at its price, and fuel where the pace and cost a mile are known."""
+           rate: float | None = None, cents_a_mile: float | None = None,
+           fees: Iterable[tuple[Fee, Price | None]] = ()) -> list[Month]:
+    """Month by month: what falls due, at its price, the fees, and fuel where the pace and cost a mile are known."""
     found = [Month(start, end) for start, end in months(today, count)]
-    for due in dues:
-        month = next((m for m in found if m.start <= due.day <= m.end), None)
+    for item in [(due, prices.get(due.job.key)) for due in dues] + list(fees):
+        month = next((m for m in found if m.start <= item[0].day <= m.end), None)
         if month is not None:
-            month.items.append((due, prices.get(due.job.key)))
+            month.items.append(item)
+    for month in found:
+        month.items.sort(key=lambda item: item[0].day)   # stable: jobs keep their order within a day
     if rate is not None and cents_a_mile is not None:
         for month in found:
             month.fuel_miles = fuel_miles(rate, month.start, month.end)
