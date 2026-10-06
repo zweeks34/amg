@@ -367,6 +367,7 @@ page and moves today's estimated odometer. *That last part is yours.*
 - [x] What a visit charged for a job: its share of the lines that did the work (a line that did several things split evenly), plus the same share of the tax, shop fees and discounts; the visit must have done all of the job (a filter bought alone isn't an oil change)
 - [x] Fuel/energy projection: miles a day (`Odometer.rate()`) × the fuel page's cost a mile, month by month
 - [x] Month-by-month budget per car (`/vehicles/{id}/budget`) and in total (`/budget`): put aside a month, due now, maintenance and fuel for the horizon, month bars, each month's jobs with where each price came from; the price list, where you set your own or ask Claude (a background job, one call per car, a few cents). The garage gets a line, and next up shows each job's cost
+- [x] By type (added after the phase shipped): the maintenance figure split by type of work on both budget pages — each type's total, share and a bar scaled to the biggest, and its jobs counted across the horizon ("3 times · 1 due now"), on the garage page with their car
 
 **Decisions:**
 
@@ -386,6 +387,11 @@ page and moves today's estimated odometer. *That last part is yours.*
 - **Claude is asked only when you press the button**, for the jobs nothing
   else prices; its ranges count at their midpoint and are checked (upside
   down, nothing, or over $20,000 is refused).
+- **A type is the catalogue's category**, the first service type's, as the
+  schedule page groups a job and the Spending report files what was paid, so
+  what's coming and what went line up. Inspection and registration fees are
+  a type of their own; inspections with no price of their own are left out,
+  being part of a visit. The types add up to the maintenance figure.
 
 **Data owned:** `price_book` — per car and per job (service types + action),
 so a price outlives the schedule item that asked for it.
