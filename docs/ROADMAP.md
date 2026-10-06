@@ -566,6 +566,7 @@ registration lapse.
 - [x] The garage card says what's due soon or expired
 - [x] Reminders: a push 30 days before, another in the last week, one the day after it expires; the weekly email's Overdue and Due soon lists; each expiry in the calendar file
 - [x] Download your data gets `inspections-and-registration.csv`
+- [x] The budget counts the fees: each one with a date, in the month it expires (due now once it has) and every interval after, at what you paid last time — the newest record's cost, else for an inspection its receipt line. The month list names each one; a fee with no cost is left out and links to where to add it. Reminders say what it cost
 
 **Decisions:**
 
@@ -583,8 +584,12 @@ registration lapse.
 - **One push per car per run still,** dates and jobs together; with several
   in it the title is the counts ("Outback: 1 overdue, 1 due soon"), since a
   registration isn't a job. Expired says expired, not overdue.
-- **Costs are kept, not budgeted** — small and fixed, and the budget engine
-  is jobs and fuel. A later step if wanted.
+- **Fees count with maintenance** (added after the phase shipped): in put
+  aside, due now and the bars, the pages saying "maintenance and fees" and
+  how much of it is fees, rather than another column. A fee is last time's
+  cost as it was — the state sets it, so no 4% a year — and Claude isn't
+  asked. Once a kind has a date, a schedule item for the same inspection
+  drops out of the budget, so it isn't counted twice.
 
 **Data owned:** `renewals` — a row per inspection or renewal: kind, when
 done (optional), when it expires, cost, note, and the service it was logged
@@ -609,12 +614,16 @@ errors; the pushes at 30 days, the last week and expired, each once, a new
 expiry alerting afresh, a first sighting in the last week pushed once; going
 with the car's alerts off and its jobs not; taking stock of jobs only; the
 email for each kind of car; the calendar's fixed UIDs, expired ones left out;
-the export's sheet.
+the export's sheet. The budget: when each fee falls (expired now, then from
+today; three registrations in three years), priced from a record and from a
+receipt line with no inflation, a fee with no cost left out, a schedule's
+State inspection not counted twice, and a reminder's cost.
 
 **Done when:** on the server, each car's dates are entered and read right
 on its page and the garage; the Outback's registration reminder arrives as
 a push and in Monday's email while its job alerts stay off (once ntfy and
-Gmail work); and an imported calendar shows the expiry dates. *That's
+Gmail work); an imported calendar shows the expiry dates; and the
+Outback's budget has its fees in the right months at what you paid. *That's
 yours.*
 
 ---
