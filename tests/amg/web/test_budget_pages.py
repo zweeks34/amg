@@ -173,6 +173,7 @@ def test_a_car_with_no_schedule_budgets_fuel_alone(signed_in, conn):
     assert "Runabout has no maintenance schedule yet, so only fuel is budgeted." in page
     assert "~10 mi a day at 10.0¢ a mile, last 12 months" in page
     assert "Prices" not in page
+    assert "By type" not in page                                       # nothing to break down
 
 
 def test_the_bars_scale_to_a_round_figure_and_label_the_months():
@@ -277,3 +278,61 @@ def test_a_schedules_state_inspection_isnt_counted_twice(conn):
     plan = budget.load(conn, vehicles.get(conn, civic))
     assert plan.unpriced == 2 and [job["name"] for job in plan.jobs.values()] == ["Oil and filter"]
     assert (plan.maintenance, plan.fee_total) == (2_000, 2_000)
+
+
+# ---------- By type ----------
+#
+# The worked Outback by type: Tires and wheels $75 (52%), Engine $68 (48%), and
+# Cabin not priced. The brake lines inspection costs nothing of its own, so it
+# isn't there.
+
+
+def _types(rows):
+    return [(row["label"], row["total"], row["share"], [(job["name"], job["words"], job["total"]) for job in row["jobs"]])
+            for row in rows]
+
+
+def test_the_budget_by_type_of_work(signed_in, conn, car):
+    plan = budget.load(conn, vehicles.get(conn, car))
+    types = budget.breakdown([plan])
+    assert _types(types) == [
+        ("Tires and wheels", 7_500, 52, [("Tire rotation", "3 times · 1 due now", 7_500)]),
+        ("Engine", 6_800, 48, [("Oil and filter", "once", 6_800)]),
+        ("Cabin", 0, None, [("Cabin air filter", "twice · 1 due now · not priced", 0)]),
+    ]
+    assert sum(row["total"] for row in types) == plan.maintenance
+    assert [row["bar"] for row in types] == [100, 90.67, 0]
+
+    page = signed_in.get(f"/vehicles/{car}/budget").text
+    assert page.index('id="types-heading"') < page.index('id="months-heading"')
+    assert '<span class="btype__name">Tires and wheels</span>' in page and ">52%<" in page
+    assert '<span class="btype__jobmeta">twice · 1 due now · not priced</span>' in page and ">Not priced<" in page
+    assert "Brake lines" not in page.split('id="types-heading"')[1].split('id="months-heading"')[0]
+
+
+def test_fees_are_a_type_of_their_own(conn, car):
+    _fees(conn, car)
+    types = budget.breakdown([budget.load(conn, vehicles.get(conn, car))])
+    assert [row["label"] for row in types] == ["Tires and wheels", "Inspections and registration", "Engine", "Cabin"]
+    assert _types(types)[1] == ("Inspections and registration", 6_875, 32, [
+        ("Registration", "once", 4_075), ("Emissions inspection", "due now", 2_800)])
+
+
+def test_further_ahead_counts_more_times(conn, car):
+    types = {row[0]: row for row in _types(budget.breakdown([budget.load(conn, vehicles.get(conn, car), 24)]))}
+    assert types["Tires and wheels"][3] == [("Tire rotation", "5 times · 1 due now", 12_500)]
+    assert types["Engine"][3] == [("Oil and filter", "3 times", 20_400)]           # now the biggest
+    assert list(types)[:2] == ["Engine", "Tires and wheels"]
+
+
+def test_the_garage_by_type_names_each_jobs_car(signed_in, conn, car):
+    other = next(c for c in vehicles.garage(conn)[0] if c["name"] == "Forester")
+    _schedule(conn, other["id"], [ItemInput("Tire rotation", "perform", ["tire_rotation"], interval_months=6)])
+    plans = budget.garage(conn, vehicles.garage(conn)[0])
+    tires = budget.breakdown(plans)[0]
+    assert (tires["label"], tires["total"]) == ("Tires and wheels", 10_000)
+    assert [(job["car"], job["words"], job["total"]) for job in tires["jobs"]] == [
+        ("Outback", "3 times · 1 due now", 7_500), ("Forester", "once", 2_500)]
+    page = signed_in.get("/budget").text
+    assert '<span class="btype__jobmeta">Outback · 3 times · 1 due now</span>' in page
+    assert '<span class="btype__jobmeta">Forester · once</span>' in page

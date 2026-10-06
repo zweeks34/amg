@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_budget.html" import horizon_switch, bars, inflation_note %}
+{% from "_budget.html" import horizon_switch, bars, by_type, inflation_note %}
 {% block title %}Budget{% endblock %}
 
 {% block content %}
@@ -65,6 +65,13 @@
     {% endfor %}
   </ul>
 </section>
+
+{% if types %}
+<section class="block" aria-labelledby="types-heading">
+  <h2 class="h3" id="types-heading">By type</h2>
+  {{ by_type(types, per_car=per_car | length > 1) }}
+</section>
+{% endif %}
 
 <section class="block" aria-labelledby="table-heading">
   <h2 class="h3" id="table-heading">Each month</h2>

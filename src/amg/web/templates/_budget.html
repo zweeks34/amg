@@ -73,6 +73,32 @@
 </ol>
 {%- endmacro %}
 
+{#- By type: each type of work's total and share, a bar scaled to the biggest, and its jobs across the horizon.
+    The bar is drawn for the eye; the amounts beside it are what's read. -#}
+{% macro by_type(types, per_car=False) -%}
+<ul class="btypes sheet sheet--flush">
+  {% for type in types %}
+  <li class="btype">
+    <p class="btype__head">
+      <span class="btype__name">{{ type.label }}</span>
+      {% if type.share is not none %}<span class="btype__share mono">{{ type.share }}%</span>{% endif %}
+      <span class="btype__total mono">{{ type.total | dollars if type.priced else "Not priced" }}</span>
+    </p>
+    {% if type.bar %}<span class="btype__bar" aria-hidden="true"><span style="--w: {{ type.bar }}"></span></span>{% endif %}
+    <ul class="btype__jobs">
+      {% for job in type.jobs %}
+      <li class="btype__job">
+        <span class="btype__jobname">{{ job.name }}</span>
+        <span class="btype__jobmeta">{% if per_car %}{{ job.car }}{% if job.words %} · {% endif %}{% endif %}{{ job.words }}</span>
+        <span class="btype__jobcost mono">{{ job.total | dollars if job.priced else "—" }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </li>
+  {% endfor %}
+</ul>
+{%- endmacro %}
+
 {% macro inflation_note(fees=False) -%}
 <p class="aside">What you paid in past years is brought up to today's prices at 4% a year, about what US car
   maintenance and repair prices have risen over the last ten years. Every figure is an estimate in today's money.

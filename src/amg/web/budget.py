@@ -60,6 +60,7 @@ class CarBudget:
     busy: list = field(default_factory=list)   # Claude's rows still being priced
     stalled: bool = False
     fees: dict[str, dict] = field(default_factory=dict)   # each kind it has a date for: kind, price, record_id
+    categories: dict[int, tuple[int, str]] = field(default_factory=dict)   # item id → (catalogue order, category)
 
     @property
     def maintenance(self) -> int:
@@ -176,8 +177,9 @@ def load(conn: sqlite3.Connection, car, count: int = 12, today: date | None = No
     busy = [r for r in claude.values() if r["status"] in ("queued", "asking")]
     stalled = any((job := job_repo.get(conn, job_id)) is None or job_repo.is_stalled(job)
                   for job_id in {r["job_id"] for r in busy})
+    categories = {item_id: (row["category_sort"], row["category"]) for item_id, row in state.items.items()}
     return CarBudget(dict(car), count, today, months, found, item_jobs, fuel.units, rate, cents_a_mile, span, busy,
-                     stalled, fees)
+                     stalled, fees, categories)
 
 
 def _fees(conn: sqlite3.Connection, car, today: date, end: date) -> tuple[dict[str, dict], list[tuple[Fee, Price | None]]]:
@@ -436,3 +438,63 @@ def combined_months(plans: list[CarBudget]) -> list[Month]:
             whole.items.extend(plan.months[index].items)
         found.append(whole)
     return found
+
+
+# ---------- By type ----------
+
+FEES = "Inspections and registration"
+_FEES_ORDER = 10    # after the catalogue's nine categories
+_OTHER = (9, "Inspections and other")   # an item with no service types, as the schedule shows it
+
+
+def times_words(times: int) -> str:
+    return {1: "once", 2: "twice"}.get(times, f"{times} times")
+
+
+def breakdown(plans: list[CarBudget]) -> list[dict]:
+    """The maintenance figure by type of work: the catalogue's categories, as the Spending report has them, with
+    inspections and registration as one of their own.
+
+    Each type's total, its share of the whole and its bar (scaled to the biggest), and its jobs, each counted
+    across the horizon. The most expensive first; types with nothing priced last, in catalogue order. Inspections
+    with no price of their own are left out: they're usually part of a visit.
+    """
+    groups: dict[str, dict] = {}
+    for plan in plans:
+        for month in plan.months:
+            for due, price in month.items:
+                fee = isinstance(due, Fee)
+                if not fee and price is None and due.job.inspection:
+                    continue
+                order, label = (_FEES_ORDER, FEES) if fee else plan.categories.get(due.item_id, _OTHER)
+                group = groups.setdefault(label, {"label": label, "order": order, "total": 0, "priced": False,
+                                                  "jobs": {}})
+                job = group["jobs"].setdefault((plan.car["id"], due.name), {
+                    "name": due.name, "car": plan.car["name"], "times": 0, "now": 0, "total": 0, "priced": False})
+                job["times"] += 1
+                job["now"] += due.status == "overdue"
+                if price is not None:
+                    job["total"] += price.cents
+                    group["total"] += price.cents
+                    job["priced"] = group["priced"] = True
+    whole = sum(group["total"] for group in groups.values())
+    top = max((group["total"] for group in groups.values()), default=0)
+    rows = []
+    for group in sorted(groups.values(), key=lambda g: (not g["total"], -g["total"], g["order"], g["label"])):
+        jobs = sorted(group["jobs"].values(), key=lambda j: (not j["priced"], -j["total"], j["name"], j["car"]))
+        for job in jobs:
+            words = [] if job["now"] == job["times"] else [times_words(job["times"])]
+            if job["now"]:
+                words.append("due now" if job["now"] == job["times"] else f"{job['now']} due now")
+            if not job["priced"]:
+                words.append("not priced")
+            job["words"] = " · ".join(words)
+        rows.append({
+            "label": group["label"],
+            "total": group["total"],
+            "priced": group["priced"],
+            "share": round(group["total"] / whole * 100) if whole and group["total"] else None,
+            "bar": round(group["total"] / top * 100, 2) if top and group["total"] else 0,
+            "jobs": jobs,
+        })
+    return rows if any(row["priced"] for row in rows) else []   # nothing to break down

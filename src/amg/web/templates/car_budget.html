@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_budget.html" import horizon_switch, bars, month_list, inflation_note %}
+{% from "_budget.html" import horizon_switch, bars, month_list, by_type, inflation_note %}
 {% block title %}Budget · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -50,6 +50,13 @@
 <p class="notice budget__notice">{{ fee_names }} {{ "has" if costless | length == 1 else "have" }} no cost yet, so the totals leave {{ "it" if costless | length == 1 else "them" }} out.
   {% if costless | length == 1 %}<a href="/renewals/{{ costless[0].record_id }}/edit">Add what you paid</a>.
   {%- else %}Add what you paid from each one's row below.{% endif %}</p>
+{% endif %}
+
+{% if types %}
+<section class="block" aria-labelledby="types-heading">
+  <h2 class="h3" id="types-heading">By type</h2>
+  {{ by_type(types) }}
+</section>
 {% endif %}
 
 <section class="block" aria-labelledby="months-heading">

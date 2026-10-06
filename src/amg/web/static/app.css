@@ -1589,6 +1589,48 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .price__edit { grid-area: edit; min-height: 2.25rem; font-size: 0.9375rem; }
 .price__form { display: grid; gap: 0.75rem; max-width: 26rem; margin-top: 0.75rem; }
 
+/* By type: what each type of work comes to, a bar scaled to the biggest, and its jobs. The bar is a thin ink
+   strip on a pale track, square where it starts and rounded at its end; the amounts beside it carry the reading. */
+.btypes { margin: 0; padding: 0; list-style: none; }
+.btype { padding: 1rem var(--gutter); }
+.btype + .btype { border-top: 1px solid var(--rule); }
+.btype__head { display: flex; align-items: baseline; gap: 0.75rem; }
+.btype__name {
+  flex: 1;
+  min-width: 0;
+  font: 600 1rem/1.2 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.btype__share { font-size: 0.8125rem; color: var(--steel); }
+.btype__total { font-weight: 600; }
+.btype__bar { display: block; height: 0.5rem; margin-top: 0.5rem; background: var(--rule-soft); }
+.btype__bar > span {
+  display: block;
+  width: calc(var(--w) * 1%);
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--ink);
+}
+.btype__jobs { margin: 0.375rem 0 0; padding: 0; list-style: none; }
+.btype__job {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name cost" "meta meta";
+  column-gap: 0.75rem;
+  row-gap: 0.125rem;
+  padding: 0.4375rem 0;
+  font-size: 0.9375rem;
+}
+.btype__job + .btype__job { border-top: 1px solid var(--rule-soft); }
+.btype__jobname { grid-area: name; font-weight: 600; }
+.btype__jobmeta { grid-area: meta; font-size: 0.8125rem; color: var(--steel); }
+.btype__jobcost { grid-area: cost; font-weight: 500; }
+@media (min-width: 48rem) {
+  .btype__job { grid-template-columns: minmax(0, 1fr) auto 6rem; grid-template-areas: "name meta cost"; align-items: baseline; }
+  .btype__jobcost { text-align: right; }
+}
+
 /* All cars: one row a car, then each month's totals. */
 .bcars { margin: 0; padding: 0; list-style: none; }
 .bcars li + li { border-top: 1px solid var(--rule-soft); }
