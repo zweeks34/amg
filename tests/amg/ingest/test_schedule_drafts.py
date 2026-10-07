@@ -175,6 +175,13 @@ def test_templates_use_known_types_for_their_powertrain(conn, powertrain):
         assert sd.interval_words(item) != "no interval", item["name"]
 
 
+@pytest.mark.parametrize("powertrain", ["gas", "hybrid", "ev"])
+def test_templates_offer_washer_fluid_left_out(powertrain):
+    fluid = next(item for item in templates.draft(powertrain).items if item["codes"] == ["washer_fluid"])
+    assert not fluid["included"] and fluid["interval_months"] == 3
+    assert fluid["why_not"] == "Only if you want reminders: most cars warn when it runs low"
+
+
 def test_a_template_draft_is_a_fresh_copy():
     first = templates.draft("gas")
     first.items[0]["codes"].append("tires")

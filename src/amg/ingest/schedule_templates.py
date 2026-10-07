@@ -40,6 +40,8 @@ _CHASSIS = [
     _item("Steering, suspension and axle boots", ["steering_suspension", "axle_boots"], "inspect", 15_000, 12),
     _item("Cabin air filter", ["cabin_air_filter"], "replace", 15_000, 12),
     _item("Wiper blades", ["wiper_blades"], "replace", months=12),
+    _item("Washer fluid", ["washer_fluid"], "replace", months=3, included=False,
+          why_not="Only if you want reminders: most cars warn when it runs low"),
     _item("12-volt battery", ["battery_12v"], "inspect", months=12),
 ]
 

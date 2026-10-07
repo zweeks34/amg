@@ -2,8 +2,8 @@
 
 A service event is one visit; its line items are what the invoice lists; each
 line item *covers* zero or more service types, with an action. Coverage is
-what the gap engine reads — line items without any are kept (a wiper-fluid
-top-up, a shop-supplies fee) but count towards no schedule item.
+what the gap engine reads — line items without any are kept (a car wash, a
+shop-supplies fee) but count towards no schedule item.
 """
 
 from __future__ import annotations

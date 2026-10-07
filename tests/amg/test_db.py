@@ -102,3 +102,55 @@ def test_nested_transaction_rolls_back_only_the_inner_block(conn):
                 raise RuntimeError("boom")
     keys = [r[0] for r in conn.execute("SELECT key FROM settings")]
     assert keys == ["outer"]
+
+
+# ---------- Migrations that change what's already there ----------
+
+
+def _at(tmp_path, version: int) -> sqlite3.Connection:
+    """A database migrated only as far as ``version``, to apply the later ones to."""
+    older = tmp_path / "older"
+    older.mkdir()
+    for path in db.MIGRATIONS_DIR.glob("[0-9][0-9][0-9][0-9]_*.sql"):
+        if int(path.name[:4]) <= version:
+            _write(older, path.name, path.read_text(encoding="utf-8"))
+    conn = db.connect(tmp_path / "t.sqlite3")
+    db.migrate(conn, older)
+    return conn
+
+
+def test_washer_fluid_comes_right_after_wiper_blades(conn):
+    from amg.repo import services
+
+    codes = [row["code"] for row in services.list_types(conn)]
+    assert codes[codes.index("wiper_blades") + 1] == "washer_fluid"
+    fluid = next(row for row in services.list_types(conn) if row["code"] == "washer_fluid")
+    assert (fluid["name"], fluid["category"], fluid["default_action"], fluid["is_custom"]) == (
+        "Washer fluid", "Electrical", "replace", 0)
+
+
+def test_washer_fluid_forgets_only_wording_learned_with_no_service(tmp_path):
+    conn = _at(tmp_path, 9)
+    learned = {
+        "washer fluid": "[]",
+        "top off windshield washer fluid": "[]",
+        "wiper blades and fluid": '[{"code": "wiper_blades", "action": "replace"}]',
+        "drain plug washer": "[]",
+    }
+    conn.executemany("INSERT INTO service_aliases (phrase, covers_json, updated_at) VALUES (?, ?, 'now')",
+                     learned.items())
+    db.migrate(conn)
+    kept = {row[0] for row in conn.execute("SELECT phrase FROM service_aliases")}
+    assert kept == {"wiper blades and fluid", "drain plug washer"}
+    conn.close()
+
+
+def test_washer_fluid_is_never_added_twice(tmp_path):
+    from amg.repo import services
+
+    conn = _at(tmp_path, 9)
+    services.add_custom_type(conn, "washer fluid", "Electrical")
+    db.migrate(conn)
+    named = conn.execute("SELECT code FROM service_types WHERE name = 'Washer fluid' COLLATE NOCASE").fetchall()
+    assert [row[0] for row in named] == ["custom_washer_fluid"]
+    conn.close()
