@@ -13,6 +13,11 @@ when it was last done (or from new, the first time). Then:
 * **due**     — due within DUE_SOON_DAYS or DUE_SOON_MILES.
 * **later**   — further off.
 
+A repeating item with a count-from date (a job you never kept records of)
+starts its count on that day instead, as if done then: nothing before it is
+judged, services before it don't count for it, and "first at" no longer
+applies.
+
 What meets what: a service meets an item when it covers one of the item's
 service types; an inspection item is met by anything done to the part, a
 replacement or procedure only by a replacement or procedure. A dealer's
@@ -51,6 +56,7 @@ class Item:
     first_miles: int | None = None
     first_months: int | None = None
     applies: str = "always"
+    counts_from: date | None = None
 
 
 @dataclass(frozen=True)
@@ -161,11 +167,15 @@ def walk(item: Item, services: Iterable[Service], odometer: Odometer, car: Car, 
     status = ItemStatus(item)
     services = list(services)
     matching = sorted((s for s in services if meets(s, item)), key=lambda s: (s.day, s.id))
-    start = start_point(car, services, odometer)
+    counting = item.counts_from if item.interval_miles or item.interval_months else None   # a one-off is from new
+    if counting:
+        start: tuple[date, float] | None = (counting, odometer.miles_on(counting) or 0.0)
+    else:
+        start = start_point(car, services, odometer)
     if start is None:
         return status
     base_day, base_miles = start
-    first = True
+    first = counting is None
     today_miles = odometer.miles_on(today)
     for _ in range(_MAX_OCCURRENCES):
         due = _due(item, car, base_day, base_miles, first, odometer)

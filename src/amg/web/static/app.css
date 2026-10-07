@@ -1249,6 +1249,7 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .sitem__label { font: 600 0.875rem/1.2 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
 .sitem__or { font-size: 0.875rem; color: var(--steel); }
 .sitem__when + .field__hint:empty { display: none; }
+.sitem__start input { max-width: 12rem; }
 @media (max-width: 30rem) {
   /* A card inside a sheet on a phone: less padding at each level, more field. */
   .review__form.sheet { padding: 1rem 0.75rem; }

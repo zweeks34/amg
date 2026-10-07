@@ -262,3 +262,28 @@ def test_severe_service_switch(signed_in, conn, outback, reads):
     signed_in.post(f"/vehicles/{outback}/schedule/severe", data={"severe": "1"})
     page = signed_in.get(f"/vehicles/{outback}/schedule").text
     assert "follows severe service, so 3 of them apply" in page and "Towing" in page
+
+
+def test_a_job_never_recorded_counts_from_a_date(signed_in, conn):
+    from datetime import date, timedelta
+
+    from schedule_fixtures import steady_car
+
+    from amg.web import schedule_editor
+
+    car, _, _ = steady_car(conn, date.today() - timedelta(days=1000))     # one missed tire rotation
+    edit = f"/vehicles/{car}/schedule/edit"
+    rows = _editor(signed_in.get(edit).text)["items"]
+    fluid = {**schedule_editor.blank_row(), "name": "Washer fluid", "covers": ["washer_fluid"], "interval_months": "3"}
+    assert "Add a start date" in signed_in.get(edit).text
+
+    signed_in.post(edit, data={"items_json": json.dumps(rows + [fluid])})
+    assert "1 missed in the past" not in signed_in.get(f"/vehicles/{car}").text     # every top-up since new
+
+    rows = _editor(signed_in.get(edit).text)["items"]
+    rows[-1].update(counts_from=date.today().isoformat(), show_start=True)
+    signed_in.post(edit, data={"items_json": json.dumps(rows)})
+    assert "1 missed in the past" in signed_in.get(f"/vehicles/{car}").text
+    today = date.today()
+    assert f"every 3 months, counting from {today:%b} {today.day}, {today.year}" in signed_in.get(
+        f"/vehicles/{car}/schedule").text

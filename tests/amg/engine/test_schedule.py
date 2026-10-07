@@ -155,6 +155,57 @@ def test_a_used_car_with_no_in_service_date_counts_from_when_you_got_it():
     assert statuses(result)[0] == ("later", day(700), 21_000)
 
 
+# ---------- Counted from a date ----------
+
+# Washer fluid every 3 months on a car you've had since 2019, never once recorded.
+SINCE_2019 = Car(in_service=date(2019, 5, 1))
+YEARS = Odometer([(date(2019, 5, 1), 0), (date(2026, 9, 1), 80_000)], in_service=date(2019, 5, 1))
+FLUID = Item(1, "Washer fluid", frozenset({"washer_fluid"}), "replace", interval_months=3)
+COUNTED = Item(1, "Washer fluid", frozenset({"washer_fluid"}), "replace", interval_months=3,
+               counts_from=date(2026, 10, 6))
+OCT_6 = date(2026, 10, 6)
+
+
+def topped_up(on: date) -> Service:
+    return Service(next(_ids), on, None, {"washer_fluid": frozenset({"replace"})})
+
+
+def test_a_job_never_recorded_is_missed_all_along_without_a_date():
+    result = walk(FLUID, [], YEARS, SINCE_2019, today=OCT_6, until=date(2027, 6, 1))
+    assert len(result.missed) > 20 and result.current.status == "overdue"
+
+
+def test_counted_from_a_date_nothing_before_it_is_judged():
+    result = walk(COUNTED, [], YEARS, SINCE_2019, today=OCT_6, until=date(2027, 6, 1))
+    assert [(o.status, o.due_day) for o in result.occurrences] == [
+        ("later", date(2027, 1, 6)), ("later", date(2027, 4, 6))]
+
+
+def test_counted_from_a_date_a_later_service_counts():
+    result = walk(COUNTED, [topped_up(date(2026, 12, 1))], YEARS, SINCE_2019, today=date(2027, 1, 10),
+                  until=date(2027, 4, 1))
+    assert [(o.status, o.due_day) for o in result.occurrences] == [
+        ("done", date(2027, 1, 6)), ("later", date(2027, 3, 1))]
+
+
+def test_counted_from_a_date_an_earlier_service_does_not():
+    result = walk(COUNTED, [topped_up(date(2026, 9, 1))], YEARS, SINCE_2019, today=OCT_6, until=date(2027, 2, 1))
+    assert [(o.status, o.due_day) for o in result.occurrences] == [("later", date(2027, 1, 6))]
+
+
+def test_counted_from_a_date_first_at_no_longer_applies():
+    coolant = Item(1, "Coolant", frozenset({"engine_coolant"}), "replace", interval_months=60, first_months=120,
+                   counts_from=OCT_6)
+    result = walk(coolant, [], YEARS, SINCE_2019, today=OCT_6, until=date(2032, 1, 1))
+    assert result.current.due_day == date(2031, 10, 6)                    # not 2029-05-01, ten years from new
+
+
+def test_a_one_off_item_still_counts_from_new():
+    once = Item(1, "Timing belt", frozenset({"timing_belt"}), "replace", first_months=120, counts_from=OCT_6)
+    result = walk(once, [], YEARS, SINCE_2019, today=OCT_6, until=date(2030, 1, 1))
+    assert [(o.status, o.due_day) for o in result.occurrences] == [("later", date(2029, 5, 1))]
+
+
 # ---------- No readings ----------
 
 

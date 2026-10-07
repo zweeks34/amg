@@ -53,7 +53,7 @@ def load(conn: sqlite3.Connection, car, today: date | None = None, until: date |
     rows = schedules.items(conn, car["id"])
     items = [
         Item(row["id"], row["name"], frozenset(row["codes"]), row["action"], row["interval_miles"],
-             row["interval_months"], row["first_miles"], row["first_months"], row["applies"])
+             row["interval_months"], row["first_miles"], row["first_months"], row["applies"], _day(row["counts_from"]))
         for row in rows
     ]
     done = [

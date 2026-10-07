@@ -116,14 +116,14 @@ def _odometer(conn: sqlite3.Connection) -> str:
 
 
 def _schedules(conn: sqlite3.Connection) -> str:
-    columns = ("Car", "Item", "Action", "Every miles", "Every months", "First at miles", "First at months", "Applies",
-               "Services", "From", "Page", "Note")
+    columns = ("Car", "Item", "Action", "Every miles", "Every months", "First at miles", "First at months",
+               "Count from", "Applies", "Services", "From", "Page", "Note")
     rows = []
     for car in reports.cars(conn):
         for item in schedules.items(conn, car["id"]):
             rows.append([csvs.text(car["name"]), csvs.text(item["name"]), item["action"].title(),
                          csvs.number(item["interval_miles"]), csvs.number(item["interval_months"]),
-                         csvs.number(item["first_miles"]), csvs.number(item["first_months"]),
+                         csvs.number(item["first_miles"]), csvs.number(item["first_months"]), item["counts_from"] or "",
                          APPLIES.get(item["applies"], item["applies"]), "; ".join(item["type_names"]),
                          ITEM_SOURCES.get(item["source"], item["source"]), csvs.number(item["page"]),
                          csvs.text(item["note"])])

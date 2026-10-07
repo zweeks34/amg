@@ -35,6 +35,7 @@ class ItemInput:
     source: str = "you"
     document_id: int | None = None
     page: int | None = None
+    counts_from: str | None = None   # ISO date its count starts on; None counts from new
     id: int | None = None    # an existing item, when saving an edited schedule
 
 
@@ -204,7 +205,7 @@ def save_items(conn: sqlite3.Connection, vehicle_id: int, new_items: list[ItemIn
                 conn.execute(
                     "UPDATE schedule_items SET position = ?, name = ?, action = ?, interval_miles = ?, interval_months = ?,"
                     " first_miles = ?, first_months = ?, applies = ?, note = ?, source = ?, document_id = ?, page = ?,"
-                    " updated_at = ? WHERE id = ?",
+                    " counts_from = ?, updated_at = ? WHERE id = ?",
                     (position, *_values(item), now_iso(), item.id),
                 )
                 _set_codes(conn, item.id, item.codes)  # type: ignore[arg-type]
@@ -249,15 +250,15 @@ def cars_with_schedules(conn: sqlite3.Connection, exclude: int | None = None) ->
 
 def _values(item: ItemInput) -> tuple:
     return (item.name, item.action, item.interval_miles, item.interval_months, item.first_miles, item.first_months,
-            item.applies, item.note, item.source, item.document_id, item.page)
+            item.applies, item.note, item.source, item.document_id, item.page, item.counts_from)
 
 
 def _insert(conn: sqlite3.Connection, vehicle_id: int, position: int, item: ItemInput, draft_id: int | None) -> int:
     now = now_iso()
     cursor = conn.execute(
         "INSERT INTO schedule_items (vehicle_id, position, name, action, interval_miles, interval_months, first_miles,"
-        " first_months, applies, note, source, document_id, page, draft_id, created_at, updated_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " first_months, applies, note, source, document_id, page, counts_from, draft_id, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (vehicle_id, position, *_values(item), draft_id, now, now),
     )
     item_id: int = cursor.lastrowid  # type: ignore[assignment]

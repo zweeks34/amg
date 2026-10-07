@@ -60,6 +60,14 @@
     </div>
     <p class="field__hint" x-text="whenHint(item)"></p>
 
+    <div class="field sitem__start" x-show="item.counts_from || item.show_start">
+      <label :for="'item-start-' + item._id">Count from</label>
+      <input :id="'item-start-' + item._id" type="date" x-model="item.counts_from" @input="item.touched = true"
+             class="mono" autocomplete="off" :aria-describedby="'item-start-hint-' + item._id">
+      <p class="field__hint" :id="'item-start-hint-' + item._id">For a job you've never kept records of. Nothing before
+        this date counts as missed, and the first falls due one interval after it.</p>
+    </div>
+
     <div class="field" x-show="item.note || item.show_note">
       <label :for="'item-note-' + item._id">Note</label>
       <input :id="'item-note-' + item._id" x-model="item.note">
@@ -73,6 +81,7 @@
       </p>
       <div class="line__actions">
         <button type="button" class="btn btn--quiet" x-show="!item.show_first" @click="item.show_first = true">Add a first due</button>
+        <button type="button" class="btn btn--quiet" x-show="!item.counts_from && !item.show_start" @click="item.show_start = true">Add a start date</button>
         <button type="button" class="btn btn--quiet" x-show="!item.note && !item.show_note" @click="item.show_note = true">Add a note</button>
         {% if mode == "draft" %}<button type="button" class="btn btn--quiet" @click="leaveOut(i)">Leave out</button>{% endif %}
         <button type="button" class="btn btn--quiet" @click="remove(i)">Remove</button>

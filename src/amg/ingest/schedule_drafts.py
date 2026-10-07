@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, field
+from datetime import date
 from typing import Any
 
 from ..engine.schedule import in_effect  # noqa: F401  (pages ask a draft's items the same question)
@@ -32,7 +33,7 @@ class ScheduleDraft:
     severe_conditions: str = ""  # what the schedule counts as severe service
     read_note: str = ""          # what Claude was unsure of; shown, not edited
     # {id, name, codes: [code], action, interval_miles, interval_months, first_miles, first_months,
-    #  applies, note, source, document_id, page, included, why_not, marked_miles: [miles], from_read}
+    #  applies, note, source, document_id, page, counts_from, included, why_not, marked_miles: [miles], from_read}
     items: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,7 +52,8 @@ def blank_item(**values) -> dict:
     item = {
         "id": None, "name": "", "codes": [], "action": "replace", "interval_miles": None, "interval_months": None,
         "first_miles": None, "first_months": None, "applies": "always", "note": "", "source": "you",
-        "document_id": None, "page": None, "included": True, "why_not": "", "marked_miles": [], "from_read": False,
+        "document_id": None, "page": None, "counts_from": None, "included": True, "why_not": "", "marked_miles": [],
+        "from_read": False,
     }
     item.update(values)
     return item
@@ -215,13 +217,17 @@ def to_items(draft: ScheduleDraft) -> list[ItemInput]:
             source=item["source"],
             document_id=item["document_id"],
             page=item["page"],
+            counts_from=item.get("counts_from"),
         )
         for item in draft.included()
     ]
 
 
 def from_items(items: Iterable[Mapping], origin: str = "copy", keep_ids: bool = False) -> ScheduleDraft:
-    """A draft from schedule items — another car's, to copy, or this car's, to edit."""
+    """A draft from schedule items — another car's, to copy, or this car's, to edit.
+
+    A count-from date is about this car's records, so only an edit keeps it.
+    """
     return ScheduleDraft(origin=origin, items=[
         blank_item(
             id=item["id"] if keep_ids else None,
@@ -237,6 +243,7 @@ def from_items(items: Iterable[Mapping], origin: str = "copy", keep_ids: bool = 
             source=item["source"],
             document_id=item["document_id"],
             page=item["page"],
+            counts_from=item["counts_from"] if keep_ids else None,
         )
         for item in items
     ])
@@ -258,9 +265,13 @@ def _distance(miles: int | None, months: int | None) -> str:
 
 
 def interval_words(item: Mapping) -> str:
-    """'every 6,000 mi or 6 months'; 'first at 137,500 mi or 11 years, then every 75,000 mi or 6 years'."""
+    """'every 6,000 mi or 6 months'; 'first at 137,500 mi or 11 years, then every 75,000 mi or 6 years';
+    'every 3 months, counting from Oct 6, 2026'."""
     every = _distance(item["interval_miles"], item["interval_months"])
     first = _distance(item["first_miles"], item["first_months"])
+    if every and item.get("counts_from"):
+        start = date.fromisoformat(item["counts_from"])
+        return f"every {every}, counting from {start:%b} {start.day}, {start.year}"
     if first and every:
         return f"first at {first}, then every {every}"
     if first:

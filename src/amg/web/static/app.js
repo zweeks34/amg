@@ -129,6 +129,7 @@ document.addEventListener("alpine:init", () => {
     id: null, name: "", covers: [], action: "replace", interval_miles: "", interval_months: "", first_miles: "",
     first_months: "", applies: "always", note: "", source: "you", document_id: null, page: null, included: true,
     why_not: "", marked: "", marked_miles: [], from_read: false, show_first: false, show_note: false,
+    counts_from: "", show_start: false,
   });
   const LETTERS = { replace: "R", inspect: "I", perform: "P" };
   const SOURCES = { manual: "Owner's manual", claude: "Claude's draft", template: "Generic template", you: "Set by you" };
@@ -164,6 +165,7 @@ document.addEventListener("alpine:init", () => {
     whenHint(item) {
       const first = item.show_first && (item.first_miles || item.first_months);
       const every = item.interval_miles || item.interval_months;
+      if (first && every && item.counts_from) return "Counted from the start date, so the first due doesn't apply.";
       if (first && every) return "The first is due at that point, then every interval after it.";
       if (first) return "Due once, at that point.";
       if (item.interval_miles && item.interval_months) return "Whichever comes first.";

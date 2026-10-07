@@ -55,3 +55,23 @@ def test_a_row_is_named_after_its_services_and_junk_is_cleaned():
     assert (item["name"], item["action"], item["applies"], item["source"]) == (
         "Engine oil, Oil filter", "replace", "always", "you")
     assert se.clean_items("not json") == []
+
+
+# ---------- Count from ----------
+
+
+def test_a_count_from_date_round_trips_through_the_editor():
+    row = se.editor_row(blank_item(name="Washer fluid", codes=["engine_oil"], interval_months=3,
+                                   counts_from="2026-10-06"))
+    assert (row["counts_from"], row["show_start"]) == ("2026-10-06", True)
+    (parsed,), errors = se.parse_items(se.clean_items(json.dumps([row])), TYPES, documents=set())
+    assert errors == [None] and parsed["counts_from"] == "2026-10-06"
+    assert se.blank_row()["counts_from"] == "" and not se.blank_row()["show_start"]
+
+
+def test_a_count_from_date_cant_be_in_the_future_or_on_a_one_off():
+    rows = [_row(counts_from="2999-01-01"), _row(counts_from="soon"),
+            _row(interval_miles="", interval_months="", first_months="120", counts_from="2026-10-06")]
+    _, errors = se.parse_items(rows, TYPES, documents=set())
+    assert errors == ["That date is in the future.", "Enter a date like 2016-08-15.",
+                      "Only a repeating item can count from a date."]

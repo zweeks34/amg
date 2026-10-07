@@ -47,6 +47,8 @@ def editor_row(item: Mapping) -> dict:
         "marked_miles": list(marked),
         "from_read": bool(item.get("from_read")),
         "show_first": item.get("first_miles") is not None or item.get("first_months") is not None,
+        "counts_from": item.get("counts_from") or "",
+        "show_start": bool(item.get("counts_from")),
     }
 
 
@@ -81,6 +83,8 @@ def clean_items(posted: str | None) -> list[dict]:
             "marked_miles": [m for m in item.get("marked_miles", []) if isinstance(m, int)],
             "from_read": bool(item.get("from_read")),
             "show_first": bool(item.get("show_first")),
+            "counts_from": forms.text(str(item.get("counts_from", ""))),
+            "show_start": bool(item.get("show_start")),
         })
     return rows
 
@@ -113,6 +117,11 @@ def parse_items(
             if values[key] == 0:
                 problems.append("Enter miles above zero.")
                 values[key] = None
+        try:
+            counts_from = forms.day(row["counts_from"])
+        except ValueError as err:
+            problems.append(str(err))
+            counts_from = None
         codes = [code for code in dict.fromkeys(row["covers"]) if code in types]
         name = row["name"] or ", ".join(types[code]["name"] for code in codes)
         if row["included"]:
@@ -120,6 +129,8 @@ def parse_items(
                 problems.append("Add the service it's for, so AMG can match it to your services.")
             if not problems and not any(values.values()):
                 problems.append("Give it an interval: miles, months or both.")
+            elif counts_from and not (values["interval_miles"] or values["interval_months"]):
+                problems.append("Only a repeating item can count from a date.")
         document_id = row["document_id"] if row["document_id"] in documents else None
         items.append(blank_item(
             id=row["id"],
@@ -132,6 +143,7 @@ def parse_items(
             source=row["source"],
             document_id=document_id,
             page=row["page"] if document_id else None,
+            counts_from=counts_from,
             included=row["included"],
             why_not=row["why_not"],
             marked_miles=row["marked_miles"],

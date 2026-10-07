@@ -47,7 +47,9 @@ def test_everything_is_there(conn, tmp_path):
     draft = schedules.create_draft(conn, outback, "template", draft={"origin": "template", "items": []})
     schedules.confirm(conn, draft, outback, [ItemInput("Oil and filter", "replace", ["engine_oil", "oil_filter"],
                                                        interval_miles=6_000, interval_months=6, source="manual",
-                                                       document_id=manual["id"], page=31)], {})
+                                                       document_id=manual["id"], page=31),
+                                             ItemInput("Washer fluid", "replace", ["washer_fluid"], interval_months=3,
+                                                       counts_from="2026-09-15")], {})
     prices.set_yours(conn, outback, ["engine_oil", "oil_filter"], "replace", "Oil and filter", 8_500)
     inspected = rf.visit(conn, outback, "2026-09-01", shop="Corner Garage",
                          lines=[rf.line("State inspection", 2_000, "state_inspection", action="perform")])
@@ -81,9 +83,10 @@ def test_everything_is_there(conn, tmp_path):
     readings = sheet(zf, "odometer.csv")
     assert {"Car": "Outback", "Date": "2026-09-20", "Miles": "92300", "From": "Typed in"} in readings
     assert {"Car": "Outback", "Date": "2026-09-01", "Miles": "92000", "From": "A fill-up"} in readings
-    item = sheet(zf, "schedules.csv")[0]
-    assert (item["Item"], item["Every miles"], item["Every months"], item["Services"], item["From"], item["Page"]) == (
-        "Oil and filter", "6000", "6", "Engine oil; Oil filter", "Owner's manual", "31")
+    item, fluid = sheet(zf, "schedules.csv")
+    assert (item["Item"], item["Every miles"], item["Every months"], item["Services"], item["From"], item["Page"],
+            item["Count from"]) == ("Oil and filter", "6000", "6", "Engine oil; Oil filter", "Owner's manual", "31", "")
+    assert (fluid["Item"], fluid["Every months"], fluid["Count from"]) == ("Washer fluid", "3", "2026-09-15")
     assert sheet(zf, "inspections-and-registration.csv") == [
         {"Car": "Outback", "What": "Safety inspection", "Done on": "2026-09-01", "Expires": "2027-09-30",
          "Cost": "20.00", "Note": "", "Service": "2026-09-01 Corner Garage"},

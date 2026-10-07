@@ -66,6 +66,23 @@ def test_saving_an_edited_schedule_keeps_ids(conn, cars):
     assert tires["id"] not in {item["id"] for item in after}
 
 
+def test_a_count_from_date_is_kept_by_an_edit_and_dropped_by_a_copy(conn, cars):
+    outback, forester = cars
+    _use(conn, outback, [_oil(), ItemInput(name="Washer fluid", action="replace", codes=["washer_fluid"],
+                                           interval_months=3, counts_from="2026-10-06")])
+    oil, fluid = schedules.items(conn, outback)
+    assert (oil["counts_from"], fluid["counts_from"]) == (None, "2026-10-06")
+    assert sd.interval_words(fluid) == "every 3 months, counting from Oct 6, 2026"
+
+    edited = sd.to_items(sd.from_items([oil, fluid], origin="manual", keep_ids=True))
+    edited[0].counts_from = "2026-01-01"
+    schedules.save_items(conn, outback, edited)
+    assert [item["counts_from"] for item in schedules.items(conn, outback)] == ["2026-01-01", "2026-10-06"]
+
+    _use(conn, forester, sd.to_items(sd.from_items(schedules.items(conn, outback))), origin="copy")
+    assert [item["counts_from"] for item in schedules.items(conn, forester)] == [None, None]
+
+
 def test_editing_a_copied_schedule_leaves_the_original_alone(conn, cars):
     outback, forester = cars
     _use(conn, outback, [_oil()])
