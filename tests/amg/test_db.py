@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import date
 
 import pytest
 
@@ -153,4 +154,66 @@ def test_washer_fluid_is_never_added_twice(tmp_path):
     db.migrate(conn)
     named = conn.execute("SELECT code FROM service_types WHERE name = 'Washer fluid' COLLATE NOCASE").fetchall()
     assert [row[0] for row in named] == ["custom_washer_fluid"]
+    conn.close()
+
+
+def _car(conn, name: str, *items) -> int:
+    """A car with ``items`` as its schedule."""
+    from amg.ingest import schedule_drafts as sd
+    from amg.repo import schedules, vehicles
+
+    car = vehicles.create(conn, vehicles.VehicleFields(name=name, year=2016, make="Subaru", model="Outback"))
+    draft = sd.ScheduleDraft(origin="template").to_dict()
+    schedules.confirm(conn, schedules.create_draft(conn, car, "template", draft=draft), car, list(items), draft)
+    return car
+
+
+def _wipers(name="Wiper blades", action="replace", **changes):
+    from amg.repo.schedules import ItemInput
+
+    return ItemInput(name=name, action=action, codes=["wiper_blades"], **{"interval_months": 12, **changes})
+
+
+def _done(conn, car: int, code: str, action="replace", confirmed=True) -> None:
+    from amg.repo import services
+
+    line = services.LineInput(code, covers=[services.Coverage(code, action)])
+    services.create_event(conn, car, services.EventInput("2025-04-01", "diy", lines=[line]), confirmed=confirmed)
+
+
+def _counts_from(conn, car: int) -> dict[str, str | None]:
+    from amg.repo import schedules
+
+    return {item["name"]: item["counts_from"] for item in schedules.items(conn, car)}
+
+
+def test_wiper_blades_count_from_today_where_none_are_on_record(tmp_path):
+    from amg.repo.schedules import ItemInput
+
+    conn = _at(tmp_path, 11)
+    untracked = _car(conn, "Outback", _wipers(), _wipers("Rear wiper", counts_from="2026-01-01"),
+                     _wipers("First blades", interval_months=None, first_months=6),
+                     ItemInput(name="Engine oil", action="replace", codes=["engine_oil"], interval_months=6))
+    changed = _car(conn, "Forester", _wipers())
+    _done(conn, changed, "wiper_blades")
+    unconfirmed = _car(conn, "Crosstrek", _wipers())
+    _done(conn, unconfirmed, "wiper_blades", confirmed=False)
+    db.migrate(conn)
+    today = date.today().isoformat()
+    assert _counts_from(conn, untracked) == {
+        "Wiper blades": today, "Rear wiper": "2026-01-01", "First blades": None, "Engine oil": None}
+    assert _counts_from(conn, changed) == {"Wiper blades": None}
+    assert _counts_from(conn, unconfirmed) == {"Wiper blades": today}
+    conn.close()
+
+
+def test_wiper_blades_on_record_is_what_already_counts_for_the_item(tmp_path):
+    conn = _at(tmp_path, 11)
+    looked_over = _car(conn, "Outback", _wipers(action="inspect"))
+    _done(conn, looked_over, "multipoint_inspection", action="inspect")    # meets an inspection
+    only_looked_at = _car(conn, "Forester", _wipers())
+    _done(conn, only_looked_at, "wiper_blades", action="inspect")           # doesn't meet a replacement
+    db.migrate(conn)
+    assert _counts_from(conn, looked_over) == {"Wiper blades": None}
+    assert _counts_from(conn, only_looked_at) == {"Wiper blades": date.today().isoformat()}
     conn.close()
