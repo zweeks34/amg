@@ -80,7 +80,7 @@ whether receipt extraction is good enough to build a UI around.
 
 - [x] Vehicles: add / edit / archive; VIN decode via NHTSA vPIC fills year/make/model/trim/powertrain
 - [x] Odometer readings: manual entry; every reading keeps its source (the `odometer_points` view unions typed readings, services and the acquired mileage); a reading that runs backwards is refused
-- [x] Service-type catalogue seeded (oil, filters, rotation, fluids, plugs, brakes, 12V battery, hybrid inverter coolant, EV battery coolant, …) with categories — 45 types, plus your own from `/service-types`
+- [x] Service-type catalogue seeded (oil, filters, rotation, fluids, plugs, brakes, 12V battery, hybrid inverter coolant, EV battery coolant, …) with categories — 46 types (washer fluid joined on 2026-10-06, right after wiper blades; washer-fluid wording learned with no service was forgotten, so the receipt reader can suggest it), plus your own from `/service-types`
 - [x] Service entry by hand (DIY or a receipt typed in): date, odometer, shop, line items, each line mapped to service types with an action (replace / inspect / perform)
 - [x] Service history per vehicle
 - [x] `scripts/try_receipt.py <file>` — local text/OCR → Claude → JSON printed, in `text`, `vision` or `both` mode. Run on all 14 scans in `samples/` (findings below)
@@ -290,13 +290,21 @@ there is one.
 - [x] Odometer model (`engine/odometer.py`): a straight line between readings, with the in-service date as a reading of zero; after the last reading the recent pace (the last year of readings if they span two months, else the whole history); before the first, back along the first stretch, never below zero
 - [x] Gap engine (`engine/schedule.py`): each item due at the earlier of its miles and months, **counted from when it was last done** (from new, the first time). A matching service before the *next* one falls due → done (late beyond a tenth of an interval); nothing by then → missed, and the count carries on from the missed due point; due point passed, next not yet → overdue; within 30 days or 1,000 mi → due soon; else later. Nothing is judged before you had the car
 - [x] What meets what: a service covering any of the item's service types — an inspection item by anything done to the part, a replacement or procedure only by a replacement or procedure. **A multi-point or state inspection meets every inspection item**, never a replacement (your call: otherwise the dealer's checks would all read as missed)
+- [x] Count from a date (added after the phase shipped, 2026-10-06): a repeating item can start its count on a date you set, from **Add a start date** in the schedule editor, as if done that day, so a job you never kept records of (topping up washer fluid) isn't missed every interval since new. Nothing before the date is judged, services before it don't count for it, and "first at" no longer applies. Shown on the schedule page ("every 3 months, counting from Oct 6, 2026") and in the schedule export; editing keeps it, copying to another car drops it
 - [x] Mark as done ("done, no receipt") → an attested service covering the item, from **Mark as done** on next up, **It was done** on a missed one, or a missed or overdue mark on the chart; it shows in the history as "Done, no receipt"; deleting it undoes it
 - [x] Interval chart per car: the items that apply, grouped as the schedule is; ● done where the work was done (links to the service), ✕ missed and ▲ overdue (link to mark as done), ◐ due soon, ○ later; today's estimated odometer as the ink line. Open on wide screens; on phones next up comes first and the chart is one tap away, scrolling sideways with the item column fixed
 - [x] Car page: next up (every overdue and due-soon item, then the next few, folded after six), "N missed in the past" with each one listed, today's estimated odometer
 - [x] Garage: each card says what's next and counts overdue, due soon and missed
 
 **Data owned:** none new — the engine is pure functions over the tables
-above; `web/status.py` turns its answer into words and the chart.
+above; `web/status.py` turns its answer into words and the chart. (Later:
+`schedule_items.counts_from`, migration 0011.)
+
+**Decisions:**
+
+- **A count-from date is one you set**, not one AMG guesses from when an item
+  was added: an item you add late because the manual's reading missed it
+  should still show what was missed. Only a repeating item can have one.
 
 **Can go wrong:** no odometer readings → months-only judgement, no chart, and
 an item due by mileage alone says it needs a reading. Services done early →
@@ -304,6 +312,8 @@ met, and the count restarts from them. A used car → nothing judged before
 acquisition ("before you had it"), and with no in-service date the count starts
 when you got it. A service with no odometer → placed on the chart from the
 odometer model. A long silence → one missed mark per interval that passed.
+A job nobody records (washer fluid) → give it a count-from date, or every
+interval since new reads as missed.
 
 **Tests pin:** whichever comes first, both ways round; first-due offsets
 (first at 7,500, then every 15,000) and "first at 11 years"; the late-service

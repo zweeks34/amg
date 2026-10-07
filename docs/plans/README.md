@@ -24,6 +24,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-05 | [Inspection and registration fees in the budget](2026-10-05-fees-in-the-budget.md) | Phase 10 | `8a07141`…`1f6dd31` |
 | 2026-10-05 | [The budget, by type of work](2026-10-05-budget-by-type.md) | Phase 7 | `340a197`…`025f310` |
 | 2026-10-05 | [Month bars by type: stacked colours with a type picker](2026-10-05-month-bars-by-type.md) | Phase 7 | `a46e363`…`d221869` |
+| 2026-10-06 | [Washer fluid as a standard service, and a count-from date for schedule items](2026-10-06-washer-fluid-and-count-from.md) | Phases 1 and 5 | `7cc9516`…`b97d883` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
