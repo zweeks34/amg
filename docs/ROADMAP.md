@@ -298,13 +298,16 @@ there is one.
 
 **Data owned:** none new — the engine is pure functions over the tables
 above; `web/status.py` turns its answer into words and the chart. (Later:
-`schedule_items.counts_from`, migration 0011.)
+`schedule_items.counts_from`, migration 0011. Migration 0012 started wiper
+blades counting from the day it ran, on cars with none on record.)
 
 **Decisions:**
 
 - **A count-from date is one you set**, not one AMG guesses from when an item
   was added: an item you add late because the manual's reading missed it
-  should still show what was missed. Only a repeating item can have one.
+  should still show what was missed. Only a repeating item can have one. The
+  one exception, asked for on 2026-10-07: migration 0012 set one, once, on each
+  wiper-blade item whose car had nothing on record that counted for it.
 
 **Can go wrong:** no odometer readings → months-only judgement, no chart, and
 an item due by mileage alone says it needs a reading. Services done early →
@@ -312,8 +315,9 @@ met, and the count restarts from them. A used car → nothing judged before
 acquisition ("before you had it"), and with no in-service date the count starts
 when you got it. A service with no odometer → placed on the chart from the
 odometer model. A long silence → one missed mark per interval that passed.
-A job nobody records (washer fluid) → give it a count-from date, or every
-interval since new reads as missed.
+A job nobody records (washer fluid, wiper blades) → give it a count-from date,
+or every interval since new reads as missed. Wiper blades got one when
+migration 0012 ran, wherever none were on record.
 
 **Tests pin:** whichever comes first, both ways round; first-due offsets
 (first at 7,500, then every 15,000) and "first at 11 years"; the late-service
