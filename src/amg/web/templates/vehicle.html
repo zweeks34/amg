@@ -81,6 +81,7 @@
     <a class="btn btn--primary" href="/vehicles/{{ car.id }}/services/new">Log a service</a>
     <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/edit">Edit car</a>
     <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/specs">Specs</a>
+    <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/for-the-shop">For the shop</a>
   </div>
   {% if car.archived_at %}
   <p class="notice">This car is archived. <a href="/vehicles/{{ car.id }}/edit">Restore it</a> to put it back in the garage.</p>

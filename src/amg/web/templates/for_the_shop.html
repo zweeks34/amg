@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_issues.html" import photo_list %}
+{% block title %}For the shop · {{ car.name }}{% endblock %}
+
+{% block content %}
+<p class="printhead">{{ car.name }}{% if sheet.model %} · {{ sheet.model }}{% endif %}</p>
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
+  <h1 class="display">For the shop</h1>
+  <p class="pagehead__lede">What to ask for at the next visit. Show it on your phone, or print it and hand it over.</p>
+  <div class="pagehead__actions">
+    <button class="btn btn--primary" type="button" x-data x-cloak @click="window.print()">Print</button>
+    <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/issues/new">Note an issue</a>
+  </div>
+</header>
+
+<article class="sheet shopsheet">
+  <dl class="facts shopsheet__car">
+    <div><dt>Car</dt><dd>{{ sheet.model or car.name }}</dd></div>
+    {% if car.engine %}<div><dt>Engine</dt><dd>{{ car.engine }}</dd></div>{% endif %}
+    {% if car.vin %}<div><dt>VIN</dt><dd class="mono">{{ car.vin }}</dd></div>{% endif %}
+    {% if car.plate %}<div><dt>Plate</dt><dd class="mono">{{ car.plate }}</dd></div>{% endif %}
+    {% if sheet.odometer %}<div><dt>Odometer</dt><dd class="mono">{{ sheet.odometer }}</dd></div>{% endif %}
+  </dl>
+
+  {% if sheet.issues %}
+  <section class="shopsheet__part" aria-labelledby="look-heading">
+    <h2 class="h3" id="look-heading">Please look at</h2>
+    <ol class="shopsheet__issues">
+      {% for row in sheet.issues %}
+      <li class="shopsheet__issue">
+        <p class="issue__title">{{ row.title }}</p>
+        <p class="issue__when">{{ row.noticed }}</p>
+        {% if row.details %}<p class="issue__details">{{ row.details }}</p>{% endif %}
+        {% if row.tried %}<p class="issue__tried">{{ row.tried }}.</p>{% endif %}
+        {{ photo_list(row) }}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
+  {% if sheet.due %}
+  <section class="shopsheet__part" aria-labelledby="due-heading">
+    <h2 class="h3" id="due-heading">Due now</h2>
+    <ul class="shopsheet__list">
+      {% for job in sheet.due %}
+      <li class="shopsheet__row">
+        <span class="mark mark--{{ job.status }}" aria-hidden="true"></span>
+        <span class="shopsheet__what">{{ job.name }}</span>
+        <span class="shopsheet__when">{{ job.when }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if sheet.recommended %}
+  <section class="shopsheet__part" aria-labelledby="recommended-heading">
+    <h2 class="h3" id="recommended-heading">Recommended before</h2>
+    <ul class="shopsheet__list">
+      {% for rec in sheet.recommended %}
+      <li class="shopsheet__row">
+        <span class="mark mark--later" aria-hidden="true"></span>
+        <span class="shopsheet__what">{{ rec.description }}</span>
+        <span class="shopsheet__when">{{ rec.where }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if sheet.empty %}
+  <p class="shopsheet__empty">Nothing to ask for: no open issues, nothing due, and no open shop recommendations.</p>
+  {% endif %}
+  <p class="shopsheet__foot">From AMG, {{ sheet.today }}.</p>
+</article>
+{% endblock %}

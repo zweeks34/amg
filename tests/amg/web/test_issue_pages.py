@@ -1,5 +1,5 @@
 """Issues on the car's page, the service's page and the garage: noting one with photos, the question a
-later visit asks, and closing, dropping and reopening."""
+later visit asks, and closing, dropping and reopening. Then the sheet for the shop."""
 
 from __future__ import annotations
 
@@ -11,9 +11,11 @@ from io import BytesIO
 import pytest
 import report_fixtures as rf  # tests/ is on pytest's path
 from PIL import Image
+from schedule_fixtures import steady_car
 
-from amg.repo import documents, issues, odometer
+from amg.repo import documents, issues, odometer, vehicles
 from amg.repo.issues import IssueInput
+from amg.web import status
 from amg.web.recalls import day_words
 
 
@@ -199,3 +201,71 @@ def test_the_garage_counts_open_ones(signed_in, conn, car):
 def test_an_unknown_issue_is_a_404(signed_in):
     assert signed_in.get("/issues/999/edit").status_code == 404
     assert signed_in.post("/issues/999/drop").status_code == 404
+
+
+# ---------- The sheet for the shop ----------
+
+
+def sheet(signed_in, car):
+    """The sheet itself, without the page around it."""
+    return page(signed_in, f"/vehicles/{car}/for-the-shop").split('<article class="sheet shopsheet">')[1]         .split("</article>")[0]
+
+
+def test_the_sheet_has_the_car_and_your_open_issues_numbered(signed_in, conn):
+    car = rf.car(conn, "Civic", year=2019, make="Honda", model="Civic", trim="EX", engine="2.0L 4-cyl",
+                 vin="2HGFC2F59KH000001", plate="ABC 123")
+    odometer.add(conn, car, date.today().isoformat(), 95_000)
+    looked = rf.visit(conn, car, "2025-09-20", shop="Valley Honda", lines=[rf.line("Looked for rattle", 0)])
+    rattle = issues.create(conn, car, IssueInput("Rattle at 40 mph", "From the front", "2025-09-02"),
+                           [stored(conn, "red")])
+    issues.still_there(conn, rattle, looked)
+    issues.create(conn, car, IssueInput("Squeak over bumps", "", "2025-10-01"))
+    issues.drop(conn, issues.create(conn, car, IssueInput("Smell of fuel", "", "2025-08-01")), "2025-08-10")
+
+    assert f'href="/vehicles/{car}/for-the-shop"' in page(signed_in, f"/vehicles/{car}")
+    text = sheet(signed_in, car)
+    assert "2019 Honda Civic EX" in text and "2.0L 4-cyl" in text and "2HGFC2F59KH000001" in text
+    assert "ABC 123" in text and "95,000 mi today" in text
+    assert "Please look at" in text and text.index("Squeak over bumps") < text.index("Rattle at 40 mph")
+    assert "From the front" in text and "Still there after Valley Honda on Sep 20, 2025." in text
+    assert "size=thumb" in text and "Smell of fuel" not in text
+    assert f"From AMG, {day_words(date.today().isoformat())}." in text
+    assert "Print" in page(signed_in, f"/vehicles/{car}/for-the-shop")
+
+
+def test_the_sheets_odometer(signed_in, conn):
+    car = rf.car(conn, "Civic")
+    odometer.add(conn, car, "2025-08-01", 91_000)
+    assert "91,000 mi on Aug 1, 2025" in sheet(signed_in, car)            # one reading: no pace to estimate by
+    odometer.add(conn, car, (date.today() - timedelta(days=30)).isoformat(), 95_000)
+    assert "about " in sheet(signed_in, car) and " mi today" in sheet(signed_in, car)
+
+
+def test_the_sheet_lists_only_whats_due_now_and_no_prices(signed_in, conn):
+    car, _, _ = steady_car(conn, date.today() - timedelta(days=1000))
+    every = status.next_up(status.load(conn, vehicles.get(conn, car)))
+    urgent = [row["name"] for row in every if row["status"] in ("overdue", "due")]
+    later = [row["name"] for row in every if row["status"] == "later"]
+    assert urgent and later
+    text = sheet(signed_in, car)
+    assert "Due now" in text and all(name in text for name in urgent)
+    assert not any(name in text for name in later) and "mi overdue" in text
+    assert "$" not in text
+
+
+def test_the_sheet_lists_recent_open_recommendations(signed_in, conn):
+    car = rf.car(conn, "Civic")
+    recent = (date.today() - timedelta(days=30)).isoformat()
+    rf.receipt(conn, car, rf.pdf_bytes("RECENT"), "recent.pdf", date=recent, shop_name="Valley Honda", odometer=None)
+    rf.receipt(conn, car, rf.pdf_bytes("OLD"), "old.pdf", date="2022-03-01", shop_name="Midas", odometer=None)
+    text = sheet(signed_in, car)
+    assert "Recommended before" in text and "Brake fluid flush" in text
+    assert f"Valley Honda, {day_words(recent)}" in text and "Midas" not in text
+    assert "$" not in text and "129.95" not in text
+
+
+def test_a_sheet_with_nothing_to_ask_for_says_so(signed_in, conn):
+    car = rf.car(conn, "Civic")
+    text = sheet(signed_in, car)
+    assert "Nothing to ask for: no open issues, nothing due, and no open shop recommendations." in text
+    assert "Please look at" not in text and "Due now" not in text and "Recommended before" not in text

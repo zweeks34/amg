@@ -1,4 +1,4 @@
-"""Issues: noting what's wrong with a car, and saying what became of it.
+"""Issues: noting what's wrong with a car, saying what became of it, and the sheet for the shop.
 
 The car's page lists them and asks about the newest visit since each was
 noticed; a service's page asks about itself, and its answers come back there
@@ -16,6 +16,7 @@ from starlette.responses import RedirectResponse, Response
 from ..repo import issues
 from . import forms
 from . import issues as issue_words
+from . import shop_sheet
 from .deps import get_conn
 from .routes_vehicles import car_page, vehicle_or_404
 from .templating import render
@@ -116,6 +117,15 @@ def reopen(issue_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Respo
     row = _issue_or_404(conn, issue_id)
     issues.reopen(conn, issue_id)
     return RedirectResponse(f"/vehicles/{row['vehicle_id']}#issues", status_code=303)
+
+
+# ---------- The sheet for the shop ----------
+
+
+@router.get("/vehicles/{vehicle_id}/for-the-shop")
+def for_the_shop(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    car = vehicle_or_404(conn, vehicle_id)
+    return render(request, "for_the_shop.html", active="garage", car=car, sheet=shop_sheet.load(conn, car))
 
 
 # ---------- Helpers ----------
