@@ -770,6 +770,58 @@ parts counter once. *That's yours.*
 
 ---
 
+## Phase 13 — Issues and the sheet for the shop
+
+**For:** keeping what you've noticed wrong with a car (a rattle, a leak, a
+warning light) until a visit fixes it, and taking it to the shop on one page
+with what's due and what was recommended. (Added 2026-10-08.)
+
+- [x] Issues: **Note an issue** on the car's page: what's wrong, details, the day you noticed it and up to 10 photos, taken or chosen, each stored as receipt scans are. Each open one shows when you noticed it (with the miles then, estimated from your readings), its details, its photos and what's been tried. **It's fixed** (one of your visits since, or a date), **Drop it** and **Undo**; Edit and Delete. The garage card counts open ones, and Download your data gets `issues.csv` and `photos/`
+- [x] The question: once a confirmed service is logged on or after the day you noticed it, the issue asks about the newest one ("Did Valley Honda fix it on Sep 20?"). **Yes, fixed then** closes it with that visit; **No, still there** keeps the visit as what's been tried and waits for the next. A service's page shows the issues it fixed and asks about itself, so logging one by hand asks at once
+- [x] **For the shop**, from the car's page: the car (year, make, model, engine, VIN, plate, today's miles), your open issues numbered with their details, photos and what's been tried, the schedule's jobs overdue or due soon, and open shop recommendations from the last year. No prices. It prints on its own
+
+**Decisions:**
+
+- **AMG asks, it doesn't decide.** Unlike a shop recommendation, a later
+  visit closes nothing by itself: a shop can look at a rattle and miss it,
+  and a noise rarely maps to a service type. A visit the same day counts,
+  since that's often the visit for it; services marked done with no receipt
+  aren't visits.
+- **"Still there" is kept,** as what's been tried. The sheet says it, so the
+  next shop doesn't start from scratch.
+- **No prices on the sheet.** It's the page you hand over; the budget stays
+  on the car's page.
+- **No pushes or email lines.** You wrote these down yourself, and nothing
+  about them falls due.
+
+**Data owned:** `issues` (migration 0017): what's wrong, details, when you
+noticed it, and open, fixed (the day, and the service if you said which) or
+dropped. `issue_photos`: each issue's photos, in order, as documents.
+`issue_checks`: the visits you said it was still there after.
+
+**Can go wrong:** a phone photo sideways → turned upright as receipt photos
+are. A PDF, or an 11th photo → said, and the photos already added stay
+attached. The service that fixed it deleted → still fixed, on its date; a
+visit it was still there after deleted → that try is forgotten. Fixed on a
+date before you noticed it → refused.
+
+**Tests pin:** the visit asked about: the newest on or after the day noticed,
+the same day counting, none before, quiet after "still there" until a newer
+one; the photo list replaced in order and ten at most; fixing by a visit
+dropping its check; visits leaving out done-with-no-receipt and unconfirmed
+services; the form's refusals and photos kept through an error; the
+question, still there, fixed then, it's fixed on a date, drop and undo; the
+service page asking about itself and answers going back there; the garage
+count; the sheet's facts, numbered issues, only overdue and due-soon jobs,
+only recent open recommendations, no dollar amounts, and its empty state;
+`issues.csv` and `photos/` in the export.
+
+**Done when:** on the server, the next thing you notice goes in as an issue,
+with a photo if it shows; the sheet goes to the next shop visit; and the
+visit after it is asked about and answered. *That's yours.*
+
+---
+
 ## Parked
 
 - Mathpix as a third reader for the worst scans — credentials are in `.env`, but

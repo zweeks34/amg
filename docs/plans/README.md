@@ -28,6 +28,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-07 | [Wiper blades count from the day you deploy, on cars with none on record](2026-10-07-wiper-blades-count-from.md) | Phase 5 | `910d540` |
 | 2026-10-07 | [Shop recommendations, recalls and odometer readings](2026-10-07-recommendations-recalls-readings.md) | Phase 11 | `62bbc80`…`05bc3c4` |
 | 2026-10-08 | [Specs card](2026-10-08-specs-card.md) | Phase 12 | `7ef5778`…`68bbef4` |
+| 2026-10-08 | [Issues list, and a sheet for the shop](2026-10-08-issues-list.md) | Phase 13 | `8bfe8eb`…`12bdff8` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
