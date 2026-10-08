@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import base64
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -197,12 +197,18 @@ def parse_pages(typed: str, page_count: int) -> list[int]:
             raise ValueError(f"This file has {page_count} page{'s' if page_count != 1 else ''}.")
         numbers.extend(n for n in range(start, end + 1) if n not in numbers)
     if len(numbers) > MAX_PAGES:
-        raise ValueError(f"That's {len(numbers)} pages; AMG reads up to {MAX_PAGES} at a time. Choose the schedule pages.")
+        raise ValueError(f"That's {len(numbers)} pages; AMG reads up to {MAX_PAGES} at a time. Choose the ones that matter.")
     return sorted(numbers)
 
 
-def find_pages(path: Path, typed: str = "") -> list[int]:
-    """The pages to send Claude: typed ones, the whole of a short document, or the schedule's pages."""
+def find_pages(path: Path, typed: str = "", scorer: Callable[[str], int] | None = None,
+               sought: str = "a maintenance schedule") -> list[int]:
+    """The pages to send Claude: typed ones, the whole of a short document, or the pages that score best.
+
+    ``scorer`` rates a page's text (the schedule's ``score`` unless given);
+    ``sought`` names what's looked for in the errors: "a maintenance schedule".
+    """
+    scorer = scorer or score
     count = pdf.page_count(path)
     if typed.strip():
         return parse_pages(typed, count)
@@ -216,13 +222,13 @@ def find_pages(path: Path, typed: str = "") -> list[int]:
     if textless and can_ocr:
         for number in textless:
             texts[number] = ocr.read(pdf.render(path, number, pdf.OCR_LONG_EDGE, fmt="png")).text
-    chosen = choose({number: score(text) for number, text in texts.items()})
+    chosen = choose({number: scorer(text) for number, text in texts.items()})
     if chosen:
         return chosen
     if textless and not can_ocr:
-        raise ManualError("This scan has no text AMG can search for the schedule. Type the page numbers that "
+        raise ManualError(f"This scan has no text AMG can search for {sought}. Type the page numbers that "
                           "hold it, such as 30-31, and read it again.")
-    raise ManualError("AMG couldn't find a maintenance schedule in this document. Type the page numbers that "
+    raise ManualError(f"AMG couldn't find {sought} in this document. Type the page numbers that "
                       "hold it, such as 30-31, and read it again.")
 
 

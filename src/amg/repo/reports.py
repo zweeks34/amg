@@ -157,10 +157,11 @@ def receipt_downloads(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def manuals(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    """The stored files a schedule in use was read from: owner's manuals, mostly."""
+    """The stored files a schedule in use, or a car's specs, were read from: owner's manuals, mostly."""
     return conn.execute(
         "SELECT * FROM documents WHERE id IN ("
         "  SELECT document_id FROM schedule_items WHERE document_id IS NOT NULL"
         "  UNION SELECT document_id FROM schedule_drafts WHERE status = 'confirmed' AND document_id IS NOT NULL"
+        "  UNION SELECT document_id FROM vehicle_specs WHERE document_id IS NOT NULL"
         ") ORDER BY filename, id"
     ).fetchall()

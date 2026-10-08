@@ -57,12 +57,15 @@ def test_everything_is_there(conn, tmp_path):
     renewals.create(conn, outback, RenewalInput("safety", "2027-09-30", "2026-09-01", 2_000,
                                                 service_event_id=inspected))
     renewals.create(conn, outback, RenewalInput("registration", "2027-03-31", note="Online, 2 years"))
-    specs.save(conn, outback, [SpecInput("oil_grade", "0W-20"), SpecInput("custom", "168", label="Trunk light")])
+    sticker, _ = documents.store(conn, rf.pdf_bytes("TIRE STICKER"), "door sticker.pdf")
+    specs.save(conn, outback, [SpecInput("oil_grade", "0W-20"), SpecInput("custom", "168", label="Trunk light"),
+                               SpecInput("tire_size", "225/65R17", source="read", document_id=sticker["id"], page=1)])
 
     zf, missing = build(conn, tmp_path)
     names = sorted(zf.namelist())
     assert names == [
         "README.txt", "cars.csv", "fuel.csv", "inspections-and-registration.csv", "manuals/2016 Outback manual.pdf",
+        "manuals/door sticker.pdf",
         "odometer.csv", "prices.csv", "recalls.csv",
         "receipts/2015-11-02 Bob's - Old Tacoma.pdf",
         "receipts/2019-03-04 Midas - Outback (2).pdf",
@@ -104,12 +107,14 @@ def test_everything_is_there(conn, tmp_path):
     assert sheet(zf, "specs.csv") == [
         {"Car": "Outback", "Group": "Engine oil", "Spec": "Oil grade", "Value": "0W-20", "From": "You", "Page": ""},
         {"Car": "Outback", "Group": "Other", "Spec": "Trunk light", "Value": "168", "From": "You", "Page": ""},
+        {"Car": "Outback", "Group": "Tires and wheels", "Spec": "Tire size", "Value": "225/65R17",
+         "From": "door sticker.pdf", "Page": "1"},
     ]
     price = sheet(zf, "prices.csv")[0]
     assert (price["Job"], price["From"], price["Low"], price["High"]) == ("Oil and filter", "You", "85.00", "85.00")
 
     readme = zf.read("README.txt").decode("utf-8")
-    assert "Made October 4, 2026: 2 car(s), 4 receipt(s), 1 manual(s)." in readme
+    assert "Made October 4, 2026: 2 car(s), 4 receipt(s), 2 manual(s)." in readme
     assert "can't be put back into AMG" in readme
     everything = b"".join(zf.read(name) for name in names)
     assert b"WAITING" not in everything and b"THROWN" not in everything     # not in anyone's history yet

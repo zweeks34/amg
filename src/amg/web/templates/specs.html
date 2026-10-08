@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_forms.html" import message %}
 {% block title %}Specs · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -18,6 +19,20 @@
 </header>
 
 {% if saved %}<p class="notice notice--done" role="status">Specs saved.</p>{% endif %}
+
+{% if reads %}
+<div class="notice notice--due specreads">
+  <p class="notice__title">Readings</p>
+  <ul class="notice__list">
+    {% for r in reads %}
+    <li>
+      <a href="/spec-reads/{{ r.id }}">{{ r.filename or "A reading" }}</a>
+      — {% if r.status in ("queued", "reading") %}being read{% elif r.status == "read" %}ready to check{% else %}couldn't be read{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 
 {% if groups %}
 <section class="block" aria-label="Specs">
@@ -45,8 +60,53 @@
 </section>
 {% else %}
 <div class="sheet empty empty--small">
-  <p>Nothing on {{ car.name }}'s card yet. <a href="/vehicles/{{ car.id }}/specs/edit">Edit specs</a> to type them in:
-    the owner's manual has most of them, and the sticker in the driver's door frame gives the tire size and pressures.</p>
+  <p>Nothing on {{ car.name }}'s card yet. Have Claude read the owner's manual below, or
+    <a href="/vehicles/{{ car.id }}/specs/edit">type them in</a>: the sticker in the driver's door frame gives the tire
+    size and pressures.</p>
 </div>
 {% endif %}
+
+<section class="block specread" aria-labelledby="read-heading">
+  <h2 class="h3" id="read-heading">Read the owner's manual</h2>
+  <form class="sheet start" method="post" action="/vehicles/{{ car.id }}/specs/read" enctype="multipart/form-data"
+        x-data="{ files: 0, photos: 0 }">
+    <p class="start__what">Upload the owner's manual, or photos of its specifications pages and the tire sticker in the
+      driver's door frame. AMG finds the pages and Claude reads them. You check every value before it goes on the card.</p>
+    <div class="upload__pick">
+      <label class="btn btn--secondary upload__button">
+        <input type="file" name="files" multiple
+               accept=".pdf,.png,.jpg,.jpeg,.gif,application/pdf,image/png,image/jpeg,image/gif"
+               @change="files = $el.files.length"{% if errors.get('files') %} aria-invalid="true" aria-describedby="f-files-error"{% endif %}>
+        Choose files
+      </label>
+      <label class="btn btn--secondary upload__button upload__camera">
+        <input type="file" name="files" accept="image/*" capture="environment" @change="photos = $el.files.length">
+        Take a photo
+      </label>
+      <span class="upload__count" x-show="files + photos" x-text="(files + photos) + ((files + photos) === 1 ? ' file chosen' : ' files read as one')"></span>
+    </div>
+    {{ message("files", errors, None) }}
+    {% if files %}
+    <div class="field">
+      <label for="f-document_id">Or a file AMG already has</label>
+      <select id="f-document_id" name="document_id">
+        <option value="">None</option>
+        {% for file in files %}
+        <option value="{{ file.id }}"{% if raw.get("document_id") == file.id | string %} selected{% endif %}>{{ file.filename }} · {{ file.page_count }} page{{ "s" if file.page_count != 1 }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="field">
+      <label for="f-pages">Pages <span class="field__source">optional</span></label>
+      <input id="f-pages" name="pages" value="{{ raw.get('pages', '') }}" class="mono" inputmode="numeric" placeholder="e.g. 410-414"
+             {% if errors.get('pages') %}aria-invalid="true" aria-describedby="f-pages-error"{% else %}aria-describedby="f-pages-hint"{% endif %}>
+      {{ message("pages", errors, "Where the specifications are, if you know. Otherwise AMG looks for them.") }}
+    </div>
+    <div class="form__actions">
+      <button class="btn btn--primary" type="submit">Read the manual</button>
+      <span class="field__hint">About 10–25¢.</span>
+    </div>
+  </form>
+</section>
 {% endblock %}

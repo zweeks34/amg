@@ -1,4 +1,4 @@
-"""Reading receipts and schedules, and pricing jobs, in a background thread, so a request answers straight away.
+"""Reading receipts, schedules and specs, and pricing jobs, in a background thread, so a request answers straight away.
 
 The upload request stores the files, makes a job and starts a thread; the
 page watches the database. A file and not memory, because uvicorn runs
@@ -17,15 +17,17 @@ from datetime import date
 
 from .. import db
 from ..engine import forecast
-from ..repo import documents, jobs, prices, receipts, schedules, services, vehicles
+from ..repo import documents, jobs, prices, receipts, schedules, services, specs, vehicles
 from . import claude, drafts, manuals, schedule_drafts
 from . import prices as pricer
 from . import receipts as reader
+from . import specs as spec_reader
 
 log = logging.getLogger(__name__)
 
 JOB_KIND = "read_receipts"
 SCHEDULE_JOB = "read_schedule"
+SPEC_JOB = "read_specs"
 PRICE_JOB = "price_jobs"
 
 
@@ -59,6 +61,20 @@ def read_schedule_again(conn, draft_id: int, pages: str | None = None) -> None:
     spawn(job_id)
 
 
+def read_specs(conn, vehicle_id: int, document_id: int, pages: str = "") -> int:
+    """Queue a reading of a car's specs from a file; returns the reading's id."""
+    job_id = jobs.create(conn, SPEC_JOB)
+    read_id = specs.create_read(conn, vehicle_id, document_id, pages, job_id)
+    spawn(job_id)
+    return read_id
+
+
+def read_specs_again(conn, read_id: int, pages: str | None = None) -> None:
+    job_id = jobs.create(conn, SPEC_JOB)
+    specs.requeue(conn, read_id, job_id, pages)
+    spawn(job_id)
+
+
 def price(conn, vehicle_id: int, wanted: list[tuple]) -> int:
     """Ask Claude to price jobs — (codes, action, name) — for a car; returns the job id."""
     job_id = jobs.create(conn, PRICE_JOB)
@@ -84,6 +100,10 @@ def run(job_id: int) -> None:
         if job is not None and job["kind"] == SCHEDULE_JOB:
             while (draft_id := schedules.claim_next(conn, job_id)) is not None:
                 read_one_schedule(conn, draft_id)
+                jobs.heartbeat(conn, job_id)
+        elif job is not None and job["kind"] == SPEC_JOB:
+            while (read_id := specs.claim_next(conn, job_id)) is not None:
+                read_one_specs(conn, read_id)
                 jobs.heartbeat(conn, job_id)
         elif job is not None and job["kind"] == PRICE_JOB:
             while rows := prices.claim(conn, job_id):
@@ -139,6 +159,24 @@ def read_one_schedule(conn, draft_id: int) -> None:
     )
     schedules.mark_read(conn, draft_id, result.extraction.model_dump(), draft.to_dict(), warnings, result.pages,
                         result.usage)
+
+
+def read_one_specs(conn, read_id: int) -> None:
+    row = specs.get_read(conn, read_id)
+    car = vehicles.get(conn, row["vehicle_id"])
+    try:
+        if row["document"] is None:
+            raise manuals.ManualError("The file is gone. Upload it again.")
+        result = spec_reader.read_specs(documents.path(row["document"]), car, pages=row["requested_pages"])
+    except (claude.ClaudeError, manuals.ManualError) as err:
+        specs.mark_failed(conn, read_id, str(err))
+        return
+    except Exception as err:  # a bad file must not leave the reading "reading" forever
+        log.exception("reading specs %s failed", read_id)
+        specs.mark_failed(conn, read_id, f"Something went wrong reading this ({type(err).__name__}).")
+        return
+    values, warnings = spec_reader.to_draft(result.extraction)
+    specs.mark_read(conn, read_id, result.extraction.model_dump(), values, warnings, result.pages, result.usage)
 
 
 def price_rows(conn, rows: list) -> None:

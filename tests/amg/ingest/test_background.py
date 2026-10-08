@@ -9,7 +9,8 @@ import schedule_fixtures as sfx
 
 from amg.ingest import background, claude, manuals
 from amg.ingest import receipts as reader
-from amg.repo import documents, jobs, receipts, schedules, vehicles
+from amg.ingest import specs as spec_reader
+from amg.repo import documents, jobs, receipts, schedules, specs, vehicles
 
 
 @pytest.fixture
@@ -129,3 +130,44 @@ def test_carry_on_finishes_a_stalled_schedule(conn, car, monkeypatch):
     monkeypatch.setattr(background, "spawn", background.run)
     background.carry_on(conn, job_id)
     assert schedules.get_draft(conn, draft_id)["status"] == "read"
+
+
+def _fake_specs_read(outcomes):
+    def read(path, car, pages=""):
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return spec_reader.SpecsRead([35, 36], outcome, fx.USAGE)
+    return read
+
+
+SPEC_READING = spec_reader.SpecsExtraction(printed_for="2016 Outback", uncertain="", specs=[
+    spec_reader.SpecValue(key="oil_grade", value="0W-20", page=35, note="")])
+
+
+def test_specs_are_read_into_a_reading(conn, car, inline_jobs, monkeypatch):
+    monkeypatch.setattr(spec_reader, "read_specs", _fake_specs_read([SPEC_READING]))
+    row = specs.get_read(conn, background.read_specs(conn, car, _document(conn, "manual")))
+    assert (row["status"], row["pages"], row["values"]) == ("read", [35, 36], {"oil_grade": {"value": "0W-20", "page": 35}})
+    assert row["extraction"]["printed_for"] == "2016 Outback" and jobs.get(conn, row["job_id"])["status"] == "done"
+
+
+def test_a_failed_specs_read_says_why_and_can_be_read_again(conn, car, inline_jobs, monkeypatch):
+    monkeypatch.setattr(spec_reader, "read_specs", _fake_specs_read([
+        manuals.ManualError("AMG couldn't find the specifications in this document."), SPEC_READING]))
+    read_id = background.read_specs(conn, car, _document(conn, "manual"))
+    assert specs.get_read(conn, read_id)["error"] == "AMG couldn't find the specifications in this document."
+    background.read_specs_again(conn, read_id, "35-36")
+    row = specs.get_read(conn, read_id)
+    assert (row["status"], row["requested_pages"]) == ("read", "35-36")
+
+
+def test_carry_on_finishes_a_stalled_specs_read(conn, car, monkeypatch):
+    monkeypatch.setattr(background, "spawn", lambda job_id: None)
+    read_id = background.read_specs(conn, car, _document(conn, "manual"))
+    job_id = specs.get_read(conn, read_id)["job_id"]
+    specs.claim_next(conn, job_id)
+    monkeypatch.setattr(spec_reader, "read_specs", _fake_specs_read([SPEC_READING]))
+    monkeypatch.setattr(background, "spawn", background.run)
+    background.carry_on(conn, job_id)
+    assert specs.get_read(conn, read_id)["status"] == "read"

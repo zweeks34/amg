@@ -16,7 +16,7 @@ Back up page's zip does that). It holds:
     recalls.csv           the recalls NHTSA lists for each car, and what you said about each
     specs.csv             each car's specs card
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
-    manuals/              the files a schedule in use was read from
+    manuals/              the files a schedule in use, or a car's specs, were read from
 
 Receipts still waiting to be checked, and ones you discarded, aren't in it:
 they're in nobody's history yet.
@@ -256,7 +256,7 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
 Files, as you uploaded them:
 
   receipts/             every confirmed receipt, named by date, shop and car
-  manuals/              the owner's manuals schedules were read from
+  manuals/              the owner's manuals schedules and specs were read from
 
 Receipts still waiting to be checked, and ones you discarded, aren't here.
 {missing_note}

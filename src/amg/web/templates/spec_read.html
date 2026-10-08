@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "_spec_fields.html" import boxes, custom_lines %}
+{% block title %}Specs reading · {{ car.name }}{% endblock %}
+
+{% block content %}
+{% set status = row.status %}
+{% set show_scan = document and row.pages %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a> · <a href="/vehicles/{{ car.id }}/specs">Specs</a></p>
+  <h1 class="display">
+    {%- if status == "read" %}Check these specs
+    {%- elif status == "used" %}These specs are on the card
+    {%- elif status == "failed" %}AMG couldn't read the specs
+    {%- elif status == "discarded" %}Discarded reading
+    {%- else %}Reading the specs…{% endif -%}
+  </h1>
+  <p class="pagehead__lede">From {{ document.filename if document else "your file" }}
+    {%- if printed_for %}, which says it's for {{ printed_for }}{% endif %}.</p>
+</header>
+
+{% if status in ("queued", "reading") %}
+<div class="sheet empty empty--small" hx-get="/spec-reads/{{ row.id }}" hx-trigger="every 3s" hx-select="main" hx-target="main" hx-swap="outerHTML">
+  <p>Claude is reading the pages now. It takes a minute or so; this page updates when it's done.</p>
+  {% if row.stalled %}
+  <form method="post" action="/spec-reads/{{ row.id }}/carry-on">
+    <p class="notice notice--gap">The reader stopped, probably because the app restarted.</p>
+    <button class="btn btn--secondary" type="submit">Carry on reading</button>
+  </form>
+  {% endif %}
+</div>
+{% elif status == "failed" %}
+<form class="sheet form empty empty--small" method="post" action="/spec-reads/{{ row.id }}/read-again">
+  <p class="field__error">{{ row.error }}</p>
+  <div class="field">
+    <label for="f-pages">Pages to read</label>
+    <input id="f-pages" name="pages" value="{{ pages_raw }}" class="mono" inputmode="numeric" placeholder="e.g. 410-414"
+           {% if problems.pages %}aria-invalid="true" aria-describedby="f-pages-error"{% else %}aria-describedby="f-pages-hint"{% endif %}>
+    {% if problems.pages %}<p class="field__error" id="f-pages-error">{{ problems.pages }}</p>
+    {% else %}<p class="field__hint" id="f-pages-hint">The pages with the specifications, as numbered in the file. Leave blank to let AMG look for them.</p>{% endif %}
+  </div>
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">Read it again</button>
+    <button class="btn btn--quiet" type="submit" formaction="/spec-reads/{{ row.id }}/discard">Discard</button>
+  </div>
+</form>
+{% elif status == "used" %}
+<div class="sheet empty empty--small">
+  <p>These went on {{ car.name }}'s card. Change them there now.</p>
+  <p><a class="btn btn--secondary" href="/vehicles/{{ car.id }}/specs">See the card</a></p>
+</div>
+{% elif status == "discarded" %}
+<div class="sheet empty empty--small">
+  <p>You discarded this reading. Nothing from it is on the card.</p>
+  <p><a class="btn btn--secondary" href="/vehicles/{{ car.id }}/specs">See the card</a></p>
+</div>
+{% endif %}
+
+{% if status == "read" %}
+<div class="review{% if not show_scan %} review--form-only{% endif %}">
+  {% if show_scan %}
+  <section class="review__scan" aria-label="The pages read">
+    <details class="scan" open>
+      <summary class="scan__toggle">Pages read · {{ row.pages | join(", ") }}</summary>
+      {% for n in row.pages %}
+      <figure class="scan__page">
+        <a href="{{ page_url(document.id, document.sha256, n, full=True) }}" target="_blank" rel="noopener">
+          <img src="{{ page_url(document.id, document.sha256, n) }}" alt="Page {{ n }} of {{ document.filename }}"{% if not loop.first %} loading="lazy"{% endif %}>
+        </a>
+        <figcaption>Page {{ n }} of {{ document.page_count }} ·
+          <a href="{{ page_url(document.id, document.sha256, n, full=True) }}" target="_blank" rel="noopener">open larger</a></figcaption>
+      </figure>
+      {% endfor %}
+      <p class="scan__file"><a href="{{ file_url(document.id, document.sha256) }}" target="_blank" rel="noopener">Open the original file</a></p>
+    </details>
+  </section>
+  {% endif %}
+
+  <form class="review__form sheet form specform" method="post" action="/spec-reads/{{ row.id }}">
+    {% if row["values"] %}
+    <p class="review__key"><span class="review__swatch" aria-hidden="true"></span>Dashed boxes are still as Claude read
+      them. Change anything that's wrong; using these specs accepts the rest.</p>
+    {% else %}
+    <p class="notice notice--due">Claude found none of the card's specs on page{{ "s" if row.pages | length != 1 }}
+      {{ row.pages | join(", ") }}. Try other pages under Read other pages, or discard this reading.</p>
+    {% endif %}
+
+    {% if row.warnings %}
+    <div class="notice notice--due" role="note">
+      <p class="notice__title">Worth a look</p>
+      <ul class="notice__list">{% for note in row.warnings %}<li>{{ note }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    {% if errors %}<p class="notice notice--gap" role="alert">Some boxes need a look. They're marked below.</p>{% endif %}
+
+    <div class="form__body">
+      {{ boxes(groups, errors) }}
+      {{ custom_lines(custom) }}
+
+      <details class="printed"{% if problems.pages %} open{% endif %}>
+        <summary>Read other pages</summary>
+        <div class="field">
+          <label for="f-pages">Pages to read</label>
+          <input id="f-pages" name="pages" value="{{ pages_raw }}" class="mono" inputmode="numeric" placeholder="e.g. 410-414"
+                 {% if problems.pages %}aria-invalid="true" aria-describedby="f-pages-error"{% else %}aria-describedby="f-pages-hint"{% endif %}>
+          {% if problems.pages %}<p class="field__error" id="f-pages-error">{{ problems.pages }}</p>
+          {% else %}<p class="field__hint" id="f-pages-hint">AMG read page{{ "s" if row.pages | length != 1 }} {{ row.pages | join(", ") }}. Reading again starts over.</p>{% endif %}
+        </div>
+        <button class="btn btn--secondary" type="submit" formaction="/spec-reads/{{ row.id }}/read-again">Read these pages</button>
+      </details>
+    </div>
+
+    <div class="form__actions review__actions">
+      <button class="btn btn--primary" type="submit">Use these specs</button>
+      <button class="btn btn--quiet" type="submit" formaction="/spec-reads/{{ row.id }}/discard">Discard</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
