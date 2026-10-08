@@ -12,6 +12,7 @@ from starlette.responses import RedirectResponse, Response
 from ..ingest import vin as vins
 from ..repo import odometer, schedules, services, vehicles
 from . import budget, forms
+from . import follow_ups as follow_up_words
 from . import renewals as renewal_words
 from . import fuel_status
 from . import status as car_status
@@ -191,6 +192,8 @@ def car_page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status
         reading_errors=extra.get("reading_errors", {}),
         renewals=None if car["archived_at"] else renewal_words.rows(conn, car),
         renewal_form=extra.get("renewal_form"),
+        follow_ups=follow_up_words.load(conn, car),
+        type_names={row["code"]: row["name"] for row in services.list_types(conn)},
     )
 
 

@@ -29,7 +29,9 @@ from datetime import date
 from ..engine import forecast
 from ..engine.schedule import ItemStatus
 from ..repo import alerts
+from ..engine.follow_ups import FollowUp
 from ..web import budget
+from ..web import follow_ups as follow_up_words
 from ..web import renewals as renewal_words
 from ..web import status as car_status
 from ..web.templating import dollars
@@ -79,6 +81,7 @@ class CarWatch:
     renewals: list[renewal_words.Row] = field(default_factory=list)   # every kind the car can need
     maintenance: bool = True    # its schedule watched too: the car's alerts are on
     notices: list[Watched] = field(default_factory=list)   # pushed like jobs, counted apart
+    recommended: list[FollowUp] = field(default_factory=list)   # the shops', open, from the last 12 months
 
     @property
     def alerting(self) -> list[Watched]:
@@ -164,7 +167,8 @@ def look(conn: sqlite3.Connection, car, today: date | None = None, maintenance: 
     if maintenance and (stale := car_status.stale_reading(state)):
         notices.append(Watched(car["id"], reading_subject(car["id"], stale), "due", "Odometer reading wanted",
                                reading_words(stale, today), None, kind="reading"))
-    return CarWatch(dict(car), state, plan, jobs, bool(state.items), rows, maintenance, notices)
+    recommended = follow_up_words.load(conn, car, today).recent if maintenance else []
+    return CarWatch(dict(car), state, plan, jobs, bool(state.items), rows, maintenance, notices, recommended)
 
 
 def news(jobs: list[Watched], logged: set[tuple[str, str]]) -> list[Watched]:

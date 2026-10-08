@@ -3,6 +3,9 @@
 A service that came from a receipt is edited on the receipt instead — the
 draft there is the record it was written from — so its edit link goes to the
 receipt, and deleting it sends the receipt back to be checked.
+
+A shop recommendation's "Log it" opens the new-service form with the
+recommendation as its first line; saving it closes the recommendation.
 """
 
 from __future__ import annotations
@@ -14,8 +17,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import RedirectResponse, Response
 
+from ..engine.follow_ups import Recommendation
 from ..ingest.drafts import Draft
-from ..repo import odometer, receipts, services
+from ..repo import follow_ups, odometer, receipts, services
 from . import forms, line_editor
 from .deps import get_conn
 from .routes_vehicles import POWERTRAIN_LABELS, vehicle_or_404
@@ -26,17 +30,22 @@ router = APIRouter()
 SOURCE_LABELS = {"shop": "A shop", "diy": "I did it", "receipt": "From a receipt", "attested": "Done, no receipt"}
 KIND_LABELS = {"labor": "Labor", "part": "Part", "fee": "Fee", "other": "Other"}
 ACTION_LABELS = {"replace": "Replaced", "inspect": "Inspected", "perform": "Done"}
-_FIELDS = ("performed_on", "odometer", "source", "shop", "invoice_number", "tax", "total", "notes")
+_FIELDS = ("performed_on", "odometer", "source", "shop", "invoice_number", "tax", "total", "notes",
+           "follow_up_receipt", "follow_up")
 
 
 # ---------- Log, view, edit, delete ----------
 
 
 @router.get("/vehicles/{vehicle_id}/services/new")
-def new_service(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+def new_service(request: Request, vehicle_id: int, receipt: str = "", rec: str = "",
+                conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     car = vehicle_or_404(conn, vehicle_id)
-    raw = {"performed_on": date.today().isoformat(), "source": "shop"}
-    return _form(request, conn, car, raw=raw, lines=[line_editor.blank_line()], errors={})
+    raw = {"performed_on": date.today().isoformat(), "source": "shop", "follow_up_receipt": receipt, "follow_up": rec}
+    lines = [line_editor.blank_line()]
+    if recommended := _recommended(conn, vehicle_id, raw):
+        lines = [{**lines[0], "description": recommended.description, "covers": list(recommended.codes)}]
+    return _form(request, conn, car, raw=raw, lines=lines, errors={})
 
 
 @router.post("/vehicles/{vehicle_id}/services")
@@ -47,6 +56,8 @@ async def create_service(request: Request, vehicle_id: int, conn: sqlite3.Connec
     if errors or any(line_errors):
         return _form(request, conn, car, raw, rows, errors, line_errors, status_code=422)
     event_id = services.create_event(conn, vehicle_id, event)
+    if recommended := _recommended(conn, vehicle_id, raw):
+        follow_ups.done(conn, recommended.receipt_id, recommended.key, event_id)
     return RedirectResponse(f"/services/{event_id}", status_code=303)
 
 
@@ -152,6 +163,13 @@ def editor_types(conn: sqlite3.Connection, powertrain: str | None = None, in_use
     ]
 
 
+def _recommended(conn: sqlite3.Connection, vehicle_id: int, raw: dict) -> Recommendation | None:
+    """The shop recommendation the form is logging, if it was opened from one of this car's."""
+    receipt = raw.get("follow_up_receipt", "")
+    found = follow_ups.find(conn, int(receipt), raw.get("follow_up", "")) if receipt.isdigit() else None
+    return found[0] if found and found[1] == vehicle_id else None
+
+
 def _event_or_404(conn: sqlite3.Connection, event_id: int) -> dict:
     event = services.get_event(conn, event_id)
     if event is None:
@@ -212,6 +230,7 @@ def _form(
         },
         sources=SOURCE_LABELS,
         kinds=KIND_LABELS,
+        recommended=None if event else _recommended(conn, car["id"], raw),
     )
 
 

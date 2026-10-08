@@ -66,7 +66,7 @@ def test_everything_is_there(conn, tmp_path):
         "receipts/2019-03-04 Midas - Outback (2).pdf",
         "receipts/2019-03-04 Midas - Outback.pdf",
         "receipts/2020-05-06 A B Best Garage - Outback.jpg",       # what a file name can't hold, taken out
-        "schedules.csv", "service-history.csv",
+        "recommendations.csv", "schedules.csv", "service-history.csv",
     ] and missing == []
     assert zf.read("receipts/2019-03-04 Midas - Outback.pdf") == documents.path(
         documents.by_sha(conn, conn.execute("SELECT sha256 FROM documents WHERE filename = 'scan 1.pdf'")
@@ -93,6 +93,12 @@ def test_everything_is_there(conn, tmp_path):
         {"Car": "Outback", "What": "Registration", "Done on": "", "Expires": "2027-03-31", "Cost": "", "Note": "Online, 2 years",
          "Service": ""},
     ]
+    recommended = sheet(zf, "recommendations.csv")          # each test receipt recommends a brake fluid flush
+    assert [(r["Car"], r["Date"], r["Now"]) for r in recommended] == [
+        ("Outback", "2019-03-04", "Open"), ("Outback", "2019-03-04", "Open"), ("Outback", "2020-05-06", "Open"),
+        ("Old Tacoma", "2015-11-02", "Open")]
+    assert (recommended[0]["Shop"], recommended[0]["Recommendation"], recommended[0]["Services"],
+            recommended[0]["Quoted"]) == ("Midas", "Brake fluid flush", "Brake fluid", "129.95")
     price = sheet(zf, "prices.csv")[0]
     assert (price["Job"], price["From"], price["Low"], price["High"]) == ("Oil and filter", "You", "85.00", "85.00")
 

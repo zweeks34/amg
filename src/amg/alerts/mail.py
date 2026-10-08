@@ -17,7 +17,7 @@ from email.message import EmailMessage
 from email.utils import formataddr
 
 from ..config import Smtp
-from ..web.templating import dollars, templates
+from ..web.templating import dollars, money, templates
 from .watch import CarWatch
 
 TIMEOUT = 30   # seconds
@@ -49,6 +49,14 @@ def budget_line(watch: CarWatch) -> str | None:
     if plan.unpriced:
         line += f" ({plan.unpriced} job{'s' if plan.unpriced != 1 else ''} not priced yet)"
     return line + "."
+
+
+def recommended_line(follow_up, today: date) -> str:
+    """'Rear brake pads: Mar 3, Main St Subaru · quoted $280'."""
+    rec = follow_up.rec
+    day = f"{rec.day:%b} {rec.day.day}" + (f", {rec.day.year}" if rec.day.year != today.year else "")
+    return f"{rec.description}: {day}" + (f", {rec.shop}" if rec.shop else "") + (
+        f" · quoted {money(rec.quoted_cents)}" if (rec.quoted_cents or 0) > 0 else "")
 
 
 def _row(row: dict) -> str:
@@ -90,6 +98,9 @@ def text(watches: list[CarWatch], to_check: int, base_url: str) -> str:
                 lines += ["Coming up"] + [f"  • {_row(row)}" for row in watch.coming_up]
             if budget := budget_line(watch):
                 lines.append(budget)
+        if watch.recommended:
+            lines += ["Recommended by the shop"] + [
+                f"  • {recommended_line(f, watch.state.today)}" for f in watch.recommended]
         lines.append(f"{base_url}/vehicles/{car['id']}")
     if to_check:
         lines += ["", f"{to_check} receipt{'s' if to_check != 1 else ''} to check: {base_url}/receipts"]
@@ -104,7 +115,8 @@ def digest(watches: list[CarWatch], to_check: int, base_url: str, calendar: str)
     message.set_content(text(watches, to_check, base_url))
     html = templates.env.get_template("email/digest.html").render(
         subject=subject(watches), watches=watches, to_check=to_check, base_url=base_url, budget_line=budget_line,
-        dates_line=dates_line, off=OFF, no_schedule=NO_SCHEDULE, row=_row, calendar_file=CALENDAR_FILE,
+        dates_line=dates_line, off=OFF, no_schedule=NO_SCHEDULE, row=_row, recommended_line=recommended_line,
+        calendar_file=CALENDAR_FILE,
         import_how=IMPORT_HOW)
     message.add_alternative(html, subtype="html")
     message.add_attachment(calendar.encode("utf-8"), maintype="text", subtype="calendar", filename=CALENDAR_FILE)

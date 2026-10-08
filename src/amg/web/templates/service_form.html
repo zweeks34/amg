@@ -13,6 +13,12 @@
       action="{{ '/services/%d/edit' % event.id if event else '/vehicles/%d/services' % car.id }}"
       x-data='serviceLines({{ editor | tojson }}, {{ raw.get("source", "shop") | tojson }})'>
   <div class="form__body">
+    {% if recommended %}
+    <p class="notice">Logging what {{ recommended.shop or "the shop" }} recommended on {{ recommended.day.isoformat() }}.
+      Saving it closes the recommendation.</p>
+    <input type="hidden" name="follow_up_receipt" value="{{ recommended.receipt_id }}">
+    <input type="hidden" name="follow_up" value="{{ recommended.key }}">
+    {% endif %}
     <div class="fieldgrid">
       {{ input("performed_on", "Date", raw, errors, type="date") }}
       {{ input("odometer", "Odometer", raw, errors, hint="Miles on the receipt, if it shows them.", attrs='inputmode="numeric" class="mono"') }}

@@ -24,6 +24,39 @@
   {% endfor %}
 </ol>
 {%- endmacro %}
+
+{% macro follow_up_rows(rows, car_id, names, skipped=False) %}
+<ul class="followups">
+  {% for f in rows %}
+  <li class="followup">
+    <span class="followup__name">{{ f.rec.description }}</span>
+    <span class="followup__when"><a href="/services/{{ f.rec.event_id }}">{{ f.rec.day.isoformat() }}</a>
+      {%- if f.rec.shop %} · {{ f.rec.shop }}{% endif %}
+      {%- if f.rec.quoted_cents and f.rec.quoted_cents > 0 %} · quoted {{ f.rec.quoted_cents | money }}{% endif %}</span>
+    {% if f.rec.codes %}
+    <ul class="chips followup__chips" aria-label="Services">
+      {% for code in f.rec.codes %}<li class="chip chip--small">{{ names.get(code, code) }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <div class="followup__acts">
+      {% if skipped %}
+      <form method="post" action="/follow-ups/undo">
+        <input type="hidden" name="receipt_id" value="{{ f.rec.receipt_id }}"><input type="hidden" name="key" value="{{ f.rec.key }}">
+        <button class="btn btn--quiet" type="submit" aria-label="Undo: put {{ f.rec.description }} back on the list">Undo</button>
+      </form>
+      {% else %}
+      <a class="btn btn--secondary" href="/vehicles/{{ car_id }}/services/new?receipt={{ f.rec.receipt_id }}&amp;rec={{ f.rec.key | urlencode }}"
+         aria-label="Log {{ f.rec.description }} as a service">Log it</a>
+      <form method="post" action="/follow-ups/skip">
+        <input type="hidden" name="receipt_id" value="{{ f.rec.receipt_id }}"><input type="hidden" name="key" value="{{ f.rec.key }}">
+        <button class="btn btn--quiet" type="submit" aria-label="Not doing {{ f.rec.description }}">Not doing it</button>
+      </form>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{%- endmacro %}
 {% block title %}{{ car.name }}{% endblock %}
 
 {% block content %}
@@ -121,6 +154,33 @@
   </div>
   {% endif %}
 </section>
+
+{% if follow_ups %}
+<section class="block" id="follow-ups" aria-labelledby="follow-ups-heading">
+  <div class="block__head">
+    <h2 class="h3" id="follow-ups-heading">Shop recommendations</h2>
+    {% if follow_ups.quoted %}<span class="muted">{{ follow_ups.quoted | dollars }} quoted</span>{% endif %}
+  </div>
+  {% if follow_ups.recent %}
+  <div class="sheet sheet--flush">{{ follow_up_rows(follow_ups.recent, car.id, type_names) }}</div>
+  {% else %}
+  <p class="muted">Nothing the shops recommended in the last 12 months is still open.</p>
+  {% endif %}
+  {% if follow_ups.older %}
+  <details class="followups__more">
+    <summary>{{ follow_ups.older | length }} older</summary>
+    <div class="sheet sheet--flush">{{ follow_up_rows(follow_ups.older, car.id, type_names) }}</div>
+  </details>
+  {% endif %}
+  {% if follow_ups.skipped %}
+  <details class="followups__more">
+    <summary>{{ follow_ups.skipped | length }} not doing</summary>
+    <div class="sheet sheet--flush">{{ follow_up_rows(follow_ups.skipped, car.id, type_names, skipped=True) }}</div>
+  </details>
+  {% endif %}
+  <p class="muted">From each receipt's “Recommended, not done”. One closes by itself when a later service does the work.</p>
+</section>
+{% endif %}
 
 {% if renewals is not none %}
 <section class="block" id="renewals" aria-labelledby="renewals-heading">

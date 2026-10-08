@@ -12,6 +12,7 @@ Back up page's zip does that). It holds:
     prices.csv            the prices the budget uses: yours, and Claude's estimates
     inspections-and-registration.csv
                           every safety inspection, emissions inspection and registration logged
+    recommendations.csv   the work shops recommended on your receipts, and what became of it
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use was read from
 
@@ -29,6 +30,7 @@ from pathlib import Path
 
 from ..engine.renewals import KINDS
 from ..repo import documents, renewals, reports, schedules, services
+from ..web import follow_ups as follow_up_words
 from . import csvs, history
 from .filters import Filters
 
@@ -56,6 +58,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         "schedules.csv": _schedules(conn),
         "prices.csv": _prices(conn, names),
         "inspections-and-registration.csv": _renewals(conn),
+        "recommendations.csv": _recommendations(conn, names),
     }
     missing: list[str] = []
     taken: set[str] = set()
@@ -149,6 +152,22 @@ def _renewals(conn: sqlite3.Connection) -> str:
     return csvs.sheet(columns, rows)
 
 
+def _recommendations(conn: sqlite3.Connection, names: dict[str, str]) -> str:
+    columns = ("Car", "Date", "Shop", "Recommendation", "Services", "Quoted", "Now")
+    rows = []
+    for car in reports.cars(conn):
+        for f in follow_up_words.everything(conn, car):
+            rec = f.rec
+            if f.yours is not None:
+                now = "Not doing it" if f.skipped else "Logged as a service"
+            else:
+                now = f"Done {f.done_by.day.isoformat()}" if f.done_by else "Open"
+            rows.append([csvs.text(car["name"]), rec.day.isoformat(), csvs.text(rec.shop), csvs.text(rec.description),
+                         csvs.text(", ".join(names.get(code, code) for code in rec.codes)),
+                         csvs.amount(rec.quoted_cents), now])
+    return csvs.sheet(columns, rows)
+
+
 # ---------- Files ----------
 
 
@@ -195,6 +214,9 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
                         every safety inspection, emissions inspection and
                         registration logged: when it was done, when it
                         expires, and the service it was logged from
+  recommendations.csv   the work shops recommended on your receipts, and
+                        what became of it: open, done on a later visit,
+                        logged as a service, or not doing it
 
 Files, as you uploaded them:
 
