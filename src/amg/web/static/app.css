@@ -827,6 +827,8 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
 .recall__acts form, .recall--closed form { margin: 0; }
 .recall__acts .btn, .recall--closed .btn { min-height: 2.25rem; font-size: 0.9375rem; }
 .recall__form { display: grid; gap: 1rem; margin-top: 0.5rem; }
+.recall__form input[type="date"] { max-width: 12rem; }
+.recall__form select { max-width: 22rem; }
 .recall--closed { grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; align-items: center; }
 .recall--closed > form { grid-column: 2; grid-row: 1 / span 2; }
 

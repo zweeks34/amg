@@ -53,10 +53,13 @@
         <p class="carcard__next"><span class="mark mark--{{ s.next.status }}" aria-hidden="true"></span>
           <span><span class="carcard__label">Next:</span> {{ s.next.name }} <span class="muted">{{ s.next.when }}</span></span></p>
         {% endif %}
-        {% for name in car.recalls %}
+        {% if car.recalls %}
+        {# One line however many: a model year can have several, often for the same part. #}
         <p class="carcard__next"><span class="mark mark--overdue" aria-hidden="true"></span>
-          <span><span class="carcard__label">Recall</span> <span class="muted">{{ name }}</span></span></p>
-        {% endfor %}
+          <span>{% if car.recalls | length == 1 %}<span class="carcard__label">Recall</span>
+            <span class="muted">{{ car.recalls[0] }}</span>{% else %}<span class="carcard__label">Recalls</span>
+            <span class="muted">{{ car.recalls | length }} open</span>{% endif %}</span></p>
+        {% endif %}
         {% for r in car.renewals %}
         <p class="carcard__next"><span class="mark mark--{{ r.mark }}" aria-hidden="true"></span>
           <span><span class="carcard__label">{{ r.kind.name }}</span> <span class="muted">{{ r.when }}</span></span></p>

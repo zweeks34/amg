@@ -98,8 +98,12 @@ def test_a_car_without_a_model_is_told_how(signed_in, conn):
     assert "Add the car's year, make and model on" in page and "Check now" not in page
 
 
-def test_the_garage_shows_open_recalls(signed_in, car, monkeypatch):
-    nf.nhtsa(monkeypatch)
+def test_the_garage_shows_open_recalls_in_one_line(signed_in, car, monkeypatch):
+    nf.nhtsa(monkeypatch, found={"results": [nf.AIR_BAG]})
     _check(signed_in, car)
     page = signed_in.get("/").text
     assert "Recall</span>" in page and "Air bags: air bag/restraint control module" in page
+    nf.nhtsa(monkeypatch)
+    _check(signed_in, car)
+    page = signed_in.get("/").text
+    assert "Recalls</span>" in page and "2 open" in page and "Air bags" not in page
