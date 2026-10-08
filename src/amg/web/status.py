@@ -18,6 +18,7 @@ from ..repo import odometer as readings
 from ..repo import schedules, services
 
 NEXT_UP = 6                 # rows in the next-up list, besides every overdue and due-soon one
+READING_DAYS = 60           # a reading older than this is asked for, on a car with jobs due by mileage
 TICKS = (5_000, 10_000, 15_000, 20_000, 25_000, 50_000)
 MAX_SEGMENTS = 8
 
@@ -152,6 +153,39 @@ def summary(status: CarStatus) -> dict:
     first = next_up(status, limit=1)
     return {"overdue": status.count("overdue"), "due": status.count("due"), "missed": status.missed,
             "next": first[0] if first else None}
+
+
+# ---------- Asking for a reading ----------
+
+
+@dataclass(frozen=True)
+class StaleReading:
+    """The odometer hasn't been read for a while, on a car with jobs due by mileage."""
+    last_day: date | None       # None: no reading at all
+    days: int | None
+    estimate: int | None        # today's mileage, by the odometer model
+
+    def said(self, today: date) -> str:
+        """'Jun 2, 4 months ago'; empty when there's no reading."""
+        return f"{_date(self.last_day, today)}, {ago(self.days)}" if self.last_day and self.days else ""
+
+
+def ago(days: int) -> str:
+    months = round(days / 30.44)
+    if months < 2:
+        return f"{days} days ago"
+    return f"{months} months ago" if months < 24 else f"{months // 12} years ago"
+
+
+def stale_reading(status: CarStatus) -> StaleReading | None:
+    """A reading to ask for: the last is over READING_DAYS old, or there's none, and a job falls due by mileage."""
+    if not any(s.item.interval_miles or s.item.first_miles for s in status.statuses):
+        return None
+    read = [day for day, miles in status.odometer.points if miles > 0]   # the in-service date stands in at zero
+    if not read:
+        return StaleReading(None, None, None)
+    days = (status.today - read[-1]).days
+    return StaleReading(read[-1], days, status.today_miles) if days > READING_DAYS else None
 
 
 # ---------- The interval chart ----------

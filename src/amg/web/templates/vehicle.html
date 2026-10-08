@@ -84,6 +84,10 @@
   {% if state.needs_reading %}
   <p class="notice">{{ state.needs_reading | join(", ") }} {{ "is" if state.needs_reading | length == 1 else "are" }} due
     by mileage alone. <a href="#odometer">Add an odometer reading</a> so AMG can tell when.</p>
+  {% elif stale %}
+  <p class="notice">{% if stale.last_day %}The last odometer reading was {{ stale.said(state.today) }}, so mileage due
+    dates are guesses.{% else %}There's no odometer reading yet, so jobs due by mileage are judged by months
+    alone.{% endif %} <a href="#add-reading">Add a reading</a>.</p>
   {% endif %}
   {% if missed %}
   <details class="missed">
@@ -229,13 +233,16 @@
   {% endif %}
 </section>
 
-<section class="block" id="odometer" aria-labelledby="odometer-heading" x-data="{ adding: {{ 'true' if reading_errors else 'false' }} }">
+{# A link to #add-reading (a push, the notice above) opens the form. #}
+<section class="block" id="odometer" aria-labelledby="odometer-heading" x-data="{ adding: {{ 'true' if reading_errors else 'false' }},
+           open() { if (location.hash === '#add-reading') { this.adding = true; this.$nextTick(() => this.$refs.miles.focus()) } } }"
+         x-init="open()" @hashchange.window="open()">
   <div class="block__head">
     <h2 class="h3" id="odometer-heading">Odometer readings</h2>
     <button class="btn btn--quiet" type="button" x-show="!adding" @click="adding = true; $nextTick(() => $refs.miles.focus())">Add a reading</button>
   </div>
 
-  <form class="sheet form form--inline" method="post" action="/vehicles/{{ car.id }}/odometer" x-show="adding" x-cloak>
+  <form class="sheet form form--inline" id="add-reading" method="post" action="/vehicles/{{ car.id }}/odometer" x-show="adding" x-cloak>
     <div class="fieldgrid">
       {{ input("read_on", "Date", reading, reading_errors, type="date") }}
       {{ input("miles", "Miles", reading, reading_errors, attrs='inputmode="numeric" class="mono" x-ref="miles"') }}

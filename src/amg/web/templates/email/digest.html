@@ -29,6 +29,7 @@
     <p style="margin:12px 0 0;color:{{ steel }}">{{ no_schedule }}</p>
     {% else %}
       {% if not w.jobs %}<p style="margin:0">Nothing due or overdue.</p>{% endif %}
+      {% if w.reading %}<p style="margin:12px 0 0">{{ w.reading.line }}. <a href="{{ base_url }}/vehicles/{{ w.car.id }}#add-reading" style="color:{{ ink }}">Add a reading</a>.</p>{% endif %}
       {% if w.state.missed %}<p style="margin:12px 0 0">Missed earlier: {{ w.state.missed }}. <a href="{{ base_url }}/vehicles/{{ w.car.id }}" style="color:{{ ink }}">The car's page</a> lists them.</p>{% endif %}
       {% if w.coming_up %}
       <p style="margin:12px 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:{{ steel }}">Coming up</p>

@@ -69,7 +69,7 @@ def run(conn: sqlite3.Connection, today: date, dry_run: bool = False, say: Calla
         say("Pushes aren't set up (AMG_NTFY_TOPIC is empty)" + (": showing what they would say." if dry_run else "."))
     logged = alerts.logged(conn, watch.CHANNEL)
     for car_watch in watches:
-        fresh = watch.news(car_watch.jobs, logged)
+        fresh = watch.news(car_watch.alerting, logged)
         if not fresh:
             continue
         if dry_run or push_settings is None:

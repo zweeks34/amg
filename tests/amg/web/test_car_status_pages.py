@@ -99,3 +99,12 @@ def test_another_cars_item_is_not_found(signed_in, conn, steady):
     other = vehicles.create(conn, vehicles.VehicleFields(name="Other"))
     cabin = _item(conn, car, "Cabin air filter")
     assert signed_in.get(f"/vehicles/{other}/schedule-items/{cabin['id']}/done").status_code == 404
+
+
+def test_an_old_reading_is_asked_for_on_the_car_page(signed_in, conn, steady):
+    car, day, _ = steady                                # the last reading is the day-900 visit, 100 days ago
+    page = signed_in.get(f"/vehicles/{car}").text
+    assert f"The last odometer reading was {day(900):%b} {day(900).day}" in page and "3 months ago" in page
+    assert 'href="#add-reading"' in page and 'id="add-reading"' in page
+    signed_in.post(f"/vehicles/{car}/odometer", data={"read_on": date.today().isoformat(), "miles": "30100"})
+    assert "The last odometer reading was" not in signed_in.get(f"/vehicles/{car}").text

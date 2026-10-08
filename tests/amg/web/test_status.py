@@ -40,7 +40,7 @@ from datetime import date
 import pytest
 from schedule_fixtures import steady_car  # tests/ is on pytest's path
 
-from amg.repo import vehicles
+from amg.repo import schedules, vehicles
 from amg.web import status
 
 NEW = date(2020, 1, 1)
@@ -131,3 +131,18 @@ def test_no_readings_means_no_chart_but_months_still_count(conn):
                                                      (96_987, 120_000, 15_000), (2_000, 15_000, 5_000)])
 def test_the_chart_reaches_past_today(here, span, step):
     assert status._span(here) == (span, step)
+
+
+@pytest.mark.parametrize(("days", "words"), [(61, "2 months ago"), (100, "3 months ago"), (700, "23 months ago"),
+                                             (800, "2 years ago")])
+def test_how_long_ago_a_reading_was(days, words):
+    assert status.ago(days) == words
+
+
+def test_the_in_service_date_isnt_a_reading(conn):
+    car = vehicles.create(conn, vehicles.VehicleFields(name="New", in_service_date="2026-01-01"))
+    draft = schedules.create_draft(conn, car, "template", draft={"origin": "template", "items": []})
+    schedules.confirm(conn, draft, car, [schedules.ItemInput("Tire rotation", "perform", ["tire_rotation"],
+                                                             interval_miles=7_500)], {})
+    stale = status.stale_reading(status.load(conn, vehicles.get(conn, car), today=date(2026, 1, 20)))
+    assert stale == status.StaleReading(None, None, None)

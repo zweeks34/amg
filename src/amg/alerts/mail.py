@@ -82,6 +82,8 @@ def text(watches: list[CarWatch], to_check: int, base_url: str) -> str:
         else:
             if not watch.jobs:
                 lines.append("Nothing due or overdue.")
+            if reading := watch.reading:
+                lines.append(f"{reading.line}. Add one: {base_url}/vehicles/{car['id']}#add-reading")
             if watch.state.missed:
                 lines.append(f"Missed earlier: {watch.state.missed}. The car's page lists them.")
             if watch.coming_up:

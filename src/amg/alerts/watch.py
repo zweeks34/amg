@@ -13,6 +13,11 @@ Its round is its expiry date, so logging the next one starts fresh. They don't
 wait for the car's alerts switch, which is there because job alerts are wrong
 while old receipts are still going in; a date you typed yourself isn't. A car
 with its alerts off is watched for those dates alone.
+
+Notices aren't jobs, so they stay out of the overdue and due-soon counts: a
+car whose jobs fall due by mileage asks for an odometer reading once the last
+is over two months old. Its round is the last reading's date, so a new
+reading, then two quiet months, asks again.
 """
 
 from __future__ import annotations
@@ -38,14 +43,18 @@ CALENDAR_MONTHS = 12
 
 @dataclass(frozen=True)
 class Watched:
-    """A job — or an inspection or registration — due soon or overdue now."""
+    """A job — or an inspection or registration — due soon or overdue now; or a notice, such as a reading wanted."""
     vehicle_id: int
     subject: str        # the job's round, as the alert log keys it
     level: str          # due or overdue
     name: str
     when: str           # "1,200 mi overdue · due Sep 3"; "expires Oct 31 · in 26 days"
     cost: int | None
-    renewal: bool = False
+    kind: str = "job"   # job, renewal or reading
+
+    @property
+    def renewal(self) -> bool:
+        return self.kind == "renewal"
 
     @property
     def line(self) -> str:
@@ -69,6 +78,16 @@ class CarWatch:
     has_schedule: bool
     renewals: list[renewal_words.Row] = field(default_factory=list)   # every kind the car can need
     maintenance: bool = True    # its schedule watched too: the car's alerts are on
+    notices: list[Watched] = field(default_factory=list)   # pushed like jobs, counted apart
+
+    @property
+    def alerting(self) -> list[Watched]:
+        """Everything a push can be about."""
+        return self.jobs + self.notices
+
+    @property
+    def reading(self) -> Watched | None:
+        return next((n for n in self.notices if n.kind == "reading"), None)
 
     @property
     def dates(self) -> list[renewal_words.Row]:
@@ -96,6 +115,18 @@ def subject(vehicle_id: int, item_status: ItemStatus) -> str:
     done = item_status.last_done
     since = f"s{done.service.id}" if done is not None and done.service is not None else "new"
     return f"{vehicle_id}:{codes}:{item.action}:{since}"
+
+
+def reading_subject(vehicle_id: int, stale: car_status.StaleReading) -> str:
+    """A reading wanted: its round is the last reading, so a new one, then two quiet months, asks again."""
+    return f"{vehicle_id}:reading:{stale.last_day.isoformat() if stale.last_day else 'none'}"
+
+
+def reading_words(stale: car_status.StaleReading, today: date) -> str:
+    if stale.last_day is None:
+        return "there's no reading yet"
+    return f"the last was {stale.said(today)}" + (
+        f"; AMG's guess is ~{stale.estimate:,} mi" if stale.estimate is not None else "")
 
 
 def renewal_subject(vehicle_id: int, row: renewal_words.Row) -> str:
@@ -127,9 +158,13 @@ def look(conn: sqlite3.Connection, car, today: date | None = None, maintenance: 
     for row in renewal_words.urgent(rows):
         jobs.append(Watched(car["id"], renewal_subject(car["id"], row),
                             "overdue" if row.standing.state == "expired" else "due", row.kind.name, row.when,
-                            plan.fee_cost(row.kind.code), renewal=True))
+                            plan.fee_cost(row.kind.code), kind="renewal"))
     jobs.sort(key=lambda job: rank[job.level])   # stable: each keeps its place within overdue, then due soon
-    return CarWatch(dict(car), state, plan, jobs, bool(state.items), rows, maintenance)
+    notices: list[Watched] = []
+    if maintenance and (stale := car_status.stale_reading(state)):
+        notices.append(Watched(car["id"], reading_subject(car["id"], stale), "due", "Odometer reading wanted",
+                               reading_words(stale, today), None, kind="reading"))
+    return CarWatch(dict(car), state, plan, jobs, bool(state.items), rows, maintenance, notices)
 
 
 def news(jobs: list[Watched], logged: set[tuple[str, str]]) -> list[Watched]:
@@ -140,17 +175,24 @@ def news(jobs: list[Watched], logged: set[tuple[str, str]]) -> list[Watched]:
 def push(watch: CarWatch, fresh: list[Watched], base_url: str) -> Push:
     """One push for a car's news: the job itself if there's one, a count and a line each if there are more."""
     name = watch.car["name"]
-    overdue = sum(1 for j in fresh if j.level == "overdue")
+    page = f"{base_url}/vehicles/{watch.car['id']}"
+    dated = [j for j in fresh if j.kind in ("job", "renewal")]
+    overdue = sum(1 for j in dated if j.level == "overdue")
+    reading = any(j.kind == "reading" for j in fresh)
     if len(fresh) == 1:
         job = fresh[0]
+        if job.kind == "reading":
+            return Push(f"{name}: odometer reading wanted", job.when[:1].upper() + job.when[1:] + ".", priority=3,
+                        tags=("wrench",), click=f"{page}#add-reading")
         title = f"{name}: {job.name} {job.state}"
         message = job.when + (f" · ~{dollars(job.cost)}" if job.cost else "")
     else:
-        counts = [f"{overdue} overdue"] * bool(overdue) + [f"{len(fresh) - overdue} due soon"] * bool(len(fresh) - overdue)
+        counts = ([f"{overdue} overdue"] * bool(overdue) + [f"{len(dated) - overdue} due soon"] * bool(len(dated) - overdue)
+                  + ["odometer reading wanted"] * reading)
         title = f"{name}: {', '.join(counts)}"
         message = "\n".join(j.line for j in fresh)
     return Push(title, message, priority=4 if overdue else 3, tags=("warning",) if overdue else ("wrench",),
-                click=f"{base_url}/vehicles/{watch.car['id']}")
+                click=page)
 
 
 def take_stock(conn: sqlite3.Connection, car, today: date | None = None) -> int:
@@ -158,7 +200,7 @@ def take_stock(conn: sqlite3.Connection, car, today: date | None = None) -> int:
 
     Inspections and registration aren't held back: they've been watched all along.
     """
-    jobs = [job for job in look(conn, car, today, maintenance=True).jobs if not job.renewal]
+    jobs = [job for job in look(conn, car, today, maintenance=True).jobs if job.kind == "job"]
     for job in jobs:
         alerts.known(conn, CHANNEL, job.subject, job.level, car["id"], job.line)
     return len(jobs)

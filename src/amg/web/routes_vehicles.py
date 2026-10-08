@@ -179,6 +179,7 @@ def car_page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status
         upcoming=car_status.next_up(state, costs=plan.item_costs()),
         plan=plan,
         missed=car_status.missed(state),
+        stale=None if car["archived_at"] else car_status.stale_reading(state),
         chart=car_status.chart(state, car["name"]),
         fuel=fuel_status.summary(fuel_status.load(conn, car)),
         attested=extra.get("attested", False),
