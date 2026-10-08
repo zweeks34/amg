@@ -657,6 +657,69 @@ yours.*
 
 ---
 
+## Phase 11 — Recommendations, recalls and readings
+
+**For:** following up what a shop recommended, never missing a safety recall,
+and keeping the mileage AMG times jobs by honest. (Added 2026-10-07.)
+
+- [x] Odometer readings: a car whose jobs fall due by mileage asks for a reading once the last is over 60 days old, or when there's none: a notice on its page whose **Add a reading** link opens the reading form, and, with the car's alerts on, one push per quiet stretch and a line in the weekly email
+- [x] Shop recommendations: each receipt's "Recommended, not done" stays open on the car's page until a later confirmed service does the work, you **Log it** (the new-service form, filled in from it, closes it on saving), or you say **Not doing it** (with an undo). Open ones over a year old fold away, and the section gives the total quoted. The garage card counts the last year's, the weekly email lists them for cars with alerts on, and Download your data gets `recommendations.csv`
+- [x] Recalls: NHTSA's recall service is asked about each car's year, make and model once a week from the daily run, or now from the car's page, its model matched to NHTSA's name first. Each open recall shows NHTSA's words, with a warning when it says not to drive or to park outside; **It's been done** (on a visit with a recall line, or a date) and **Not my car** close it, with an undo. Each new one is pushed once, at top priority when NHTSA says park it; the weekly email lists them and counts them in its subject; the garage card shows them in one line; Download your data gets `recalls.csv`
+
+**Decisions:**
+
+- **Recommendations stay in the receipt.** Its draft is the record, editable
+  after confirming, so only what you decided is stored, found by the receipt
+  and the recommendation's normalised wording. Reword one and a "not doing
+  it" on it is lost: rare, and it errs towards reminding you.
+- **A later service closes a recommendation when it does the work:** it
+  covers one of its services by replacing or doing it. Looking at it isn't
+  the work, unless it's a type you'd only ever inspect. No pushes for them:
+  you saw each one when you confirmed its receipt.
+- **Recalls by model year, never by VIN.** NHTSA's free service lists by year,
+  make and model, so some won't fit a given car; the page says so and you
+  decide. The VIN never leaves AMG.
+- **Recalls don't wait for the alerts switch,** like inspection dates: they
+  come from NHTSA, not your receipts. A check's finds go in one push per car.
+- **A reading wanted is a notice, not a job:** pushed like one, kept out of
+  the overdue and due-soon counts, and not held back when alerts are turned
+  on, since it's something you can do at once.
+
+**Data owned:** `recommendation_outcomes` (migration 0013): done (with the
+service it was logged as) or skipped, per receipt and wording. `recalls`
+(migration 0014): what NHTSA said and what you said; and on `vehicles`, when
+each was last checked, the NHTSA model it matched, NHTSA's models for its year
+and make, and why the last check failed. Alerts reuse `alert_log`:
+`{car}:reading:{last reading's date, or none}` and `{car}:recall:{campaign}`,
+both at level due.
+
+**Can go wrong:** NHTSA down → said on the car's page and in the run's output,
+and tried again the next day; the run hasn't failed. The car's model named
+differently from NHTSA's → the page lists NHTSA's names; changing the year,
+make or model checks again on the next run, and open recalls NHTSA no longer
+lists are dropped. A recall for only some build dates → **Not my car**. Years
+of old receipts → their open recommendations fold under "older" and stay out
+of the email. A car never refuelled through AMG → asked for a reading after
+every two quiet months.
+
+**Tests pin:** a reading not asked for at 59 days and asked for at 65, never
+for a schedule judged by months alone, and the in-service date not counting
+as one; one push per quiet stretch, and another after a new reading goes
+quiet. What closes a recommendation: a later replacement, not a later
+inspection unless the type is only ever inspected, never the same visit or
+an earlier one, and yours over the history; rewording reopens. NHTSA's
+day-first dates, model matching, a 400 as nothing listed, failures in words;
+a check keeping what you said and dropping untouched ones; weekly checks and
+a recheck after a model change; push titles and priorities; a dry run asks
+NHTSA nothing; the email's subject and sections; the pages and the export.
+
+**Done when:** on the server, each car's recalls are checked and the ones
+already done are marked; the shop recommendations look right and the stale
+ones are cleared; Monday's email has the new sections; and a car with an old
+reading gets one push asking for one. *That's yours.*
+
+---
+
 ## Parked
 
 - Mathpix as a third reader for the worst scans — credentials are in `.env`, but
