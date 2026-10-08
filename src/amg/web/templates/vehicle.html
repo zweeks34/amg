@@ -2,6 +2,7 @@
 {% from "_forms.html" import input %}
 {% from "_chart.html" import interval_chart, mark, next_up as next_up_list %}
 {% from "_renewal_fields.html" import renewal_fields %}
+{% from "_issues.html" import issue_row, closed_row %}
 
 {% macro reading_rows(rows) %}
 <ol class="points">
@@ -250,6 +251,30 @@
   {% endif %}
 </section>
 {% endif %}
+
+<section class="block" id="issues" aria-labelledby="issues-heading">
+  <div class="block__head">
+    <h2 class="h3" id="issues-heading">Issues</h2>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}/issues/new">Note an issue</a>
+  </div>
+  {% if issues.open %}
+  <ul class="issues sheet sheet--flush">
+    {% for row in issues.open %}
+    {{ issue_row(row, issue_form if issue_form and issue_form.id == row.id else none, state.today.isoformat()) }}
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No open issues. Noises, leaks, warning lights: note them here to show the shop on your next visit.</p>
+  {% endif %}
+  {% if issues.closed %}
+  <details class="followups__more">
+    <summary>{{ issues.closed | length }} fixed or dropped</summary>
+    <ul class="issues sheet sheet--flush">
+      {% for row in issues.closed %}{{ closed_row(row) }}{% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</section>
 
 {% if follow_ups %}
 <section class="block" id="follow-ups" aria-labelledby="follow-ups-heading">

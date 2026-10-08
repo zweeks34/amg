@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_forms.html" import input, textarea, message %}
+{% block title %}{{ "Edit issue" if issue else "Note an issue" }} · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
+  <h1 class="display">{{ "Edit issue" if issue else "Note an issue" }}</h1>
+  <p class="pagehead__lede">Write it as you'd tell the shop. It stays on the car's page, and on the sheet for the shop,
+    until a visit fixes it.</p>
+</header>
+
+<form class="sheet form" method="post" enctype="multipart/form-data"
+      action="{{ '/issues/%d/edit' % issue.id if issue else '/vehicles/%d/issues' % car.id }}">
+  <div class="form__body">
+    {{ input("title", "What's wrong", raw, errors, cls="field--wide",
+             attrs='maxlength="120" placeholder="e.g. Rattle from the front at 40 mph"') }}
+    {{ textarea("details", "Details", raw, errors, rows=4,
+                hint="When it happens (speed, cold or warm, turning, braking), where it seems to come from, how often.") }}
+    <div class="fieldgrid">
+      {{ input("noticed_on", "Noticed on", raw, errors, type="date", attrs='max="' ~ today ~ '"') }}
+    </div>
+
+    <fieldset class="field field--wide issueform__photos">
+      <legend>Photos</legend>
+      <p class="field__hint">A leak, a warning light, a worn part. Up to 10.</p>
+      {% if photos %}
+      <ul class="issue__photos">
+        {% for p in photos %}
+        <li class="issueform__photo" x-data="{ gone: false }" x-show="!gone">
+          <img src="{{ p.url }}" alt="Photo {{ loop.index }}">
+          <input type="hidden" name="photo" value="{{ p.id }}" :disabled="gone">
+          <button class="btn btn--quiet" type="button" @click="gone = true" aria-label="Remove photo {{ loop.index }}">Remove</button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <div class="upload__pick" x-data="{ files: 0, shots: 0 }">
+        <label class="btn btn--secondary upload__button">
+          <input type="file" name="photos" multiple accept=".png,.jpg,.jpeg,.gif,image/png,image/jpeg,image/gif"
+                 @change="files = $el.files.length"{% if errors.get('photos') %} aria-invalid="true" aria-describedby="f-photos-error"{% endif %}>
+          Choose photos
+        </label>
+        <label class="btn btn--secondary upload__button upload__camera">
+          <input type="file" name="photos" accept="image/*" capture="environment" @change="shots = $el.files.length">
+          Take a photo
+        </label>
+        <span class="upload__count" x-show="files + shots" x-cloak
+              x-text="(files + shots) + ((files + shots) === 1 ? ' photo chosen' : ' photos chosen')"></span>
+      </div>
+      {{ message("photos", errors, None) }}
+    </fieldset>
+  </div>
+
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">Save issue</button>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}#issues">Cancel</a>
+  </div>
+</form>
+
+{% if issue %}
+<div class="pagehead__actions" x-data="{ confirming: false }">
+  <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true">Delete issue</button>
+  <form method="post" action="/issues/{{ issue.id }}/delete" class="confirm" x-show="confirming" x-cloak>
+    <span>Delete this issue? To keep a record of it, drop it on the car's page instead.</span>
+    <button class="btn btn--danger" type="submit">Delete issue</button>
+    <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

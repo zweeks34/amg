@@ -47,7 +47,7 @@
         </div>
       </dl>
       {% set s = car.schedule %}
-      {% if s or car.renewals or car.recommended or car.recalls %}
+      {% if s or car.renewals or car.recommended or car.recalls or car.issues %}
       <div class="carcard__status">
         {% if s and s.next %}
         <p class="carcard__next"><span class="mark mark--{{ s.next.status }}" aria-hidden="true"></span>
@@ -72,10 +72,16 @@
           <li><span class="mark mark--done" aria-hidden="true"></span>Nothing overdue or missed</li>
           {% endfor %}
           {% if car.recommended %}<li><span class="mark mark--later" aria-hidden="true"></span>{{ car.recommended }} recommended</li>{% endif %}
+          {% if car.issues %}<li><span class="mark mark--later" aria-hidden="true"></span>{{ car.issues }} issue{{ "s" if car.issues != 1 }}</li>{% endif %}
         </ul>
         {% else %}
         <p class="muted">No maintenance schedule yet.</p>
-        {% if car.recommended %}<ul class="tally"><li><span class="mark mark--later" aria-hidden="true"></span>{{ car.recommended }} recommended</li></ul>{% endif %}
+        {% if car.recommended or car.issues %}
+        <ul class="tally">
+          {% if car.recommended %}<li><span class="mark mark--later" aria-hidden="true"></span>{{ car.recommended }} recommended</li>{% endif %}
+          {% if car.issues %}<li><span class="mark mark--later" aria-hidden="true"></span>{{ car.issues }} issue{{ "s" if car.issues != 1 }}</li>{% endif %}
+        </ul>
+        {% endif %}
         {% endif %}
       </div>
       {% else %}

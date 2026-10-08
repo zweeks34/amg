@@ -7,7 +7,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, Request
 from starlette.responses import Response
 
-from ..repo import recalls, schedules, vehicles
+from ..repo import issues, recalls, schedules, vehicles
 from . import budget
 from . import follow_ups as follow_up_words
 from . import recalls as recall_words
@@ -23,10 +23,12 @@ router = APIRouter()
 @router.get("/")
 def garage(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     active, archived = vehicles.garage(conn)
+    noted = issues.open_counts(conn)
     for car in active:
         car["schedule"] = car_status.summary(car_status.load(conn, car)) if schedules.count(conn, car["id"]) else None
         car["renewals"] = renewal_words.urgent(renewal_words.rows(conn, car, offers=False))
         car["recommended"] = len(follow_up_words.load(conn, car).recent)
+        car["issues"] = noted.get(car["id"], 0)
         car["recalls"] = [recall_words.component(row["component"]) for row in recalls.open_for(conn, car["id"])]
     return render(
         request,

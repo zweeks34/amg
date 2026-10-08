@@ -73,9 +73,10 @@ def who(event) -> str:
     return "Done, no receipt" if event["source"] == "attested" else "Your own work"
 
 
-def page_url(document_id: int, sha256: str, page: int, full: bool = False) -> str:
+def page_url(document_id: int, sha256: str, page: int, full: bool = False, thumb: bool = False) -> str:
     """A scan page's URL. It names the file's content, so the browser may keep the image for good."""
-    return f"/documents/{document_id}/pages/{page}?v={fingerprint(sha256)}" + ("&size=full" if full else "")
+    size = "&size=full" if full else "&size=thumb" if thumb else ""
+    return f"/documents/{document_id}/pages/{page}?v={fingerprint(sha256)}{size}"
 
 
 def file_url(document_id: int, sha256: str) -> str:

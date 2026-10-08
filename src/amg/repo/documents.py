@@ -33,6 +33,7 @@ MEDIA_TYPES = {
 }
 PREVIEW_LONG_EDGE = 1600   # the review page
 FULL_LONG_EDGE = 2600      # "open full size"
+THUMB_LONG_EDGE = 480      # an issue's photos in a row
 
 
 class UploadError(ValueError):

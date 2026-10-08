@@ -1,0 +1,80 @@
+{#- A car's issues: a row each on its page, the question a visit asks, and the closed ones.
+    `back` is the It's fixed form coming back with an error. -#}
+
+{% macro photo_list(row) %}
+{% if row.photos %}
+<ul class="issue__photos" aria-label="Photos">
+  {% for p in row.photos %}
+  <li><a href="{{ p.full }}" target="_blank" rel="noopener"><img src="{{ p.url }}" alt="Photo {{ loop.index }} of {{ row.title }}" loading="lazy"></a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{%- endmacro %}
+
+{# The question about a visit; on a service's page it asks about that visit, and the answer comes back there. #}
+{% macro ask(row, words, from_service=False) %}
+<div class="issue__ask">
+  <p class="issue__question">{{ words }}</p>
+  <div class="issue__acts">
+    {% for action, label, cls in (("fixed", "Yes, fixed then", "btn--secondary"), ("still-there", "No, still there", "btn--quiet")) %}
+    <form method="post" action="/issues/{{ row.id }}/{{ action }}">
+      <input type="hidden" name="service_event_id" value="{{ row.ask.id }}">
+      {% if from_service %}<input type="hidden" name="back" value="service">{% endif %}
+      <button class="btn {{ cls }}" type="submit" aria-label="{{ row.title }}: {{ label | lower }}">{{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro issue_row(row, back=none, today="") %}
+<li class="issue" x-data='{ fixing: {{ "true" if back else "false" }}, visit: {{ ((row.visits[0].id | string) if row.visits and not back else "") | tojson }} }'>
+  <p class="issue__title">{{ row.title }}</p>
+  <p class="issue__when">{{ row.noticed }}</p>
+  {% if row.details %}<p class="issue__details">{{ row.details }}</p>{% endif %}
+  {{ photo_list(row) }}
+  {% if row.tried %}<p class="issue__tried">{{ row.tried }}.</p>{% endif %}
+  {% if row.ask %}{{ ask(row, row.question) }}{% endif %}
+  <div class="issue__acts" x-show="!fixing">
+    <button class="btn {{ 'btn--quiet' if row.ask else 'btn--secondary' }}" type="button"
+            @click="fixing = true" aria-label="{{ row.title }}: it's fixed">It's fixed</button>
+    <a class="btn btn--quiet" href="/issues/{{ row.id }}/edit" aria-label="Edit {{ row.title }}">Edit</a>
+    <form method="post" action="/issues/{{ row.id }}/drop">
+      <button class="btn btn--quiet" type="submit" aria-label="Drop {{ row.title }}">Drop it</button>
+    </form>
+  </div>
+  <form class="issue__form" method="post" action="/issues/{{ row.id }}/fixed" x-show="fixing"{% if not back %} x-cloak{% endif %}>
+    {% if row.visits %}
+    <div class="field">
+      <label for="iv-{{ row.id }}">When</label>
+      <select id="iv-{{ row.id }}" name="service_event_id" x-model="visit">
+        {% for v in row.visits %}<option value="{{ v.id }}">{{ v.day.isoformat() }} · {{ v.shop or "Your own work" }}</option>{% endfor %}
+        <option value="">Another time</option>
+      </select>
+      <p class="field__hint">Your services since you noticed it.</p>
+    </div>
+    {% endif %}
+    <div class="field" x-show="!visit">
+      <label for="if-{{ row.id }}">Fixed on</label>
+      <input id="if-{{ row.id }}" type="date" name="fixed_on" min="{{ row.noticed_on }}" max="{{ today }}"
+             value="{{ back.raw.fixed_on if back else today }}"
+             {% if back %}aria-invalid="true" aria-describedby="if-{{ row.id }}-error"{% endif %}>
+      {% if back %}<p class="field__error" id="if-{{ row.id }}-error">{{ back.error }}</p>{% endif %}
+    </div>
+    <div class="form__actions">
+      <button class="btn btn--primary" type="submit">Save</button>
+      <button class="btn btn--quiet" type="button" @click="fixing = false">Cancel</button>
+    </div>
+  </form>
+</li>
+{%- endmacro %}
+
+{% macro closed_row(row) %}
+<li class="issue issue--closed">
+  <p class="issue__title">{{ row.title }}</p>
+  <p class="issue__when">{% if row.fixed_by %}<a href="/services/{{ row.fixed_by }}">{{ row.closed }}</a>{% else %}{{ row.closed }}{% endif %}</p>
+  <form method="post" action="/issues/{{ row.id }}/reopen">
+    <button class="btn btn--quiet" type="submit" aria-label="Undo: {{ row.title }} back to open">Undo</button>
+  </form>
+</li>
+{%- endmacro %}

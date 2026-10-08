@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_issues.html" import ask %}
 {% block title %}Service on {{ event.performed_on }} · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -55,6 +56,30 @@
       </div>
       <span class="lineitems__kind">Quoted</span>
       <span class="lineitems__amount mono">{{ rec.quoted_cents | money if rec.quoted_cents is not none else "" }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if issues_fixed or issues_asked %}
+<section class="block" id="issues" aria-labelledby="issues-heading">
+  <div class="block__head">
+    <h2 class="h3" id="issues-heading">Your issues</h2>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}#issues">All of them</a>
+  </div>
+  <ul class="issues sheet sheet--flush">
+    {% for row in issues_fixed %}
+    <li class="issue">
+      <p class="issue__title">{{ row.title }}</p>
+      <p class="issue__when">Fixed on this visit</p>
+    </li>
+    {% endfor %}
+    {% for row in issues_asked %}
+    <li class="issue">
+      <p class="issue__title">{{ row.title }}</p>
+      <p class="issue__when">{{ row.noticed }}</p>
+      {{ ask(row, "Did this visit fix it?", from_service=True) }}
     </li>
     {% endfor %}
   </ul>

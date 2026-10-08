@@ -13,6 +13,7 @@ from ..ingest import vin as vins
 from ..repo import odometer, schedules, services, vehicles
 from . import budget, forms
 from . import follow_ups as follow_up_words
+from . import issues as issue_words
 from . import recalls as recall_words
 from . import renewals as renewal_words
 from . import fuel_status
@@ -193,6 +194,8 @@ def car_page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status
         reading_errors=extra.get("reading_errors", {}),
         renewals=None if car["archived_at"] else renewal_words.rows(conn, car),
         renewal_form=extra.get("renewal_form"),
+        issues=issue_words.load(conn, car, state.odometer),
+        issue_form=extra.get("issue_form"),
         follow_ups=follow_up_words.load(conn, car),
         recalls=None if car["archived_at"] else recall_words.load(conn, car),
         recall_form=extra.get("recall_form"),

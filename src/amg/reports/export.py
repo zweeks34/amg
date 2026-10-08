@@ -15,8 +15,10 @@ Back up page's zip does that). It holds:
     recommendations.csv   the work shops recommended on your receipts, and what became of it
     recalls.csv           the recalls NHTSA lists for each car, and what you said about each
     specs.csv             each car's specs card
+    issues.csv            what you noticed wrong with each car, and what became of it
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use, or a car's specs, were read from
+    photos/               your issues' photos, named by date, issue and car
 
 Receipts still waiting to be checked, and ones you discarded, aren't in it:
 they're in nobody's history yet.
@@ -33,7 +35,7 @@ from pathlib import Path
 from ..engine import specs as spec_catalogue
 from ..engine.renewals import KINDS
 from ..ingest.recalls import campaign_words
-from ..repo import documents, recalls, renewals, reports, schedules, services, specs
+from ..repo import documents, issues, recalls, renewals, reports, schedules, services, specs
 from ..web import follow_ups as follow_up_words
 from . import csvs, history
 from .filters import Filters
@@ -54,6 +56,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
     """Write the zip to ``path``; returns the files the database lists that weren't on disk to put in it."""
     today = today or date.today()
     names = {row["code"]: row["name"] for row in services.list_types(conn)}
+    noted = issues.everything(conn)
     sheets = {
         "cars.csv": _cars(conn),
         "service-history.csv": csvs.history_csv(history.load(conn, Filters()), Filters()),
@@ -65,6 +68,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         "recommendations.csv": _recommendations(conn, names),
         "recalls.csv": _recalls(conn),
         "specs.csv": _specs(conn),
+        "issues.csv": _issues(noted),
     }
     missing: list[str] = []
     taken: set[str] = set()
@@ -73,7 +77,10 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
             zf.writestr(name, text, compress_type=zipfile.ZIP_DEFLATED)
         receipts = reports.receipt_downloads(conn)
         manuals = reports.manuals(conn)
-        for folder, rows, stem in (("receipts", receipts, _receipt_name), ("manuals", manuals, _manual_name)):
+        photos = [{**photo, "issue": issue["title"], "noticed_on": issue["noticed_on"], "car_name": issue["car_name"]}
+                  for issue in noted for photo in issue["photos"]]
+        for folder, rows, stem in (("receipts", receipts, _receipt_name), ("manuals", manuals, _manual_name),
+                                   ("photos", photos, _photo_name)):
             for row in rows:
                 source = documents.path(row)
                 if not source.is_file():
@@ -81,7 +88,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
                     continue
                 # Scans are compressed already; storing them as-is is as small and much faster.
                 zf.write(source, _unique(f"{folder}/{stem(row)}", source.suffix, taken), compress_type=zipfile.ZIP_STORED)
-        zf.writestr("README.txt", _readme(conn, today, len(receipts), len(manuals), missing),
+        zf.writestr("README.txt", _readme(conn, today, len(receipts), len(manuals), len(photos), missing),
                     compress_type=zipfile.ZIP_DEFLATED)
     return missing
 
@@ -199,6 +206,21 @@ def _specs(conn: sqlite3.Connection) -> str:
     return csvs.sheet(columns, rows)
 
 
+ISSUE_STATUS = {"open": "Open", "fixed": "Fixed", "dropped": "Dropped"}
+
+
+def _issues(noted: list[dict]) -> str:
+    columns = ("Car", "Issue", "Details", "Noticed", "Now", "Closed on", "Fixed by", "Still there after", "Photos")
+    rows = [[csvs.text(row["car_name"]), csvs.text(row["title"]), csvs.text(row["details"]), row["noticed_on"],
+             ISSUE_STATUS[row["status"]], row["closed_on"] or "",
+             csvs.text(" ".join(part for part in (row["fixed_service_on"], row["fixed_shop"]) if part)),
+             csvs.text("; ".join(" ".join(part for part in (check["performed_on"], check["shop"]) if part)
+                                 for check in row["checks"])),
+             csvs.number(len(row["photos"]))]
+            for row in noted]
+    return csvs.sheet(columns, rows)
+
+
 # ---------- Files ----------
 
 
@@ -208,6 +230,10 @@ def _receipt_name(row) -> str:
 
 def _manual_name(row) -> str:
     return safe(Path(row["filename"]).stem) or "manual"
+
+
+def _photo_name(row) -> str:
+    return safe(f"{row['noticed_on']} {row['issue']} - {row['car_name']}") or "photo"
 
 
 def _unique(stem: str, suffix: str, taken: set[str]) -> str:
@@ -223,14 +249,15 @@ def _yes(value) -> str:
     return "Yes" if value else "No"
 
 
-def _readme(conn: sqlite3.Connection, today: date, receipts: int, manuals: int, missing: list[str]) -> str:
+def _readme(conn: sqlite3.Connection, today: date, receipts: int, manuals: int, photos: int,
+            missing: list[str]) -> str:
     cars = len(reports.cars(conn))
     missing_note = (f"\n{len(missing)} file(s) the database lists weren't on the server when this was made, so\n"
                     "they aren't in here either.\n" if missing else "")
     return f"""Your data from AMG
 ==================
 
-Made {today:%B} {today.day}, {today.year}: {cars} car(s), {receipts} receipt(s), {manuals} manual(s).
+Made {today:%B} {today.day}, {today.year}: {cars} car(s), {receipts} receipt(s), {manuals} manual(s), {photos} photo(s).
 
 Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
 
@@ -252,11 +279,15 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
                         and model, and whether each was done or isn't yours
   specs.csv             each car's specs card: what to buy for it, and
                         where each value came from
+  issues.csv            what you noticed wrong with each car: open,
+                        fixed (and by which visit) or dropped, and the
+                        visits it was still there after
 
 Files, as you uploaded them:
 
   receipts/             every confirmed receipt, named by date, shop and car
   manuals/              the owner's manuals schedules and specs were read from
+  photos/               your issues' photos, named by date, issue and car
 
 Receipts still waiting to be checked, and ones you discarded, aren't here.
 {missing_note}

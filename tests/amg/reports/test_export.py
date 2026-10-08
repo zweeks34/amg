@@ -10,7 +10,8 @@ from datetime import date
 import report_fixtures as rf  # tests/ is on pytest's path
 
 from amg.reports import csvs, export
-from amg.repo import documents, fuel, odometer, prices, receipts, renewals, schedules, specs, vehicles
+from amg.repo import documents, fuel, issues, odometer, prices, receipts, renewals, schedules, specs, vehicles
+from amg.repo.issues import IssueInput
 from amg.repo.renewals import RenewalInput
 from amg.repo.schedules import ItemInput
 from amg.repo.specs import SpecInput
@@ -60,13 +61,18 @@ def test_everything_is_there(conn, tmp_path):
     sticker, _ = documents.store(conn, rf.pdf_bytes("TIRE STICKER"), "door sticker.pdf")
     specs.save(conn, outback, [SpecInput("oil_grade", "0W-20"), SpecInput("custom", "168", label="Trunk light"),
                                SpecInput("tire_size", "225/65R17", source="read", document_id=sticker["id"], page=1)])
+    photo, _ = documents.store(conn, rf.image_bytes("JPEG"), "IMG_2041.jpg")
+    spot = issues.create(conn, outback, IssueInput("Oil spot: under the engine", "", "2026-08-30"), [photo["id"]])
+    issues.fix(conn, spot, "2026-09-01", inspected)
+    squeak = issues.create(conn, outback, IssueInput("Squeak over bumps", "Front left, cold mornings", "2026-09-01"))
+    issues.still_there(conn, squeak, inspected)
 
     zf, missing = build(conn, tmp_path)
     names = sorted(zf.namelist())
     assert names == [
-        "README.txt", "cars.csv", "fuel.csv", "inspections-and-registration.csv", "manuals/2016 Outback manual.pdf",
-        "manuals/door sticker.pdf",
-        "odometer.csv", "prices.csv", "recalls.csv",
+        "README.txt", "cars.csv", "fuel.csv", "inspections-and-registration.csv", "issues.csv",
+        "manuals/2016 Outback manual.pdf", "manuals/door sticker.pdf",
+        "odometer.csv", "photos/2026-08-30 Oil spot under the engine - Outback.jpg", "prices.csv", "recalls.csv",
         "receipts/2015-11-02 Bob's - Old Tacoma.pdf",
         "receipts/2019-03-04 Midas - Outback (2).pdf",
         "receipts/2019-03-04 Midas - Outback.pdf",
@@ -110,11 +116,20 @@ def test_everything_is_there(conn, tmp_path):
         {"Car": "Outback", "Group": "Tires and wheels", "Spec": "Tire size", "Value": "225/65R17",
          "From": "door sticker.pdf", "Page": "1"},
     ]
+    assert sheet(zf, "issues.csv") == [
+        {"Car": "Outback", "Issue": "Oil spot: under the engine", "Details": "", "Noticed": "2026-08-30",
+         "Now": "Fixed", "Closed on": "2026-09-01", "Fixed by": "2026-09-01 Corner Garage", "Still there after": "",
+         "Photos": "1"},
+        {"Car": "Outback", "Issue": "Squeak over bumps", "Details": "Front left, cold mornings",
+         "Noticed": "2026-09-01", "Now": "Open", "Closed on": "", "Fixed by": "",
+         "Still there after": "2026-09-01 Corner Garage", "Photos": "0"},
+    ]
+    assert zf.read("photos/2026-08-30 Oil spot under the engine - Outback.jpg") == documents.path(photo).read_bytes()
     price = sheet(zf, "prices.csv")[0]
     assert (price["Job"], price["From"], price["Low"], price["High"]) == ("Oil and filter", "You", "85.00", "85.00")
 
     readme = zf.read("README.txt").decode("utf-8")
-    assert "Made October 4, 2026: 2 car(s), 4 receipt(s), 2 manual(s)." in readme
+    assert "Made October 4, 2026: 2 car(s), 4 receipt(s), 2 manual(s), 1 photo(s)." in readme
     assert "can't be put back into AMG" in readme
     everything = b"".join(zf.read(name) for name in names)
     assert b"WAITING" not in everything and b"THROWN" not in everything     # not in anyone's history yet

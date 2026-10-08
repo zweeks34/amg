@@ -832,6 +832,47 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
 .recall--closed { grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; align-items: center; }
 .recall--closed > form { grid-column: 2; grid-row: 1 / span 2; }
 
+/* The car page: your issues. What's wrong, when, the photos and what's been tried; then a visit's question. */
+.issues { margin: 0; padding: 0; list-style: none; }
+.issue { display: grid; gap: 0.375rem; padding: 0.875rem var(--gutter); border-top: 1px solid var(--rule-soft); }
+.issue:first-child { border-top: 0; }
+.issue p { margin: 0; }
+.issue__title { font-weight: 600; }
+.issue__when { font: 400 0.8125rem/1.3 var(--mono); color: var(--ink-2); }
+.issue__when a { color: inherit; }
+.issue__details { max-width: 65ch; white-space: pre-line; }
+.issue__tried { font-size: 0.875rem; color: var(--ink-2); }
+.issue__photos { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.25rem 0 0; padding: 0; list-style: none; }
+.issue__photos img {
+  display: block;
+  width: 6rem;
+  height: 6rem;
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+  border-radius: 4px;
+  background: var(--band);
+}
+.issue__photos a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.issue__ask {
+  display: grid;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+  padding: 0.625rem 0.75rem;
+  border-left: 3px solid var(--due);
+  background: var(--band);
+}
+.issue__question { font-weight: 600; }
+.issue__acts { display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; margin-top: 0.25rem; }
+.issue__acts form, .issue--closed form { margin: 0; }
+.issue__acts .btn, .issue--closed .btn { min-height: 2.25rem; font-size: 0.9375rem; }
+.issue__form { display: grid; gap: 1rem; margin-top: 0.5rem; }
+.issue__form input[type="date"] { max-width: 12rem; }
+.issue__form select { max-width: 22rem; }
+.issue--closed { grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; align-items: center; }
+.issue--closed > form { grid-column: 2; grid-row: 1 / span 2; }
+.issueform__photo { display: grid; justify-items: start; gap: 0.25rem; }
+.issueform__photos .upload__pick { margin-top: 0.5rem; }
+
 .archived { margin-top: 2.5rem; }
 .archived summary {
   cursor: pointer;

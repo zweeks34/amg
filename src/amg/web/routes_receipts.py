@@ -199,7 +199,8 @@ def page_image(document_id: int, page: int, size: str = "preview", v: str = "",
     document = documents.get(conn, document_id)
     if document is None or not 1 <= page <= document["page_count"]:
         raise HTTPException(status_code=404)
-    long_edge = documents.FULL_LONG_EDGE if size == "full" else documents.PREVIEW_LONG_EDGE
+    long_edge = {"full": documents.FULL_LONG_EDGE, "thumb": documents.THUMB_LONG_EDGE}.get(
+        size, documents.PREVIEW_LONG_EDGE)
     return FileResponse(documents.page_image(document, page, long_edge), media_type="image/jpeg",
                         headers=_cache(document, v))
 

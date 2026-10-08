@@ -21,6 +21,7 @@ from ..engine.follow_ups import Recommendation
 from ..ingest.drafts import Draft
 from ..repo import follow_ups, odometer, receipts, services
 from . import forms, line_editor
+from . import issues as issue_words
 from .deps import get_conn
 from .routes_vehicles import POWERTRAIN_LABELS, vehicle_or_404
 from .templating import render
@@ -67,6 +68,7 @@ def service_page(request: Request, event_id: int, conn: sqlite3.Connection = Dep
     car = vehicle_or_404(conn, event["vehicle_id"])
     receipt = receipts.for_event(conn, event_id)
     draft = Draft.from_dict(json.loads(receipt["draft_json"])) if receipt and receipt["draft_json"] else None
+    issues_fixed, issues_asked = issue_words.for_service(conn, event) if event["confirmed"] else ([], [])
     return render(
         request,
         "service.html",
@@ -79,6 +81,8 @@ def service_page(request: Request, event_id: int, conn: sqlite3.Connection = Dep
         sources=SOURCE_LABELS,
         kinds=KIND_LABELS,
         actions=ACTION_LABELS,
+        issues_fixed=issues_fixed,
+        issues_asked=issues_asked,
     )
 
 
