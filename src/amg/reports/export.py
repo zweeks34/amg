@@ -13,6 +13,7 @@ Back up page's zip does that). It holds:
     inspections-and-registration.csv
                           every safety inspection, emissions inspection and registration logged
     recommendations.csv   the work shops recommended on your receipts, and what became of it
+    recalls.csv           the recalls NHTSA lists for each car, and what you said about each
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use was read from
 
@@ -29,7 +30,8 @@ from datetime import date
 from pathlib import Path
 
 from ..engine.renewals import KINDS
-from ..repo import documents, renewals, reports, schedules, services
+from ..ingest.recalls import campaign_words
+from ..repo import documents, recalls, renewals, reports, schedules, services
 from ..web import follow_ups as follow_up_words
 from . import csvs, history
 from .filters import Filters
@@ -59,6 +61,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         "prices.csv": _prices(conn, names),
         "inspections-and-registration.csv": _renewals(conn),
         "recommendations.csv": _recommendations(conn, names),
+        "recalls.csv": _recalls(conn),
     }
     missing: list[str] = []
     taken: set[str] = set()
@@ -168,6 +171,19 @@ def _recommendations(conn: sqlite3.Connection, names: dict[str, str]) -> str:
     return csvs.sheet(columns, rows)
 
 
+RECALL_STATUS = {"open": "Open", "done": "Done", "not_mine": "Not my car"}
+
+
+def _recalls(conn: sqlite3.Connection) -> str:
+    columns = ("Car", "Campaign", "Reported", "Component", "Summary", "Now", "Closed on", "Service")
+    rows = [[csvs.text(row["car_name"]), campaign_words(row["campaign"]), row["reported_on"] or "",
+             csvs.text(row["component"]), csvs.text(row["summary"]), RECALL_STATUS[row["status"]],
+             row["closed_on"] or "",
+             csvs.text(" ".join(part for part in (row["service_on"], row["service_shop"]) if part))]
+            for row in recalls.everything(conn)]
+    return csvs.sheet(columns, rows)
+
+
 # ---------- Files ----------
 
 
@@ -217,6 +233,8 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
   recommendations.csv   the work shops recommended on your receipts, and
                         what became of it: open, done on a later visit,
                         logged as a service, or not doing it
+  recalls.csv           the recalls NHTSA lists for each car's year, make
+                        and model, and whether each was done or isn't yours
 
 Files, as you uploaded them:
 

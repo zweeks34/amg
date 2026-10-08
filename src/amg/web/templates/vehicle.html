@@ -155,6 +155,101 @@
   {% endif %}
 </section>
 
+{% if recalls %}
+<section class="block" id="recalls" aria-labelledby="recalls-heading">
+  <div class="block__head">
+    <h2 class="h3" id="recalls-heading">Recalls</h2>
+    {% if recalls.searched %}
+    <form method="post" action="/vehicles/{{ car.id }}/recalls/check">
+      <button class="btn btn--quiet" type="submit">Check now</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if recalls.open %}
+  <ul class="recalls sheet sheet--flush">
+    {% for r in recalls.open %}
+    {% set back = recall_form if recall_form and recall_form.id == r.id else none %}
+    <li class="recall" x-data='{ open: {{ "true" if back else "false" }}, visit: {{ ((r.visits[0].id | string) if r.visits and not back else "") | tojson }} }'>
+      {% if r.advice %}<p class="recall__advice"><span class="mark mark--overdue" aria-hidden="true"></span>{{ r.advice }}</p>{% endif %}
+      <p class="recall__name">{{ r.name }}</p>
+      <p class="recall__when">{{ r.when }}</p>
+      {% if r.summary %}<p class="recall__summary">{{ r.summary }}</p>{% endif %}
+      {% if r.consequence or r.remedy %}
+      <details class="recall__more">
+        <summary>What can happen, and the fix</summary>
+        {% if r.consequence %}<p><strong>What can happen.</strong> {{ r.consequence }}</p>{% endif %}
+        {% if r.remedy %}<p><strong>The fix.</strong> {{ r.remedy }}</p>{% endif %}
+      </details>
+      {% endif %}
+      <div class="recall__acts" x-show="!open">
+        <button class="btn btn--secondary" type="button" @click="open = true">It's been done</button>
+        <form method="post" action="/recalls/{{ r.id }}/not-mine">
+          <button class="btn btn--quiet" type="submit" aria-label="{{ r.name }}: not my car">Not my car</button>
+        </form>
+      </div>
+      <form class="recall__form" method="post" action="/recalls/{{ r.id }}/done" x-show="open"{% if not back %} x-cloak{% endif %}>
+        {% if r.visits %}
+        <div class="field">
+          <label for="rv-{{ r.id }}">When</label>
+          <select id="rv-{{ r.id }}" name="service_event_id" x-model="visit">
+            {% for v in r.visits %}<option value="{{ v.id }}">{{ v.performed_on }}{% if v.shop %} · {{ v.shop }}{% endif %}</option>{% endfor %}
+            <option value="">Another time</option>
+          </select>
+          <p class="field__hint">Your services since the recall with a “Recall or service campaign” line.</p>
+        </div>
+        {% endif %}
+        <div class="field" x-show="!visit">
+          <label for="rd-{{ r.id }}">Done on</label>
+          <input id="rd-{{ r.id }}" type="date" name="closed_on" value="{{ back.raw.closed_on if back else state.today.isoformat() }}"
+                 {% if back %}aria-invalid="true" aria-describedby="rd-{{ r.id }}-error"{% endif %}>
+          {% if back %}<p class="field__error" id="rd-{{ r.id }}-error">{{ back.error }}</p>
+          {% else %}<p class="field__hint">Leave it blank if you don't know.</p>{% endif %}
+        </div>
+        <div class="form__actions">
+          <button class="btn btn--primary" type="submit">Save</button>
+          <button class="btn btn--quiet" type="button" @click="open = false">Cancel</button>
+        </div>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if recalls.closed %}
+  <details class="followups__more">
+    <summary>{{ recalls.closed | length }} done or not my car</summary>
+    <ul class="recalls sheet sheet--flush">
+      {% for r in recalls.closed %}
+      <li class="recall recall--closed">
+        <p class="recall__name">{{ r.name }}</p>
+        <p class="recall__when">{{ r.when }} · {{ r.closed_words }}</p>
+        <form method="post" action="/recalls/{{ r.id }}/undo">
+          <button class="btn btn--quiet" type="submit" aria-label="Undo: {{ r.name }} back to open">Undo</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% set listed = recalls.open | length + recalls.closed | length %}
+  {% if not recalls.searched %}
+  <p class="muted">Add the car's year, make and model on <a href="/vehicles/{{ car.id }}/edit">Edit car</a> to check NHTSA
+    for recalls.</p>
+  {% elif recalls.error %}
+  <p class="notice">The last check didn't work: {{ recalls.error }} AMG tries again on the next daily run.</p>
+  {% elif not recalls.checked_on %}
+  <p class="muted">Not checked yet. The daily alerts run checks each car once a week, or check now.</p>
+  {% elif recalls.model %}
+  <p class="muted">Checked {{ recalls.checked_on }}: NHTSA lists {{ listed if listed else "none" }} for the
+    {{ recalls.searched }}. Not every recall fits every car: some cover only cars built on certain dates. To check
+    yours by VIN, ask a dealer or use <a href="https://www.nhtsa.gov/recalls">nhtsa.gov/recalls</a>.</p>
+  {% else %}
+  <p class="muted">Checked {{ recalls.checked_on }}: NHTSA lists no recalls for the {{ recalls.searched }}.
+    {%- if recalls.listed %} Its {{ car.year }} {{ car.make }} models with recalls: {{ recalls.listed | join(", ") }}.
+    If yours is one of them under another name, change the model on <a href="/vehicles/{{ car.id }}/edit">Edit car</a>.{% endif %}</p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if follow_ups %}
 <section class="block" id="follow-ups" aria-labelledby="follow-ups-heading">
   <div class="block__head">

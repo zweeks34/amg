@@ -61,7 +61,7 @@ def test_everything_is_there(conn, tmp_path):
     names = sorted(zf.namelist())
     assert names == [
         "README.txt", "cars.csv", "fuel.csv", "inspections-and-registration.csv", "manuals/2016 Outback manual.pdf",
-        "odometer.csv", "prices.csv",
+        "odometer.csv", "prices.csv", "recalls.csv",
         "receipts/2015-11-02 Bob's - Old Tacoma.pdf",
         "receipts/2019-03-04 Midas - Outback (2).pdf",
         "receipts/2019-03-04 Midas - Outback.pdf",

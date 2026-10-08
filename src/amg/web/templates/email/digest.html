@@ -15,7 +15,8 @@
   <div style="background:#f7f8f9;border:1px solid #c9cfd5;border-radius:6px;padding:16px;margin:0 0 16px">
     <h2 style="margin:0 0 8px;font:700 20px/1.2 'Arial Narrow',system-ui,sans-serif">
       <a href="{{ base_url }}/vehicles/{{ w.car.id }}" style="color:{{ ink }}">{{ w.car.name }}</a></h2>
-    {% for heading, jobs, colour in (("Overdue", w.overdue, "#c4372b"), ("Due soon", w.due, "#f2b705")) if jobs %}
+    {% for heading, jobs, colour in (("Overdue", w.overdue, "#c4372b"), ("Due soon", w.due, "#f2b705"),
+                                       ("Open recalls", w.recalls, "#c4372b")) if jobs %}
     <p style="margin:12px 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase">
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ colour }};margin-right:6px"></span>{{ heading }}</p>
     <ul style="margin:0;padding-left:20px">

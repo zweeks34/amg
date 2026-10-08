@@ -19,7 +19,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
 from .. import config, db
-from ..repo import alerts, receipts
+from ..repo import alerts, receipts, recalls
+from ..web import recalls as recall_words
 from . import ics, mail, ntfy, watch
 
 DIGEST_DAY = 0   # Monday: the week's email goes with the first run on or after it
@@ -29,6 +30,7 @@ DIGEST_DAY = 0   # Monday: the week's email goes with the first run on or after 
 class Result:
     pushes: int = 0
     email: str = ""                    # sent, not due, not set up, no cars, would send (a dry run)
+    checked: int = 0                   # cars whose recalls were checked
     failures: list[str] = field(default_factory=list)
 
     @property
@@ -39,7 +41,8 @@ class Result:
         pushes = "nothing new to push" if not self.pushes else f"{self.pushes} push{'es' if self.pushes != 1 else ''}"
         words = {"sent": "weekly email sent", "not due": "no email due", "not set up": "email not set up",
                  "no cars": "no cars on", "would send": "weekly email would go"}
-        parts = [pushes, words.get(self.email, self.email)] + [f"failed: {f}" for f in self.failures]
+        checked = f"recalls checked for {self.checked} car{'s' if self.checked != 1 else ''}" if self.checked else ""
+        parts = [pushes, words.get(self.email, self.email), checked] + [f"failed: {f}" for f in self.failures]
         return "; ".join(p for p in parts if p)
 
 
@@ -55,10 +58,20 @@ def calendar(watches: list[watch.CarWatch], base_url: str) -> str:
 def run(conn: sqlite3.Connection, today: date, dry_run: bool = False, say: Callable[[str], None] = print) -> Result:
     result = Result()
     base_url = config.base_url()
+    # Recalls first, so a car with a new one is watched this run. NHTSA being down isn't the alerts failing:
+    # it's said, kept on the car's page, and tried again tomorrow. A dry run asks nothing.
+    for car in [] if dry_run else recalls.due_for_check(conn, today):
+        found = recall_words.check(conn, car, today)
+        if found is None:
+            say(f"Couldn't check recalls for {car['name']}; trying again tomorrow.")
+            continue
+        result.checked += 1
+        if found:
+            say(f"{car['name']}: {len(found)} new recall{'s' if len(found) != 1 else ''} from NHTSA.")
     cars = alerts.cars_watched(conn)
     if not cars:
-        say("No car has alerts turned on, or an inspection or registration date. Turn alerts on from the Alerts "
-            "page, or add the dates on a car's page.")
+        say("No car has alerts turned on, an inspection or registration date, or an open recall. Turn alerts on "
+            "from the Alerts page, or add the dates on a car's page.")
         result.email = "no cars"
         return _finish(conn, result, dry_run)
     watches = [watch.look(conn, car, today) for car in cars]

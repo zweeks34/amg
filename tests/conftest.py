@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from amg import auth, db
+from amg.ingest import recalls
 
 PASSWORD = "correct horse battery"
 
@@ -19,7 +20,13 @@ def data_dir(tmp_path, monkeypatch):
     for name in ("AMG_BASE_URL", "AMG_NTFY_TOPIC", "AMG_NTFY_URL", "AMG_NTFY_TOKEN", "AMG_SMTP_HOST", "AMG_SMTP_PORT",
                  "AMG_SMTP_USER", "AMG_SMTP_PASSWORD", "AMG_EMAIL_TO"):
         monkeypatch.delenv(name, raising=False)
+    # Nor does any reach NHTSA: a test that wants recalls fakes the answer.
+    monkeypatch.setattr(recalls, "_get", _offline)
     return path
+
+
+def _offline(url):
+    raise recalls.RecallLookupError("Tests don't reach NHTSA.")
 
 
 @pytest.fixture

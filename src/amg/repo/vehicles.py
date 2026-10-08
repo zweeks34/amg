@@ -43,8 +43,12 @@ def create(conn: sqlite3.Connection, vehicle: VehicleFields) -> int:
 def update(conn: sqlite3.Connection, vehicle_id: int, vehicle: VehicleFields) -> None:
     assignments = ", ".join(f"{column} = ?" for column in _COLUMNS)
     conn.execute(
-        f"UPDATE vehicles SET {assignments}, updated_at = ? WHERE id = ?",
-        (*astuple(vehicle), now_iso(), vehicle_id),
+        f"UPDATE vehicles SET {assignments}, updated_at = ?,"
+        # Another year, make or model may have other recalls: check on the next run. (The right side reads the
+        # row as it was.)
+        "   recalls_checked_on = CASE WHEN year IS ? AND make = ? AND model = ? THEN recalls_checked_on END"
+        " WHERE id = ?",
+        (*astuple(vehicle), now_iso(), vehicle.year, vehicle.make, vehicle.model, vehicle_id),
     )
 
 

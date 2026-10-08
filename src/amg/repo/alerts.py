@@ -26,10 +26,12 @@ def cars_on(conn: sqlite3.Connection) -> list[dict]:
 
 
 def cars_watched(conn: sqlite3.Connection) -> list[dict]:
-    """Cars the daily run looks at: alerts on, or an inspection or registration date to remind of; not archived."""
+    """Cars the daily run looks at: alerts on, an inspection or registration date to remind of, or an open
+    recall; not archived."""
     return [dict(row) for row in conn.execute(
         "SELECT * FROM vehicles v WHERE archived_at IS NULL"
-        "   AND (alerts = 1 OR EXISTS (SELECT 1 FROM renewals r WHERE r.vehicle_id = v.id))"
+        "   AND (alerts = 1 OR EXISTS (SELECT 1 FROM renewals r WHERE r.vehicle_id = v.id)"
+        "        OR EXISTS (SELECT 1 FROM recalls rc WHERE rc.vehicle_id = v.id AND rc.status = 'open'))"
         " ORDER BY name COLLATE NOCASE, id")]
 
 

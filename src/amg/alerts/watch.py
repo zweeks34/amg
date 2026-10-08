@@ -17,7 +17,9 @@ with its alerts off is watched for those dates alone.
 Notices aren't jobs, so they stay out of the overdue and due-soon counts: a
 car whose jobs fall due by mileage asks for an odometer reading once the last
 is over two months old. Its round is the last reading's date, so a new
-reading, then two quiet months, asks again.
+reading, then two quiet months, asks again. And each open recall NHTSA lists
+for the car is pushed once, whatever the car's alerts switch says: it comes
+from NHTSA, not your receipts.
 """
 
 from __future__ import annotations
@@ -28,10 +30,11 @@ from datetime import date
 
 from ..engine import forecast
 from ..engine.schedule import ItemStatus
-from ..repo import alerts
+from ..repo import alerts, recalls
 from ..engine.follow_ups import FollowUp
 from ..web import budget
 from ..web import follow_ups as follow_up_words
+from ..web import recalls as recall_words
 from ..web import renewals as renewal_words
 from ..web import status as car_status
 from ..web.templating import dollars
@@ -52,7 +55,8 @@ class Watched:
     name: str
     when: str           # "1,200 mi overdue · due Sep 3"; "expires Oct 31 · in 26 days"
     cost: int | None
-    kind: str = "job"   # job, renewal or reading
+    kind: str = "job"   # job, renewal, reading or recall
+    urgent: bool = False   # a recall NHTSA says not to drive (or to park outside) until it's fixed
 
     @property
     def renewal(self) -> bool:
@@ -91,6 +95,10 @@ class CarWatch:
     @property
     def reading(self) -> Watched | None:
         return next((n for n in self.notices if n.kind == "reading"), None)
+
+    @property
+    def recalls(self) -> list[Watched]:
+        return [n for n in self.notices if n.kind == "recall"]
 
     @property
     def dates(self) -> list[renewal_words.Row]:
@@ -163,7 +171,11 @@ def look(conn: sqlite3.Connection, car, today: date | None = None, maintenance: 
                             "overdue" if row.standing.state == "expired" else "due", row.kind.name, row.when,
                             plan.fee_cost(row.kind.code), kind="renewal"))
     jobs.sort(key=lambda job: rank[job.level])   # stable: each keeps its place within overdue, then due soon
-    notices: list[Watched] = []
+    notices: list[Watched] = [
+        Watched(car["id"], f"{car['id']}:recall:{row['campaign']}", "due", recall_words.component(row["component"]),
+                recall_words.when(row), None, kind="recall", urgent=bool(row["park_it"] or row["park_outside"]))
+        for row in recalls.open_for(conn, car["id"])
+    ]
     if maintenance and (stale := car_status.stale_reading(state)):
         notices.append(Watched(car["id"], reading_subject(car["id"], stale), "due", "Odometer reading wanted",
                                reading_words(stale, today), None, kind="reading"))
@@ -183,20 +195,28 @@ def push(watch: CarWatch, fresh: list[Watched], base_url: str) -> Push:
     dated = [j for j in fresh if j.kind in ("job", "renewal")]
     overdue = sum(1 for j in dated if j.level == "overdue")
     reading = any(j.kind == "reading" for j in fresh)
+    found = [j for j in fresh if j.kind == "recall"]
+    urgent = any(j.urgent for j in found)
     if len(fresh) == 1:
         job = fresh[0]
         if job.kind == "reading":
             return Push(f"{name}: odometer reading wanted", job.when[:1].upper() + job.when[1:] + ".", priority=3,
                         tags=("wrench",), click=f"{page}#add-reading")
+        if job.kind == "recall":
+            return Push(f"{name}: recall, don't drive it" if job.urgent else f"{name}: recall to check",
+                        f"{job.name}: {job.when}", priority=5 if job.urgent else 4, tags=("warning",),
+                        click=f"{page}#recalls")
         title = f"{name}: {job.name} {job.state}"
         message = job.when + (f" · ~{dollars(job.cost)}" if job.cost else "")
     else:
         counts = ([f"{overdue} overdue"] * bool(overdue) + [f"{len(dated) - overdue} due soon"] * bool(len(dated) - overdue)
+                  + [f"{len(found)} recall{'s' if len(found) != 1 else ''} to check"] * bool(found)
                   + ["odometer reading wanted"] * reading)
         title = f"{name}: {', '.join(counts)}"
         message = "\n".join(j.line for j in fresh)
-    return Push(title, message, priority=4 if overdue else 3, tags=("warning",) if overdue else ("wrench",),
-                click=page)
+    priority = 5 if urgent else 4 if overdue or found else 3
+    return Push(title, message, priority=priority, tags=("warning",) if priority > 3 else ("wrench",),
+                click=f"{page}#recalls" if found and len(found) == len(fresh) else page)
 
 
 def take_stock(conn: sqlite3.Connection, car, today: date | None = None) -> int:

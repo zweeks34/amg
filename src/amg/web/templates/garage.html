@@ -47,12 +47,16 @@
         </div>
       </dl>
       {% set s = car.schedule %}
-      {% if s or car.renewals or car.recommended %}
+      {% if s or car.renewals or car.recommended or car.recalls %}
       <div class="carcard__status">
         {% if s and s.next %}
         <p class="carcard__next"><span class="mark mark--{{ s.next.status }}" aria-hidden="true"></span>
           <span><span class="carcard__label">Next:</span> {{ s.next.name }} <span class="muted">{{ s.next.when }}</span></span></p>
         {% endif %}
+        {% for name in car.recalls %}
+        <p class="carcard__next"><span class="mark mark--overdue" aria-hidden="true"></span>
+          <span><span class="carcard__label">Recall</span> <span class="muted">{{ name }}</span></span></p>
+        {% endfor %}
         {% for r in car.renewals %}
         <p class="carcard__next"><span class="mark mark--{{ r.mark }}" aria-hidden="true"></span>
           <span><span class="carcard__label">{{ r.kind.name }}</span> <span class="muted">{{ r.when }}</span></span></p>
