@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Specs · {{ car.name }}{% endblock %}
+
+{% block content %}
+<p class="printhead">{{ car.name }} · {{ car_words }}</p>
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
+  <h1 class="display">Specs</h1>
+  <p class="pagehead__lede">
+    {%- if groups %}What to buy for {{ car.name }}, a {{ car_words }}.
+    {%- else %}What to buy for {{ car.name }}: oil, filters, wiper blades, tires, bulbs and fluids, to have at hand at
+    the parts counter.{% endif -%}
+  </p>
+  <div class="pagehead__actions">
+    <a class="btn btn--primary" href="/vehicles/{{ car.id }}/specs/edit">Edit specs</a>
+    {% if groups %}<button class="btn btn--secondary" type="button" x-data x-cloak @click="window.print()">Print</button>{% endif %}
+  </div>
+</header>
+
+{% if saved %}<p class="notice notice--done" role="status">Specs saved.</p>{% endif %}
+
+{% if groups %}
+<section class="block" aria-label="Specs">
+  <div class="specs sheet sheet--flush">
+    {% for group in groups %}
+    <h2 class="sched__group">{{ group.name }}</h2>
+    {% if group.rows %}
+    <dl class="specs__list">
+      {% for row in group.rows %}
+      <div class="specs__row">
+        <dt class="specs__label">{{ row.label }}</dt>
+        <dd class="specs__value">{{ row.value }}</dd>
+        <dd class="specs__source">{% if row.link %}<a href="{{ row.link }}" target="_blank" rel="noopener">{{ row.source }}</a>
+          {%- else %}{{ row.source }}{% endif %}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+    {% endif %}
+    {% for fitted in group.fitted %}
+    <p class="specs__fitted"><span class="specs__fitted-label">Last fitted</span>
+      <a href="/services/{{ fitted.event_id }}">{{ fitted_words(fitted) }}</a>: {{ fitted.lines | join("; ") }}</p>
+    {% endfor %}
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<div class="sheet empty empty--small">
+  <p>Nothing on {{ car.name }}'s card yet. <a href="/vehicles/{{ car.id }}/specs/edit">Edit specs</a> to type them in:
+    the owner's manual has most of them, and the sticker in the driver's door frame gives the tire size and pressures.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -14,6 +14,7 @@ Back up page's zip does that). It holds:
                           every safety inspection, emissions inspection and registration logged
     recommendations.csv   the work shops recommended on your receipts, and what became of it
     recalls.csv           the recalls NHTSA lists for each car, and what you said about each
+    specs.csv             each car's specs card
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use was read from
 
@@ -29,9 +30,10 @@ import zipfile
 from datetime import date
 from pathlib import Path
 
+from ..engine import specs as spec_catalogue
 from ..engine.renewals import KINDS
 from ..ingest.recalls import campaign_words
-from ..repo import documents, recalls, renewals, reports, schedules, services
+from ..repo import documents, recalls, renewals, reports, schedules, services, specs
 from ..web import follow_ups as follow_up_words
 from . import csvs, history
 from .filters import Filters
@@ -62,6 +64,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         "inspections-and-registration.csv": _renewals(conn),
         "recommendations.csv": _recommendations(conn, names),
         "recalls.csv": _recalls(conn),
+        "specs.csv": _specs(conn),
     }
     missing: list[str] = []
     taken: set[str] = set()
@@ -184,6 +187,18 @@ def _recalls(conn: sqlite3.Connection) -> str:
     return csvs.sheet(columns, rows)
 
 
+def _specs(conn: sqlite3.Connection) -> str:
+    columns = ("Car", "Group", "Spec", "Value", "From", "Page")
+    rows = []
+    for row in specs.everything(conn):
+        field = spec_catalogue.FIELDS.get(row["key"])
+        source = (row["filename"] or "Read by Claude") if row["source"] == "read" else "You"
+        rows.append([csvs.text(row["car"]), field.group if field else spec_catalogue.OTHER,
+                     csvs.text(field.label if field else row["label"]), csvs.text(row["value"]), csvs.text(source),
+                     csvs.number(row["page"])])
+    return csvs.sheet(columns, rows)
+
+
 # ---------- Files ----------
 
 
@@ -235,6 +250,8 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
                         logged as a service, or not doing it
   recalls.csv           the recalls NHTSA lists for each car's year, make
                         and model, and whether each was done or isn't yours
+  specs.csv             each car's specs card: what to buy for it, and
+                        where each value came from
 
 Files, as you uploaded them:
 

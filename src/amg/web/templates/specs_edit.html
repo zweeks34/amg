@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_spec_fields.html" import boxes, custom_lines %}
+{% block title %}Edit specs · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a> · <a href="/vehicles/{{ car.id }}/specs">Specs</a></p>
+  <h1 class="display">Edit specs</h1>
+  <p class="pagehead__lede">Leave a box empty if you don't know it. The owner's manual has most of these, and the
+    sticker in the driver's door frame gives the tire size and pressures.</p>
+</header>
+
+<form class="sheet form specform" method="post" action="/vehicles/{{ car.id }}/specs/edit">
+  {% if errors %}<p class="notice notice--gap" role="alert">Some boxes need a look. They're marked below.</p>{% endif %}
+  <div class="form__body">
+    {{ boxes(groups, errors) }}
+    {{ custom_lines(custom) }}
+  </div>
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">Save specs</button>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}/specs">Cancel</a>
+  </div>
+</form>
+{% endblock %}

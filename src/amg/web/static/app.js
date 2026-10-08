@@ -243,6 +243,17 @@ document.addEventListener("alpine:init", () => {
   }));
 });
 
+// A suggestion fills its box as if typed: data-for names the box, data-use holds the value.
+document.addEventListener("click", (event) => {
+  const button = event.target instanceof Element ? event.target.closest("[data-use]") : null;
+  const box = button ? document.getElementById(button.dataset.for) : null;
+  if (box) {
+    box.value = button.dataset.use;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    box.focus();
+  }
+});
+
 // On the receipt review, a field still holding what Claude read is drawn as
 // unconfirmed; once you change it, it's yours. data-read holds the reading.
 document.addEventListener("input", (event) => {

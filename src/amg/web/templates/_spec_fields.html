@@ -1,0 +1,55 @@
+{#- The specs form's boxes, shared by Edit specs and the check of a reading.
+    On a reading, data-read holds what Claude read, and the box is drawn dashed until it differs. -#}
+
+{% macro boxes(groups, errors) -%}
+{% for name, group in groups %}
+<fieldset class="specform__group">
+  <legend class="specform__legend">{{ name }}</legend>
+  {% for box in group %}
+  {% set id = "f-spec_" ~ box.key %}
+  {% set error = errors.get("spec_" ~ box.key) %}
+  <div class="field">
+    <label for="{{ id }}">{{ box.label }}{% if box.page %} <span class="field__source">p. {{ box.page }}</span>{% endif %}</label>
+    <input id="{{ id }}" name="spec_{{ box.key }}" value="{{ box.value }}" placeholder="{{ box.example }}" autocomplete="off"
+           {%- if box.read is not none %} data-read="{{ box.read }}" class="{{ 'is-edited' if box.value != box.read }}"{% endif %}
+           {%- if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% elif box.was %} aria-describedby="{{ id }}-hint"{% endif %}>
+    {% if error %}<p class="field__error" id="{{ id }}-error">{{ error }}</p>
+    {% elif box.was %}<p class="field__hint" id="{{ id }}-hint">Was: {{ box.was }}</p>{% endif %}
+    {% if box.suggestions %}
+    <p class="specform__suggest"><span>From your receipts:</span>
+      {% for value in box.suggestions %}
+      <button class="btn btn--quiet specform__use" type="button" data-for="{{ id }}" data-use="{{ value }}"
+              aria-label="Use {{ value }} for {{ box.label | lower }}">Use {{ value }}</button>
+      {% endfor %}
+    </p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</fieldset>
+{% endfor %}
+{%- endmacro %}
+
+{% macro custom_lines(lines) -%}
+<fieldset class="specform__group" x-data='{ lines: {{ lines | tojson }}, next: {{ lines | length }} }'>
+  <legend class="specform__legend">Other</legend>
+  <p class="field__hint">Anything else you buy for it, such as a trunk light bulb or a hitch pin.</p>
+  <template x-for="line in lines" :key="line.id">
+    <div class="specline">
+      <div class="field">
+        <label :for="'f-custom-label-' + line.id">Name</label>
+        <input :id="'f-custom-label-' + line.id" name="custom_label" x-model="line.label" placeholder="Trunk light" autocomplete="off"
+               :aria-invalid="line.error ? 'true' : null">
+      </div>
+      <div class="field">
+        <label :for="'f-custom-value-' + line.id">Value</label>
+        <input :id="'f-custom-value-' + line.id" name="custom_value" x-model="line.value" placeholder="168" autocomplete="off"
+               :aria-invalid="line.error ? 'true' : null">
+      </div>
+      <button class="btn btn--quiet specline__remove" type="button" @click="lines = lines.filter(l => l !== line)"
+              :aria-label="'Remove ' + (line.label || 'this line')">Remove</button>
+      <p class="field__error specline__error" x-show="line.error" x-text="line.error"></p>
+    </div>
+  </template>
+  <button class="btn btn--secondary specform__add" type="button" @click="lines.push({ id: next++, label: '', value: '', error: '' })">Add a line</button>
+</fieldset>
+{%- endmacro %}

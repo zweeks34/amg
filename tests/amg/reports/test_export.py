@@ -10,9 +10,10 @@ from datetime import date
 import report_fixtures as rf  # tests/ is on pytest's path
 
 from amg.reports import csvs, export
-from amg.repo import documents, fuel, odometer, prices, receipts, renewals, schedules, vehicles
+from amg.repo import documents, fuel, odometer, prices, receipts, renewals, schedules, specs, vehicles
 from amg.repo.renewals import RenewalInput
 from amg.repo.schedules import ItemInput
+from amg.repo.specs import SpecInput
 
 TODAY = date(2026, 10, 4)
 
@@ -56,6 +57,7 @@ def test_everything_is_there(conn, tmp_path):
     renewals.create(conn, outback, RenewalInput("safety", "2027-09-30", "2026-09-01", 2_000,
                                                 service_event_id=inspected))
     renewals.create(conn, outback, RenewalInput("registration", "2027-03-31", note="Online, 2 years"))
+    specs.save(conn, outback, [SpecInput("oil_grade", "0W-20"), SpecInput("custom", "168", label="Trunk light")])
 
     zf, missing = build(conn, tmp_path)
     names = sorted(zf.namelist())
@@ -66,7 +68,7 @@ def test_everything_is_there(conn, tmp_path):
         "receipts/2019-03-04 Midas - Outback (2).pdf",
         "receipts/2019-03-04 Midas - Outback.pdf",
         "receipts/2020-05-06 A B Best Garage - Outback.jpg",       # what a file name can't hold, taken out
-        "recommendations.csv", "schedules.csv", "service-history.csv",
+        "recommendations.csv", "schedules.csv", "service-history.csv", "specs.csv",
     ] and missing == []
     assert zf.read("receipts/2019-03-04 Midas - Outback.pdf") == documents.path(
         documents.by_sha(conn, conn.execute("SELECT sha256 FROM documents WHERE filename = 'scan 1.pdf'")
@@ -99,6 +101,10 @@ def test_everything_is_there(conn, tmp_path):
         ("Old Tacoma", "2015-11-02", "Open")]
     assert (recommended[0]["Shop"], recommended[0]["Recommendation"], recommended[0]["Services"],
             recommended[0]["Quoted"]) == ("Midas", "Brake fluid flush", "Brake fluid", "129.95")
+    assert sheet(zf, "specs.csv") == [
+        {"Car": "Outback", "Group": "Engine oil", "Spec": "Oil grade", "Value": "0W-20", "From": "You", "Page": ""},
+        {"Car": "Outback", "Group": "Other", "Spec": "Trunk light", "Value": "168", "From": "You", "Page": ""},
+    ]
     price = sheet(zf, "prices.csv")[0]
     assert (price["Job"], price["From"], price["Low"], price["High"]) == ("Oil and filter", "You", "85.00", "85.00")
 
