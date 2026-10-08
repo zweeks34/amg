@@ -720,6 +720,56 @@ reading gets one push asking for one. *That's yours.*
 
 ---
 
+## Phase 12 — Specs card
+
+**For:** having what to buy for each car at hand at the parts counter: oil and
+its filter, filters, wiper blades, tires, batteries, bulbs and fluids.
+(Added 2026-10-08.)
+
+- [x] The card: each car's **Specs** page, from a button on its page, groups a fixed catalogue in shopping order (engine oil, filters, wipers, tires and wheels, battery and bulbs, fluids, fuel and ignition) plus lines you name yourself. Electric cars skip oil, fuel and the like, but a value always shows. Each value says where it came from, linked to the page it was read on; under each group, the newest confirmed visit that replaced those parts ("Last fitted"). It prints on its own, and Download your data gets `specs.csv`
+- [x] **Edit specs:** a box per field with an example, your own lines, and suggestions from your receipts as **Use …** buttons: part numbers, an oil grade written as "0W-20", a tire size, a wiper blade's length. An empty box drops the spec; a changed one is yours
+- [x] Reading the owner's manual or photos (the spec pages, the door-jamb tire sticker), uploaded or a file AMG already has for the car. A long manual's spec pages are found locally, as the schedule's are, by a scorer of their own; Claude reads them in the background, at medium effort, and gives a value only for what the pages print. The review puts the pages beside the boxes, dashed until changed, with "Was: …" where the card said otherwise; **Use these specs** replaces the card, values left as read keeping their file and page
+
+**Decisions:**
+
+- **Receipts suggest, they don't fill.** A shop's line says what went in that
+  day, not what the maker specifies, so it's a button beside the box and a
+  "Last fitted" line on the card, never a value nobody chose.
+- **Only what the page prints.** Claude is told to leave out any field the
+  pages don't give, never to fill one in from memory: on the card a guess
+  would look the same as a fact. Values for other engines or trims go in
+  "Worth a look", with the likeliest filled in.
+- **One card per car, replaced whole.** A reading isn't kept as a draft:
+  checking it writes the card, and the reading is marked used.
+- **Free text, not units.** "4.4 US qt (4.2 L)" and "35 psi front, 33 psi
+  rear" are what a counter needs; nothing does sums with them.
+
+**Data owned:** `vehicle_specs` (migration 0015): a row per value, keyed by a
+catalogue field or `custom` with your label, and where it came from (you, or
+read from a document and page). `spec_reads` (migration 0016): each reading's
+file, pages, what Claude returned, the boxes it fills, its warnings and cost.
+
+**Can go wrong:** a 600-page manual → its spec pages found locally, at most
+12 sent. No spec pages found, or a scan with no text → type the pages. A
+manual covering several engines → the likeliest value, and the others under
+"Worth a look". A value Claude has no box for → said, to add under Other. A
+restart mid-read → **Carry on reading**.
+
+**Tests pin:** the catalogue; electric cars' groups; suggestions from how
+shops write oil grades, tire sizes and wiper lengths, part numbers over
+descriptions, never twice, never what the box already holds; last fitted
+per visit; saving replaces the card, keeps a value's page when it's left
+alone and makes a changed one yours; the spec page found over the schedule
+in a 40-page manual; what a reading fills in and what it warns about; a
+reading's life from queued to used, failed, read again, carried on and
+discarded; the pages, and `specs.csv` and `manuals/` in the export.
+
+**Done when:** on the server, each car's card is filled, read from its owner's
+manual or typed from the door sticker, and checked; and it has been to the
+parts counter once. *That's yours.*
+
+---
+
 ## Parked
 
 - Mathpix as a third reader for the worst scans — credentials are in `.env`, but
