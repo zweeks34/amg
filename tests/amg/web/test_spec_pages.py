@@ -38,14 +38,14 @@ def test_an_empty_card_says_how_to_fill_it(signed_in, car):
 
 def test_type_them_in(signed_in, conn, car):
     form = signed_in.get(f"/vehicles/{car}/specs/edit").text
-    assert 'name="spec_oil_grade"' in form and 'placeholder="0W-20 synthetic"' in form and "Add a line" in form
+    assert 'name="spec_oil_grade"' in form and 'placeholder="e.g. 0W-20 synthetic"' in form and "Add a line" in form
     response = _save(signed_in, car, oil_grade="0W-20 synthetic", tire_size="225/65R17 98H", wiper_driver="")
     assert response.headers["location"] == f"/vehicles/{car}/specs?saved=1"
     page = signed_in.get(f"/vehicles/{car}/specs?saved=1").text
     assert "Specs saved." in page and "0W-20 synthetic" in page and "225/65R17 98H" in page
     assert "Set by you" in page and "Driver's wiper blade" not in page
-    assert "What to buy for Outback, a 2016 Subaru Outback 2.5i Limited, gasoline." in page
-    assert "Print</button>" in page and '<p class="printhead">Outback · 2016 Subaru Outback' in page
+    assert "What to buy for Outback (2016 Subaru Outback 2.5i Limited)." in page
+    assert "Print</button>" in page and '<p class="printhead">Outback · 2016 Subaru Outback 2.5i Limited</p>' in page
     assert [(r["key"], r["source"]) for r in specs.values(conn, car)] == [("oil_grade", "you"), ("tire_size", "you")]
 
 
@@ -92,11 +92,24 @@ def test_your_receipts_suggest_and_show_what_went_in(signed_in, conn, car):
         part("Wiper blade 26 in", "wiper_blades"), part("Wiper blade 17 in", "wiper_blades")])
     form = html.unescape(signed_in.get(f"/vehicles/{car}/specs/edit").text)
     assert 'data-for="f-spec_oil_filter" data-use="15208AA15A"' in form and "Use 0W-20" in form
-    assert form.count('data-use="Wiper blade 26 in"') == 3    # driver's, passenger's and rear: a receipt rarely says which
+    assert form.count('data-use="26 in"') == 3    # driver's, passenger's and rear: a receipt rarely says which
     assert 'data-for="f-spec_tire_size"' not in form
     page = html.unescape(signed_in.get(f"/vehicles/{car}/specs").text)
     assert "Last fitted" in page and "Aug 1, 2026 at Valley Honda</a>: Oil filter 15208AA15A; 0W20 FULL SYN × 5" in page
     assert "Wiper blade 26 in; Wiper blade 17 in" in page and ">Engine oil</h2>" in page
+
+
+def test_a_suggestion_already_in_its_box_isnt_offered(signed_in, conn, car):
+    rf.visit(conn, car, "2026-08-01", shop="Valley Honda", lines=[part("Oil filter", "oil_filter", "15208AA15A")])
+    _save(signed_in, car, oil_filter="15208aa15a")
+    assert 'data-use="15208AA15A"' not in signed_in.get(f"/vehicles/{car}/specs/edit").text
+
+
+def test_a_car_known_only_by_its_name(signed_in, conn):
+    mystery = rf.car(conn, "Mystery")
+    _save(signed_in, mystery, key_fob_battery="CR2032")
+    page = signed_in.get(f"/vehicles/{mystery}/specs").text
+    assert "What to buy for Mystery." in page and '<p class="printhead">Mystery</p>' in page
 
 
 def test_an_electric_cars_form(signed_in, conn):
@@ -154,7 +167,7 @@ def test_read_the_manual_check_it_and_use_it(signed_in, conn, car, reads):
     url = _read_url(_upload(signed_in, car))
     page = html.unescape(signed_in.get(url).text)
     assert "Check these specs" in page and "Pages read · 1, 2" in page and "which says it's for 2016 Outback" in page
-    assert 'name="spec_oil_grade" value="0W-20" placeholder="0W-20 synthetic" autocomplete="off" data-read="0W-20" class=""' \
+    assert 'name="spec_oil_grade" value="0W-20" placeholder="e.g. 0W-20 synthetic" autocomplete="off" data-read="0W-20" class=""' \
         in page
     assert "Dashed boxes are still as Claude read" in page and "The bulb chart is blurred." in page
     assert "Tire size: 225/60R18 on the Touring" in page and "p. 2</span>" in page

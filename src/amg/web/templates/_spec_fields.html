@@ -10,7 +10,7 @@
   {% set error = errors.get("spec_" ~ box.key) %}
   <div class="field">
     <label for="{{ id }}">{{ box.label }}{% if box.page %} <span class="field__source">p. {{ box.page }}</span>{% endif %}</label>
-    <input id="{{ id }}" name="spec_{{ box.key }}" value="{{ box.value }}" placeholder="{{ box.example }}" autocomplete="off"
+    <input id="{{ id }}" name="spec_{{ box.key }}" value="{{ box.value }}" placeholder="e.g. {{ box.example }}" autocomplete="off"
            {%- if box.read is not none %} data-read="{{ box.read }}" class="{{ 'is-edited' if box.value != box.read }}"{% endif %}
            {%- if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% elif box.was %} aria-describedby="{{ id }}-hint"{% endif %}>
     {% if error %}<p class="field__error" id="{{ id }}-error">{{ error }}</p>
@@ -37,12 +37,12 @@
     <div class="specline">
       <div class="field">
         <label :for="'f-custom-label-' + line.id">Name</label>
-        <input :id="'f-custom-label-' + line.id" name="custom_label" x-model="line.label" placeholder="Trunk light" autocomplete="off"
+        <input :id="'f-custom-label-' + line.id" name="custom_label" x-model="line.label" placeholder="e.g. Trunk light" autocomplete="off"
                :aria-invalid="line.error ? 'true' : null">
       </div>
       <div class="field">
         <label :for="'f-custom-value-' + line.id">Value</label>
-        <input :id="'f-custom-value-' + line.id" name="custom_value" x-model="line.value" placeholder="168" autocomplete="off"
+        <input :id="'f-custom-value-' + line.id" name="custom_value" x-model="line.value" placeholder="e.g. 168" autocomplete="off"
                :aria-invalid="line.error ? 'true' : null">
       </div>
       <button class="btn btn--quiet specline__remove" type="button" @click="lines = lines.filter(l => l !== line)"

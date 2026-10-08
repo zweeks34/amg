@@ -3,12 +3,12 @@
 {% block title %}Specs · {{ car.name }}{% endblock %}
 
 {% block content %}
-<p class="printhead">{{ car.name }} · {{ car_words }}</p>
+<p class="printhead">{{ car.name }}{% if car_words %} · {{ car_words }}{% endif %}</p>
 <header class="pagehead">
   <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
   <h1 class="display">Specs</h1>
   <p class="pagehead__lede">
-    {%- if groups %}What to buy for {{ car.name }}, a {{ car_words }}.
+    {%- if groups %}What to buy for {{ car.name }}{% if car_words %} ({{ car_words }}){% endif %}.
     {%- else %}What to buy for {{ car.name }}: oil, filters, wiper blades, tires, bulbs and fluids, to have at hand at
     the parts counter.{% endif -%}
   </p>

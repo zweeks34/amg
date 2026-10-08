@@ -19,6 +19,12 @@ MAX_LENGTH = 160
 FIELD_PREFIX = "spec_"
 
 
+def car_words(car: Mapping) -> str:
+    """'2019 Honda Civic EX, 2.0L 4-cyl': what the card is for, or '' for a car with none of it."""
+    name = " ".join(str(part) for part in (car["year"], car["make"], car["model"], car["trim"]) if part)
+    return ", ".join(part for part in (name, car["engine"]) if part)
+
+
 def source_label(row: Mapping) -> str:
     """Where a value came from: 'outback-manual.pdf, p. 412', or 'Set by you'."""
     if row["source"] != "read":
@@ -120,7 +126,9 @@ def boxes(conn: sqlite3.Connection, car: Mapping, raw: Mapping, read: Mapping | 
     for name, fields in catalogue.for_car(car["powertrain"], with_values):
         group: list[Box] = []
         for f in fields:
-            box = Box(f.key, f.label, f.example, raw.get(FIELD_PREFIX + f.key, ""), catalogue.candidates(f, lines))
+            value = raw.get(FIELD_PREFIX + f.key, "")
+            offered = [s for s in catalogue.candidates(f, lines) if s.upper() != value.upper()]
+            box = Box(f.key, f.label, f.example, value, offered)
             if read and f.key in read:
                 box.read, box.page = read[f.key]["value"], read[f.key].get("page")
                 mine = by_key.get(f.key, "")

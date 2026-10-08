@@ -17,7 +17,7 @@ def line(code, description, part_number="", kind="part", event_id=1, day="2026-0
 def test_the_catalogue_hangs_together():
     assert len(FIELDS) == len({f.label for f in FIELDS.values()})
     assert {f.group for f in FIELDS.values()} == set(specs.GROUPS)
-    assert all(f.pick in ("part", "grade", "tire") for f in FIELDS.values() if f.codes)
+    assert all(f.pick in ("part", "grade", "tire", "length") for f in FIELDS.values() if f.codes)
     assert all(not f.pick for f in FIELDS.values() if not f.codes)
 
 
@@ -47,7 +47,14 @@ def test_a_part_number_over_a_description_and_never_twice():
              line("oil_filter", "Filter, oil", "15208AA170", event_id=3)]
     assert specs.candidates(FIELDS["oil_filter"], lines) == ["15208AA15A", "15208AA170"]
     # A description says which part only when it has a number in it.
-    assert specs.candidates(FIELDS["wiper_driver"], lines) == ["Wiper blade 26 in"]
+    battery = [line("battery_12v", "Battery H6 AGM"), line("battery_12v", "Battery")]
+    assert specs.candidates(FIELDS["battery"], battery) == ["Battery H6 AGM"]
+
+
+def test_a_wiper_blades_length_over_its_part_number():
+    lines = [line("wiper_blades", "Wiper blade 26 in", "76620-TBA-A02"), line("wiper_blades", 'Wiper 16"'),
+             line("wiper_blades", "Rear wiper", "WR-14"), line("wiper_blades", "Wiper blades, 650mm")]
+    assert specs.candidates(FIELDS["wiper_driver"], lines) == ["26 in", "16 in", "WR-14"]
 
 
 def test_last_fitted_is_the_newest_visit_per_part():

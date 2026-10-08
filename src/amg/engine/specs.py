@@ -31,7 +31,7 @@ class Field:
     example: str                     # shown as the box's placeholder
     powertrains: frozenset[str] = ALL
     codes: tuple[str, ...] = ()      # service types whose receipt lines can suggest a value
-    pick: str = ""                   # what to take from those lines: part, grade or tire
+    pick: str = ""                   # what to take from those lines: part, grade, tire or length
 
 
 GROUPS = ("Engine oil", "Filters", "Wipers", "Tires and wheels", "Battery and bulbs", "Fluids", "Fuel and ignition")
@@ -43,9 +43,9 @@ FIELDS: dict[str, Field] = {f.key: f for f in (
     Field("oil_filter", "Oil filter", "Engine oil", "Subaru 15208AA15A", ENGINE, ("oil_filter",), "part"),
     Field("engine_air_filter", "Engine air filter", "Filters", "Subaru 16546AA12A", ENGINE, ("engine_air_filter",), "part"),
     Field("cabin_air_filter", "Cabin air filter", "Filters", "Subaru 72880FL00A", ALL, ("cabin_air_filter",), "part"),
-    Field("wiper_driver", "Driver's wiper blade", "Wipers", "26 in", ALL, ("wiper_blades",), "part"),
-    Field("wiper_passenger", "Passenger's wiper blade", "Wipers", "17 in", ALL, ("wiper_blades",), "part"),
-    Field("wiper_rear", "Rear wiper blade", "Wipers", "14 in", ALL, ("wiper_blades",), "part"),
+    Field("wiper_driver", "Driver's wiper blade", "Wipers", "26 in", ALL, ("wiper_blades",), "length"),
+    Field("wiper_passenger", "Passenger's wiper blade", "Wipers", "17 in", ALL, ("wiper_blades",), "length"),
+    Field("wiper_rear", "Rear wiper blade", "Wipers", "14 in", ALL, ("wiper_blades",), "length"),
     Field("tire_size", "Tire size", "Tires and wheels", "225/65R17 102H", ALL, ("tires",), "tire"),
     Field("tire_pressure", "Tire pressure, cold", "Tires and wheels", "35 psi front, 33 psi rear"),
     Field("lug_torque", "Lug nut torque", "Tires and wheels", "89 lb-ft"),
@@ -87,6 +87,7 @@ def group_codes(fields: Iterable[Field]) -> list[str]:
 
 _GRADE = re.compile(r"(?<!\d)(\d{1,2})\s?W\s?-?\s?(\d{2})(?!\d)", re.I)
 _TIRE = re.compile(r"(?<!\d)(\d{3})\s?/\s?(\d{2})\s?Z?R\s?(\d{2})(?!\d)", re.I)
+_LENGTH = re.compile(r"(?<![\d.])(1\d|2\d|3[0-2])\s?(?:in(?:ch(?:es)?)?\b|\"|'')", re.I)   # a wiper blade, 10 to 32 in
 
 
 def candidates(field: Field, lines: Sequence[Mapping]) -> list[str]:
@@ -95,7 +96,8 @@ def candidates(field: Field, lines: Sequence[Mapping]) -> list[str]:
     ``lines`` are line items that replaced one of the field's service types,
     newest first (repo.specs.fitted_lines). A part number is the best answer;
     failing one, a part line's description, but only when it has a number in
-    it: "Wiper blade 26 in" says which, "Wiper blades" doesn't.
+    it: "Battery H6 AGM" says which, "Battery" doesn't. A wiper blade's
+    length beats its part number, since any brand's 26 in blade fits.
     """
     found: list[str] = []
     for line in lines:
@@ -106,19 +108,23 @@ def candidates(field: Field, lines: Sequence[Mapping]) -> list[str]:
             values = [f"{m[1]}W-{m[2]}" for m in _GRADE.finditer(text)]
         elif field.pick == "tire":
             values = [f"{m[1]}/{m[2]}R{m[3]}" for m in _TIRE.finditer(text)]
-        elif field.pick == "part":
-            if line["part_number"].strip():
-                values = [line["part_number"].strip()]
-            elif line["kind"] == "part" and re.search(r"\d", line["description"]):
-                values = [line["description"].strip()]
-            else:
-                values = []
+        elif field.pick in ("part", "length"):
+            lengths = [f"{m[1]} in" for m in _LENGTH.finditer(line["description"])] if field.pick == "length" else []
+            values = lengths or _part(line)
         else:
             values = []
         for value in values:
             if value.upper() not in {v.upper() for v in found}:
                 found.append(value)
     return found[:MAX_SUGGESTIONS]
+
+
+def _part(line: Mapping) -> list[str]:
+    if line["part_number"].strip():
+        return [line["part_number"].strip()]
+    if line["kind"] == "part" and re.search(r"\d", line["description"]):
+        return [line["description"].strip()]
+    return []
 
 
 @dataclass(frozen=True)
