@@ -21,7 +21,7 @@ in [plans/](plans/README.md).
 | Storage | SQLite through stdlib `sqlite3`, WAL mode, numbered SQL migrations | AMG's data is relational (vehicle → service → line item ↔ schedule item) and reports are queries. One file to back up. No multi-worker stale-file problem |
 | Baseline schedule | Owner's-manual PDF → AI extraction → you verify. Fallback: AI draft from year/make/model (VIN decoded by NHTSA vPIC), *unverified* until confirmed. Templates to start from | The manual is the authority; the draft covers cars whose manual you don't have |
 | Receipts | Local first (PDF text layer → Tesseract), then Claude structures the text into line items, reading the image itself when OCR is poor. **Every receipt is confirmed before it counts** | Free where it can be, accurate where it matters, and never silently wrong |
-| Line kinds | Labor, part, fee or other: what the line *is*, not who paid for it. No warranty kind. Work done under warranty keeps its real kind and its services, at $0 or whatever you paid; a warranty you bought (road hazard, extended) is a fee covering no services; a warranty credit against a charged line is other, negative | A battery replaced under warranty is still a battery replacement the schedule needs to see, and calling warranty lines labor would inflate labor spend in reports. Who paid can become its own field if it's ever needed |
+| Line kinds | Labor, part, fee or other: what the line *is*, not who paid for it. No warranty kind. Work done under warranty keeps its real kind and its services, at $0 or whatever you paid; a warranty you bought (road hazard, extended) is a fee covering no services, and since phase 14 also kept as a warranty; a warranty credit against a charged line is other, negative | A battery replaced under warranty is still a battery replacement the schedule needs to see, and calling warranty lines labor would inflate labor spend in reports. Who paid can become its own field if it's ever needed |
 | Claude model | `AMG_CLAUDE_MODEL`, default `claude-opus-5-5` | ≈5¢/receipt page. Sonnet 5.5 (≈2¢) or Haiku 4.5 (≈1¢) is a one-line change |
 | Vehicles | Gasoline, hybrid, EV | EVs log kWh and mi/kWh instead of gallons and MPG |
 | Units | Miles, US gallons, USD, kWh | |
@@ -819,6 +819,81 @@ only recent open recommendations, no dollar amounts, and its empty state;
 **Done when:** on the server, the next thing you notice goes in as an issue,
 with a photo if it shows; the sheet goes to the next shop visit; and the
 visit after it is asked about and answered. *That's yours.*
+
+---
+
+## Phase 14 — Warranties
+
+**For:** keeping each part's, repair's and car's warranty until it ends,
+so nothing covered gets paid for twice: read from receipts or typed in,
+asked about when a later visit replaces a covered part, shown before the
+work, and warned of before it ends. (Added 2026-10-09.)
+
+- [x] Warranties from receipts: the reader lists each warranty a receipt gives with its terms (months, miles, or lifetime, and the services it covers), never a disclaimer, and a shop's general guarantee only for a visit that did more than routine maintenance. The review has a **Warranties** block; confirming writes them, and saving again keeps each by its wording
+- [x] Your own: **Add a warranty** on the car's page, or on a service you logged by hand: the whole car (from the in-service date, for its factory or extended warranty) or parts you choose, how long in years or months and/or miles, or lifetime, and the visit it came with. The car's **Warranties** section says what each covers, its terms, where it came from and until when, with what's left; ended ones fold away. Download your data gets `warranties.csv`
+- [x] The question: a later confirmed visit that replaced a covered part while the warranty was in force asks, on the car's page and the service's: **Done under the warranty** keeps it and lists the visit as used; **Paid for it** ends it that day. Both undo. A receipt's review notes which parts it replaces were under warranty
+- [x] Before the work: an open shop recommendation for a part under warranty says so, and **For the shop** lists the warranties in force and notes the jobs and recommendations they cover
+- [x] Older receipts: the Receipts page offers to look through the receipts read before AMG kept warranties, once, with the cost first. Claude reads each again for warranties alone; finds wait on the receipt, dashed, until you check them and save
+- [x] Ending: 60 days before a warranty ends by date, or before the car reaches its miles at the rate it's driven, one push, a line in the weekly email, and "1 warranty ending" on the garage card
+
+**Decisions:**
+
+- **AMG asks, it doesn't decide.** A visit that replaced a covered part
+  may have been a claim or may not; you say. **Paid for it ends it,**
+  since the part it covered is gone; done under the warranty keeps it,
+  since a part replaced under warranty usually keeps the rest of the term.
+- **Some work never asks.** Inspections and procedures (a lifetime
+  rotation is used, not used up; a procedure done under one is a note on
+  its visit); oil, filters and fluids, replaced on schedule as a matter
+  of course, so a guarantee on an oil change never makes the next one a
+  claim; "Other repair", too vague to match one repair to another; and
+  whole-car warranties, whose parts aren't listed.
+- **A receipt's warranties live in its draft,** as everything on a
+  receipt does, and are edited there; the warranties table mirrors them
+  on each save, found again by wording so answers survive.
+- **Finds on older receipts count only once saved.** The look is Claude
+  reading again, so its finds wait, marked, beside the scan.
+- **Warnings don't wait for the alerts switch,** like inspection dates and
+  recalls: a warranty you confirmed isn't wrong the way job alerts are
+  while old receipts go in.
+- **No factory terms from memory.** They vary by make, year and market;
+  you type them from the booklet.
+
+**Data owned:** `warranties` (migration 0018): name, who honours it,
+details, start day and miles (blank is estimated from readings), months
+and miles (both blank is lifetime), whole car, the visit it came with, and
+for a receipt's, the receipt and its wording. `warranty_covers`: the
+services each covers. `warranty_answers`: claimed or paid, per later
+visit. `warranty_looks` (migration 0019): each older receipt looked at,
+what it found, and what it cost. Alerts reuse `alert_log`:
+`{car}:warranty:{id}:{end}`, the end being its last day or its end miles.
+
+**Can go wrong:** a dealer's guarantee printed on every invoice → listed
+only for a visit with more than routine work, and never asks about oil,
+filters or fluids. A disclaimer read as a warranty → remove it on review.
+A visit replaced the part twice → asked about the earlier first; paid
+ends it, and nothing after is asked. The receipt's service deleted → its
+warranties go, back with the receipt to be checked. The miles it started
+at unknown → estimated, and the words say "about". A look that fails →
+said, with Try again; a restart mid-look → **Carry on looking**.
+
+**Tests pin:** end dates across month ends; end miles from a known and an
+estimated start; in force by date and by miles; ending at 60 days and not
+61, and by miles at the rate driven; which visit asks (later, not its
+own, not the same day, replacements only, not routine or other, the
+earliest unanswered, nothing after paid); syncing a receipt's warranties
+by wording, keeping answers; the forms' refusals; the question and its
+answers on both pages, a stale answer refused; the review's notes, the
+recommendation's and the sheet's, never for routine work; the look's
+finds, their marks, no duplicates, failures and carrying on, and the
+estimate; the push, its key and wording, the email, the garage count;
+`warranties.csv`.
+
+**Done when:** on the server, **Look for warranties** has been run once
+and its finds checked; each car's factory and extended warranties are
+typed from its booklet; the next receipt with a warranty is read with
+it; and an ending warranty arrives as a push and in Monday's email.
+*That's yours.*
 
 ---
 
