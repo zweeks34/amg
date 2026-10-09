@@ -47,9 +47,9 @@ def is_stalled(job: sqlite3.Row | dict, now: datetime | None = None) -> bool:
 
 
 def resume(conn: sqlite3.Connection, job_id: int) -> None:
-    """Put a stalled job's half-done receipt, schedule, specs or prices back in the queue and mark it alive."""
+    """Put a stalled job's half-done receipt, schedule, specs, prices or warranty look back in the queue, alive."""
     for table, busy in (("receipts", "reading"), ("schedule_drafts", "reading"), ("spec_reads", "reading"),
-                        ("price_book", "asking")):
+                        ("price_book", "asking"), ("warranty_looks", "looking")):
         conn.execute(f"UPDATE {table} SET status = 'queued', updated_at = ? WHERE job_id = ? AND status = ?",
                      (now_iso(), job_id, busy))
     conn.execute("UPDATE jobs SET status = 'running', heartbeat_at = ?, finished_at = NULL WHERE id = ?",

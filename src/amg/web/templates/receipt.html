@@ -43,6 +43,10 @@
 </p>
 {% endif %}
 {% if saved %}<p class="notice notice--done" role="status">Draft saved. It doesn't count until you confirm it.</p>{% endif %}
+{% if found_warranties and status == "confirmed" %}
+<p class="notice" role="note">AMG found warranties on this receipt, read before it kept them. Check each against the
+  scan under <a href="#warranties">Warranties</a>, then <strong>Save changes</strong>: they don't count until you do.</p>
+{% endif %}
 
 {% if status in ("queued", "reading") %}
 <div class="sheet empty empty--small" hx-get="/receipts/{{ receipt.id }}" hx-trigger="every 3s" hx-select="main" hx-target="main" hx-swap="outerHTML">

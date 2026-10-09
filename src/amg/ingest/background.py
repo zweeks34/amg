@@ -1,4 +1,7 @@
-"""Reading receipts, schedules and specs, and pricing jobs, in a background thread, so a request answers straight away.
+"""Work done in a background thread, so a request answers straight away.
+
+Reading receipts, schedules and specs; pricing jobs; and looking through
+receipts read before AMG kept warranties.
 
 The upload request stores the files, makes a job and starts a thread; the
 page watches the database. A file and not memory, because uvicorn runs
@@ -17,8 +20,9 @@ from datetime import date
 
 from .. import db
 from ..engine import forecast
-from ..repo import documents, jobs, prices, receipts, schedules, services, specs, vehicles
+from ..repo import documents, jobs, prices, receipts, schedules, services, specs, vehicles, warranty_looks
 from . import claude, drafts, manuals, schedule_drafts
+from . import warranties as warranty_reader
 from . import prices as pricer
 from . import receipts as reader
 from . import specs as spec_reader
@@ -29,6 +33,7 @@ JOB_KIND = "read_receipts"
 SCHEDULE_JOB = "read_schedule"
 SPEC_JOB = "read_specs"
 PRICE_JOB = "price_jobs"
+LOOK_JOB = "look_warranties"
 
 
 def start(conn, document_ids: list[int], vehicle_id: int | None = None) -> int:
@@ -83,6 +88,14 @@ def price(conn, vehicle_id: int, wanted: list[tuple]) -> int:
     return job_id
 
 
+def look_for_warranties(conn, receipt_ids: list[int]) -> int:
+    """Queue confirmed receipts to be looked at for warranties; returns the job id."""
+    job_id = jobs.create(conn, LOOK_JOB)
+    warranty_looks.queue(conn, receipt_ids, job_id)
+    spawn(job_id)
+    return job_id
+
+
 def carry_on(conn, job_id: int) -> None:
     jobs.resume(conn, job_id)
     spawn(job_id)
@@ -104,6 +117,10 @@ def run(job_id: int) -> None:
         elif job is not None and job["kind"] == SPEC_JOB:
             while (read_id := specs.claim_next(conn, job_id)) is not None:
                 read_one_specs(conn, read_id)
+                jobs.heartbeat(conn, job_id)
+        elif job is not None and job["kind"] == LOOK_JOB:
+            while (receipt_id := warranty_looks.claim_next(conn, job_id)) is not None:
+                look_one(conn, receipt_id)
                 jobs.heartbeat(conn, job_id)
         elif job is not None and job["kind"] == PRICE_JOB:
             while rows := prices.claim(conn, job_id):
@@ -177,6 +194,28 @@ def read_one_specs(conn, read_id: int) -> None:
         return
     values, warnings = spec_reader.to_draft(result.extraction)
     specs.mark_read(conn, read_id, result.extraction.model_dump(), values, warnings, result.pages, result.usage)
+
+
+def look_one(conn, receipt_id: int) -> None:
+    """Look at one confirmed receipt for warranties, and add what's found to its draft, marked, to be checked."""
+    receipt = receipts.get(conn, receipt_id)
+    if receipt is None or receipt["status"] != "confirmed" or receipt["draft"] is None:
+        warranty_looks.mark_done(conn, receipt_id, 0, None)   # back to be checked, or gone: nothing to add to
+        return
+    types = {r["code"]: dict(r) for r in services.list_types(conn)}
+    draft = receipt["draft"]
+    try:
+        found, usage = warranty_reader.look(documents.path(receipt["document"]), draft.lines, list(types.values()))
+    except (claude.ClaudeError, ValueError) as err:
+        warranty_looks.mark_failed(conn, receipt_id, str(err))
+        return
+    except Exception as err:  # never let one bad file stop the rest
+        log.exception("looking for warranties on receipt %s failed", receipt_id)
+        warranty_looks.mark_failed(conn, receipt_id, f"Something went wrong reading this file ({type(err).__name__}).")
+        return
+    done = list(dict.fromkeys(c["code"] for line in draft.lines for c in line["covers"] if c["action"] != "inspect"))
+    rows = [drafts.warranty_row(w, types, done, found=date.today().isoformat()) for w in found if w.description.strip()]
+    warranty_looks.mark_done(conn, receipt_id, warranty_looks.add_found(conn, receipt_id, rows), usage)
 
 
 def price_rows(conn, rows: list) -> None:

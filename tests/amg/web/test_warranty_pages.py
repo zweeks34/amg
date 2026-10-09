@@ -14,6 +14,8 @@ import report_fixtures as rf
 from schedule_fixtures import steady_car
 
 from amg.engine.schedule import add_months
+from amg.ingest import background
+from amg.ingest import warranties as warranty_reader
 from amg.ingest.receipts import Recommendation
 from amg.repo import odometer, receipts, vehicles, warranties
 from amg.repo.warranties import WarrantyInput
@@ -402,3 +404,82 @@ def test_the_sheet_lists_warranties_in_force_and_notes_the_jobs_they_cover(signe
     assert text.index("Basic · Test Motors") < text.index("Parts for life · Midas") < text.index("Due now")
     assert "The whole car · 3 years" in text and "Under warranty: Midas, for life" in text
     assert "$" not in text
+
+
+# ---------- Looking through older receipts ----------
+
+
+def _older(conn, car, shop="Costco"):
+    receipt_id, _ = rf.receipt(conn, car, rf.pdf_bytes(shop), f"{shop}.pdf", shop_name=shop, date="2025-03-01",
+                               lines=[fx.line("Interstate battery", 180.0, ["battery_12v"])])
+    extraction = json.loads(conn.execute("SELECT extraction_json FROM receipts WHERE id = ?",
+                                         (receipt_id,)).fetchone()[0])
+    del extraction["warranties"]
+    conn.execute("UPDATE receipts SET extraction_json = ? WHERE id = ?", (json.dumps(extraction), receipt_id))
+    return receipt_id
+
+
+@pytest.fixture
+def looks(monkeypatch):
+    """Looks run inline, each answered with the next queued outcome: a list of warranties, or an exception."""
+    queue: list = []
+
+    def look(path, lines, types):
+        outcome = queue.pop(0) if queue else []
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome, fx.USAGE
+    monkeypatch.setattr(warranty_reader, "look", look)
+    monkeypatch.setattr(background, "spawn", background.run)
+    return queue
+
+
+def test_no_section_until_theres_an_older_receipt(signed_in, conn, car):
+    rf.receipt(conn, car, rf.pdf_bytes("New"), "new.pdf", shop_name="New", date="2026-01-01")
+    assert 'id="warranty-look"' not in page(signed_in, "/receipts")
+
+
+def test_looking_finds_warranties_to_check_and_saving_checks_them(signed_in, conn, car, looks):
+    receipt_id = _older(conn, car)
+    text = " ".join(page(signed_in, "/receipts").split())
+    assert "1 receipt was read before AMG kept warranties. Look through it: about $" in text
+    assert "Look for warranties" in text
+
+    looks.append([fx.warranty()])
+    response = signed_in.post("/receipts/look-for-warranties", follow_redirects=False)
+    assert response.headers["location"] == "/receipts#warranty-look"
+    text = " ".join(page(signed_in, "/receipts").split())
+    assert "Found warranties on 1 receipt." in text and f'href="/receipts/{receipt_id}#warranties">Costco' in text
+    assert "Look for warranties" not in text
+    assert "Found on 1 older receipt: check it" in " ".join(page(signed_in, f"/vehicles/{car}").split())
+    review = page(signed_in, f"/receipts/{receipt_id}")
+    assert "AMG found warranties on this receipt" in review
+
+    [held] = _editor(review)["warranties"]
+    _post(signed_in, receipt_id, car, [held])
+    assert [w["title"] for w in warranties.for_car(conn, car)] == ["36-month free replacement"]
+    assert 'id="warranty-look"' not in page(signed_in, "/receipts")
+    assert "older receipt" not in page(signed_in, f"/vehicles/{car}")
+
+
+def test_a_failed_look_can_be_tried_again(signed_in, conn, car, looks):
+    receipt_id = _older(conn, car)
+    looks.append(ValueError("PDF is damaged"))
+    signed_in.post("/receipts/look-for-warranties")
+    text = page(signed_in, "/receipts")
+    assert "Couldn't look at 1:" in text and "PDF is damaged" in text and "Try again" in text
+    signed_in.post("/receipts/look-for-warranties")
+    assert 'id="warranty-look"' not in page(signed_in, "/receipts")
+    assert conn.execute("SELECT status FROM warranty_looks WHERE receipt_id = ?", (receipt_id,)).fetchone()[0] == "done"
+
+
+def test_while_it_runs_the_section_polls_and_says_how_far(signed_in, conn, car, monkeypatch):
+    _older(conn, car)
+    _older(conn, car, "Midas")
+    monkeypatch.setattr(background, "spawn", lambda job_id: None)       # queued, and not yet started
+    signed_in.post("/receipts/look-for-warranties")
+    text = page(signed_in, "/receipts")
+    assert "Looked at 0 of 2." in text and 'hx-get="/receipts/warranty-look"' in text
+    assert "Looked at 0 of 2." in page(signed_in, "/receipts/warranty-look")
+    signed_in.post("/receipts/look-for-warranties")                    # running already: nothing more queued
+    assert conn.execute("SELECT count(DISTINCT job_id) FROM warranty_looks").fetchone()[0] == 1

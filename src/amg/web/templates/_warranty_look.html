@@ -1,0 +1,62 @@
+{#- The look through receipts read before AMG kept warranties. It shows while
+    any are waiting to be looked at, being looked at, couldn't be, or hold finds
+    to check; once each is checked and saved, it's gone. While a look runs (and
+    its thread is alive), it asks for itself every three seconds. -#}
+{% set p = look.progress %}
+{% if p %}
+<section class="block" id="warranty-look" aria-labelledby="look-heading"
+         {% if p.running and not p.stalled %}hx-get="/receipts/warranty-look" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  <h2 class="h3" id="look-heading">Warranties on older receipts</h2>
+  <div class="sheet look">
+    {% if p.running %}
+    <p class="look__progress" role="status">Looked at {{ p.done }} of {{ p.total }}.
+      {% if not p.stalled %}This updates as it goes; you can leave the page.{% endif %}</p>
+    <progress class="look__bar" max="{{ p.total }}" value="{{ p.done }}">{{ p.done }} of {{ p.total }}</progress>
+    {% if p.stalled %}
+    <form method="post" action="/jobs/{{ p.job_id }}/carry-on">
+      <p class="field__hint">It stopped, most likely because the app restarted. What it found so far is kept.</p>
+      <button class="btn btn--secondary" type="submit">Carry on looking</button>
+    </form>
+    {% endif %}
+    {% elif p.waiting %}
+    <p>{{ p.waiting | length }} receipt{{ "s were" if p.waiting | length != 1 else " was" }} read before AMG kept
+      warranties. Look through {{ "them" if p.waiting | length != 1 else "it" }}: about {{ look.cost | money }}.</p>
+    <form method="post" action="/receipts/look-for-warranties">
+      <button class="btn btn--primary" type="submit">Look for warranties</button>
+    </form>
+    <p class="field__hint">Claude reads each one again, looking only for warranties. Anything it finds waits on that
+      receipt, marked, until you check it against the scan and save.</p>
+    {% endif %}
+
+    {% if p.found %}
+    <p>Found warranties on {{ p.found | length }} receipt{{ "s" if p.found | length != 1 }}. Check each against its scan,
+      then save it:</p>
+    <ul class="rlist look__list">
+      {% for r in p.found %}
+      <li class="rlist__row">
+        <a class="rlist__name" href="/receipts/{{ r.id }}#warranties">{{ r.shop or "Receipt" }}{% if r.performed_on %} · {{ r.performed_on }}{% endif %}</a>
+        <span class="muted">{% if r.car_name %}{{ r.car_name }} · {% endif %}{{ r.count }} found</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if p.failed and not p.running %}
+    <p>Couldn't look at {{ p.failed | length }}:</p>
+    <ul class="rlist look__list">
+      {% for r in p.failed %}
+      <li class="rlist__row">
+        <a class="rlist__name" href="/receipts/{{ r.id }}">{{ r.shop or "Receipt" }}{% if r.performed_on %} · {{ r.performed_on }}{% endif %}</a>
+        <span class="field__error">{{ r.error }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if not p.waiting %}
+    <form method="post" action="/receipts/look-for-warranties">
+      <button class="btn btn--secondary" type="submit">Try again</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endif %}

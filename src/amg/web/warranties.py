@@ -17,7 +17,7 @@ from ..engine import warranties as engine
 from ..engine.odometer import Odometer
 from ..engine.warranties import Standing, Visit
 from ..repo import odometer as readings
-from ..repo import services, warranties
+from ..repo import services, warranties, warranty_looks
 from ..repo.warranties import WarrantyInput
 from . import forms
 from .issues import visit_words
@@ -288,7 +288,7 @@ def load(conn: sqlite3.Connection, car: Mapping, odometer: Odometer | None = Non
     live = [r for r in rows if r.state != "ended"]
     live.sort(key=lambda r: (r.state != "ending", not r.whole_car, r.standing.end_day or date.max, r.title.lower()))
     ended = sorted((r for r in rows if r.state == "ended"), key=lambda r: r.standing.end_day or date.min, reverse=True)
-    return Section(live, ended)
+    return Section(live, ended, warranty_looks.to_check(conn, car["id"]))
 
 
 # ---------- Elsewhere: a service's page, a receipt's review ----------

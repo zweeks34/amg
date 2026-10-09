@@ -16,7 +16,7 @@ from starlette.responses import FileResponse, RedirectResponse, Response
 from ..ingest import background, drafts, vin as vins
 from ..ingest.drafts import Draft
 from ..ingest.receipts import DOCUMENT_KINDS, ReceiptExtraction
-from ..repo import documents, odometer, receipts, services, vehicles
+from ..repo import documents, jobs, odometer, receipts, services, vehicles, warranty_looks
 from . import forms, line_editor, receipt_finder
 from . import warranties as warranty_words
 from .deps import get_conn
@@ -99,10 +99,32 @@ async def upload(request: Request, conn: sqlite3.Connection = Depends(get_conn))
     )
 
 
+@router.get("/receipts/warranty-look")
+def warranty_look(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    """The look through older receipts alone — what the receipts page polls while it runs."""
+    return render(request, "_warranty_look.html", look=_look(conn))
+
+
+@router.post("/receipts/look-for-warranties")
+def look_for_warranties(conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    """Look through every receipt read before AMG kept warranties, and try again any that failed."""
+    if not warranty_looks.progress(conn).running:
+        if wanted := warranty_looks.waiting(conn) + warranty_looks.failed(conn):
+            background.look_for_warranties(conn, wanted)
+    return RedirectResponse("/receipts#warranty-look", status_code=303)
+
+
+def _look(conn: sqlite3.Connection) -> dict:
+    found = warranty_looks.progress(conn)
+    return {"progress": found, "cost": warranty_looks.estimate(conn, found.waiting)}
+
+
 @router.post("/jobs/{job_id}/carry-on")
 def carry_on(job_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     background.carry_on(conn, job_id)
-    return RedirectResponse("/receipts", status_code=303)
+    job = jobs.get(conn, job_id)
+    return RedirectResponse("/receipts#warranty-look" if job and job["kind"] == background.LOOK_JOB else "/receipts",
+                            status_code=303)
 
 
 # ---------- One receipt ----------
@@ -259,6 +281,7 @@ def _inbox(request: Request, conn: sqlite3.Connection, status_code: int = 200,
         found=receipt_finder.find(groups["confirmed"], finder, type_names),
         cars=[dict(r) for r in conn.execute("SELECT id, name FROM vehicles WHERE archived_at IS NULL ORDER BY name")],
         just_confirmed=receipts.get(conn, confirmed) if confirmed else None,
+        look=_look(conn),
         **notices,
     )
     if request.headers.get("HX-Request"):
@@ -406,6 +429,7 @@ def _review(
         mismatches=drafts.mismatches(draft, car) if (draft and car) else [],
         duplicates=receipts.possible_duplicates(conn, receipt["id"], draft) if draft else [],
         offers=_offers(draft, car) if draft else [],
+        found_warranties=any(w.get("found") for w in draft.warranties) if draft else False,
         under_warranty=warranty_words.review_notes(
             conn, car, draft.performed_on or "", draft.odometer,
             [c["code"] for line in draft.lines for c in line["covers"] if c["action"] == "replace"], receipt["id"],

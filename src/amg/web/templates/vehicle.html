@@ -312,6 +312,18 @@
     <h2 class="h3" id="warranties-heading">Warranties</h2>
     <a class="btn btn--quiet" href="/vehicles/{{ car.id }}/warranties/new">Add a warranty</a>
   </div>
+  {% if warranties.found %}
+  <div class="notice" role="note">
+    <p>Found on {{ warranties.found | length }} older receipt{{ "s" if warranties.found | length != 1 }}: check
+      {{ "them" if warranties.found | length != 1 else "it" }} against the scan and save.
+      They don't count until you do.</p>
+    <ul class="notice__list">
+      {% for r in warranties.found %}
+      <li><a href="/receipts/{{ r.id }}#warranties">{{ r.shop or "Receipt" }}{% if r.performed_on %}, {{ r.performed_on }}{% endif %}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   {% if warranties.in_force %}
   <ul class="warranties sheet sheet--flush">
     {% for row in warranties.in_force %}{{ warranty_row(row) }}{% endfor %}
