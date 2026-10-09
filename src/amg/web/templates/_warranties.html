@@ -1,0 +1,35 @@
+{#- A car's warranties: a row each on its page, and the ended ones folded away. -#}
+
+{% macro heading(row) %}
+<p class="warranty__title">{{ row.title }}{% if row.provider %} <span class="warranty__provider">· {{ row.provider }}</span>{% endif %}</p>
+{%- endmacro %}
+
+{% macro warranty_row(row) %}
+<li class="warranty{% if row.state == 'ending' %} warranty--ending{% endif %}">
+  {{ heading(row) }}
+  <p class="warranty__covers">{{ row.covers }} · {{ row.terms }}</p>
+  <p class="warranty__until">{{ row.until }}{% if row.left and not row.ending %} · {{ row.left }}{% endif %}</p>
+  {% if row.ending %}
+  <p class="warranty__ending"><span class="mark mark--due" aria-hidden="true"></span>{{ row.ending }}</p>
+  {% endif %}
+  {% if row.source %}<p class="warranty__source"><a href="{{ row.source_url }}">{{ row.source }}</a></p>{% endif %}
+  {% if row.details %}<p class="warranty__details">{{ row.details }}</p>{% endif %}
+  <div class="issue__acts">
+    <a class="btn btn--quiet" href="{{ row.edit_url }}" aria-label="{{ 'Edit on the receipt' if row.from_receipt else 'Edit' }}: {{ row.title }}">
+      {{- "Edit on the receipt" if row.from_receipt else "Edit" -}}
+    </a>
+  </div>
+</li>
+{%- endmacro %}
+
+{% macro ended_row(row) %}
+<li class="warranty warranty--ended">
+  {{ heading(row) }}
+  <p class="warranty__until">{% if row.paid %}<a href="/services/{{ row.paid }}">{{ row.ended }}</a>{% else %}{{ row.ended }}{% endif %}</p>
+  <div class="issue__acts">
+    <a class="btn btn--quiet" href="{{ row.edit_url }}" aria-label="{{ 'Edit on the receipt' if row.from_receipt else 'Edit' }}: {{ row.title }}">
+      {{- "Edit on the receipt" if row.from_receipt else "Edit" -}}
+    </a>
+  </div>
+</li>
+{%- endmacro %}

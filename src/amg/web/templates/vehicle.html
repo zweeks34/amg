@@ -3,6 +3,7 @@
 {% from "_chart.html" import interval_chart, mark, next_up as next_up_list %}
 {% from "_renewal_fields.html" import renewal_fields %}
 {% from "_issues.html" import issue_row, closed_row %}
+{% from "_warranties.html" import warranty_row, ended_row %}
 
 {% macro reading_rows(rows) %}
 <ol class="points">
@@ -303,6 +304,30 @@
   <p class="muted">From each receipt's “Recommended, not done”. One closes by itself when a later service does the work.</p>
 </section>
 {% endif %}
+
+<section class="block" id="warranties" aria-labelledby="warranties-heading">
+  <div class="block__head">
+    <h2 class="h3" id="warranties-heading">Warranties</h2>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}/warranties/new">Add a warranty</a>
+  </div>
+  {% if warranties.in_force %}
+  <ul class="warranties sheet sheet--flush">
+    {% for row in warranties.in_force %}{{ warranty_row(row) }}{% endfor %}
+  </ul>
+  {% elif warranties.ended %}
+  <p class="muted">None in force.</p>
+  {% else %}
+  <p class="muted">No warranties yet. AMG reads them from receipts; add the car's own from its warranty booklet.</p>
+  {% endif %}
+  {% if warranties.ended %}
+  <details class="followups__more">
+    <summary>{{ warranties.ended | length }} ended</summary>
+    <ul class="warranties sheet sheet--flush">
+      {% for row in warranties.ended %}{{ ended_row(row) }}{% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</section>
 
 {% if renewals is not none %}
 <section class="block" id="renewals" aria-labelledby="renewals-heading">

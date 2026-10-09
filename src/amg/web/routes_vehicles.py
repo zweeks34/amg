@@ -18,6 +18,7 @@ from . import recalls as recall_words
 from . import renewals as renewal_words
 from . import fuel_status
 from . import status as car_status
+from . import warranties as warranty_words
 from .deps import get_conn
 from .templating import render
 
@@ -197,6 +198,7 @@ def car_page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status
         issues=issue_words.load(conn, car, state.odometer),
         issue_form=extra.get("issue_form"),
         follow_ups=follow_up_words.load(conn, car),
+        warranties=warranty_words.load(conn, car, state.odometer, state.today),
         recalls=None if car["archived_at"] else recall_words.load(conn, car),
         recall_form=extra.get("recall_form"),
         type_names={row["code"]: row["name"] for row in services.list_types(conn)},

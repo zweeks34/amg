@@ -15,7 +15,7 @@ from typing import Any
 
 from ..repo.services import Coverage, EventInput, LineInput
 from . import vin as vins
-from .receipts import ReceiptExtraction
+from .receipts import ReceiptExtraction, ReceiptWarranty
 
 # Where a line's service types came from, shown beside them on review.
 COVERS_SOURCES = ("claude", "learned", "you")
@@ -38,6 +38,9 @@ class Draft:
     lines: list[dict] = field(default_factory=list)
     # {description, codes: [code], quoted_cents}
     recommendations: list[dict] = field(default_factory=list)
+    # {description, provider, months, miles, lifetime, codes: [code], found}. ``found``: the day the look
+    # through older receipts found it, not yet checked; it counts once you save the receipt. '' otherwise.
+    warranties: list[dict] = field(default_factory=list)
     subtotal_cents: int | None = None
     tax_cents: int | None = None
     total_cents: int | None = None
@@ -107,6 +110,8 @@ def from_extraction(
         }
         for rec in extraction.recommendations
     ]
+    done = list(dict.fromkeys(c["code"] for line in lines for c in line["covers"] if c["action"] != "inspect"))
+    warranties = [warranty_row(w, types, done) for w in extraction.warranties]
     return Draft(
         document_kind=extraction.document_kind,
         shop=(extraction.shop_name or "").strip(),
@@ -121,11 +126,32 @@ def from_extraction(
         next_service_miles=extraction.next_service_miles,
         lines=lines,
         recommendations=recommendations,
+        warranties=warranties,
         subtotal_cents=cents(extraction.subtotal),
         tax_cents=cents(extraction.tax),
         total_cents=cents(extraction.total),
         read_note=extraction.uncertain.strip(),
     )
+
+
+def warranty_row(warranty: ReceiptWarranty, types: dict[str, dict], done: list[str], found: str = "") -> dict:
+    """A warranty as a draft row. One that names no services covers what the visit replaced or performed.
+
+    ``found`` is the day the look through older receipts found it: it waits
+    to be checked until then.
+    """
+    codes = [code for code in dict.fromkeys(warranty.service_codes) if code in types] or done
+    months = warranty.months if warranty.months and warranty.months > 0 else None
+    miles = warranty.miles if warranty.miles and warranty.miles > 0 else None
+    return {
+        "description": warranty.description.strip(),
+        "provider": (warranty.provider or "").strip(),
+        "months": months,
+        "miles": miles,
+        "lifetime": warranty.lifetime and months is None and miles is None,
+        "codes": list(codes),
+        "found": found,
+    }
 
 
 def _action(read: str, service_type: dict) -> str:

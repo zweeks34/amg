@@ -8,6 +8,8 @@ document.addEventListener("alpine:init", () => {
   const blankLine = () => withId({ description: "", kind: "other", amount: "", covers: [], inspect_only: false,
                                     part_number: "", quantity: "", covers_source: "you", from_read: false });
   const blankRec = () => withId({ description: "", covers: [], amount: "" });
+  const blankWarranty = () => withId({ description: "", provider: "", months: "", miles: "", lifetime: false,
+                                       covers: [], found: "" });
 
   // Rows with service-type chips — a service's lines, a receipt's lines and
   // its recommendations. Every row travels to the server inside one JSON field,
@@ -118,6 +120,33 @@ document.addEventListener("alpine:init", () => {
     },
     serializedRecs() {
       return JSON.stringify(this.recs.map(strip));
+    },
+
+    // Its warranties. Ones found on an older receipt carry when they were found until saved.
+    warranties: (editor.warranties || []).map(withId),
+    warrantyErrors: [...(editor.warrantyErrors || [])],
+    addWarranty() {
+      this.warranties.push(blankWarranty());
+      this.warrantyErrors.push(null);
+    },
+    removeWarranty(index) {
+      this.warranties.splice(index, 1);
+      this.warrantyErrors.splice(index, 1);
+    },
+    serializedWarranties() {
+      return JSON.stringify(this.warranties.map(strip));
+    },
+  }));
+
+  // A warranty you add: what it covers, as one row of the line editor's chips;
+  // whether it's for life; and starting it from the car's in-service date.
+  Alpine.data("warrantyForm", (editor) => ({
+    ...lineEditor({ lines: [{ covers: editor.codes }], errors: [null], types: editor.types }),
+    covers: editor.covers,
+    lifetime: editor.lifetime,
+    fromInService() {
+      this.$refs.starts.value = editor.inService;
+      this.$refs.startMiles.value = "0";
     },
   }));
 

@@ -4,7 +4,7 @@ import pymupdf
 import pytest
 
 from amg.ingest import claude, receipts
-from amg.ingest.receipts import ReceiptExtraction, ReceiptLine, Recommendation
+from amg.ingest.receipts import ReceiptExtraction, ReceiptLine, ReceiptWarranty, Recommendation
 
 TYPES = [
     {"code": "engine_oil", "name": "Engine oil", "category": "Engine"},
@@ -25,7 +25,7 @@ def _extraction(**overrides):
         odometer=33_698, vin=None, plate=None, vehicle=None, delivery_date=None,
         next_service_date=None, next_service_miles=None,
         lines=[_line(), _line("Filter", 6.95, ["oil_filter"])],
-        recommendations=[], subtotal=46.95, tax=0.0, total=46.95, uncertain="",
+        recommendations=[], warranties=[], subtotal=46.95, tax=0.0, total=46.95, uncertain="",
     )
     fields.update(overrides)
     return ReceiptExtraction(**fields)
@@ -46,6 +46,13 @@ def test_system_prompt_lists_the_catalogue():
     assert "personal details" in prompt
 
 
+def test_system_prompt_asks_for_warranties_and_not_disclaimers():
+    prompt = receipts.system_prompt(TYPES)
+    assert "List in `warranties`" in prompt and "Disclaimers are not warranties" in prompt
+    assert "warranty boilerplate" not in prompt
+    assert "warranties" in ReceiptExtraction.model_json_schema()["required"]
+
+
 def test_clean_extraction_has_no_warnings():
     assert receipts.checks(_extraction(), KNOWN) == []
 
@@ -60,6 +67,15 @@ def test_unknown_codes_are_dropped_and_reported():
     assert extraction.lines[0].service_codes == ["engine_oil"]
     assert extraction.recommendations[0].service_codes == []
     assert len([w for w in warnings if "Dropped unknown" in w]) == 2
+
+
+def test_unknown_codes_are_dropped_from_warranties_too():
+    extraction = _extraction(warranties=[ReceiptWarranty(description="Lifetime", provider=None, months=None,
+                                                         miles=None, lifetime=True,
+                                                         service_codes=["engine_oil", "pixie_dust"])])
+    warnings = receipts.checks(extraction, KNOWN)
+    assert extraction.warranties[0].service_codes == ["engine_oil"]
+    assert any("pixie_dust" in w for w in warnings)
 
 
 def test_totals_that_dont_add_up_are_flagged():

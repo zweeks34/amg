@@ -1,7 +1,8 @@
 """The line editor's data: what the browser posts, and what the server keeps.
 
 The editor (``lineEditor`` in app.js) posts its rows as JSON — ``lines_json``
-for work done and, on the receipt review, ``recs_json`` for recommendations.
+for work done and, on the receipt review, ``recs_json`` for recommendations
+and ``warranties_json`` for warranties.
 Rows arrive as the strings people typed; parsing turns them into cents,
 known service codes and actions, with one error message per bad row so the
 editor can show it beside that row.
@@ -14,6 +15,7 @@ from collections.abc import Mapping
 
 from ..repo import services
 from . import forms
+from .recalls import day_words
 
 
 def blank_line() -> dict:
@@ -147,6 +149,77 @@ def recs_from_draft(recs: list[dict]) -> list[dict]:
 
 def dollars(cents: int | None) -> str:
     return "" if cents is None else f"{cents / 100:.2f}"
+
+
+def blank_warranty() -> dict:
+    return {"description": "", "provider": "", "months": "", "miles": "", "lifetime": False, "covers": [],
+            "found": ""}
+
+
+def clean_warranties(posted: str | None) -> list[dict]:
+    """Posted warranty rows. ``found`` doesn't come back: saving the receipt is checking them."""
+    return [
+        {
+            "description": forms.text(str(item.get("description", ""))),
+            "provider": forms.text(str(item.get("provider", ""))),
+            "months": forms.text(str(item.get("months", ""))),
+            "miles": forms.text(str(item.get("miles", ""))),
+            "lifetime": bool(item.get("lifetime")),
+            "covers": [str(c) for c in item.get("covers", []) if isinstance(c, str)],
+            "found": "",
+        }
+        for item in _json_list(posted)
+    ]
+
+
+def parse_warranties(rows: list[dict], types: Mapping[str, Mapping]) -> tuple[list[dict], list[str | None]]:
+    """Draft warranties from the posted rows; a row left wholly blank is dropped."""
+    warranties: list[dict] = []
+    errors: list[str | None] = []
+    for row in rows:
+        codes = [code for code in dict.fromkeys(row["covers"]) if code in types]
+        if not (row["description"] or row["provider"] or row["months"] or row["miles"] or codes or row["lifetime"]):
+            errors.append(None)
+            continue
+        try:
+            months = None if row["lifetime"] else forms.months(row["months"])
+            miles = None if row["lifetime"] else forms.miles(row["miles"])
+        except ValueError as err:
+            errors.append(str(err))
+            continue
+        if not (row["lifetime"] or months or miles):
+            errors.append("Say how long it lasts: months, miles, or lifetime.")
+        elif not codes:
+            errors.append("Choose what it covers, such as 12-volt battery.")
+        else:
+            errors.append(None)
+        if errors[-1]:
+            continue
+        warranties.append({
+            "description": row["description"] or ", ".join(types[c]["name"] for c in codes) + " warranty",
+            "provider": row["provider"],
+            "months": months,
+            "miles": miles,
+            "lifetime": row["lifetime"],
+            "codes": codes,
+            "found": "",
+        })
+    return warranties, errors
+
+
+def warranties_from_draft(warranties: list[dict]) -> list[dict]:
+    return [
+        {
+            "description": w["description"],
+            "provider": w.get("provider") or "",
+            "months": "" if w.get("months") is None else str(w["months"]),
+            "miles": "" if w.get("miles") is None else f"{w['miles']:,}",
+            "lifetime": bool(w.get("lifetime")),
+            "covers": list(w.get("codes") or []),
+            "found": f"Found {day_words(w['found'])}: check it against the scan." if w.get("found") else "",
+        }
+        for w in warranties
+    ]
 
 
 def _same_line(a: dict, b: dict) -> bool:

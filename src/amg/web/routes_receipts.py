@@ -130,10 +130,11 @@ async def save(request: Request, receipt_id: int, conn: sqlite3.Connection = Dep
     raw["vehicle_id"] = forms.text(form.get("vehicle_id"))
     rows = line_editor.clean_lines(form.get("lines_json")) or [line_editor.blank_line()]
     recs = line_editor.clean_recs(form.get("recs_json"))
+    held = line_editor.clean_warranties(form.get("warranties_json"))
     types = {row["code"]: row for row in services.list_types(conn)}
 
     errors: dict[str, str] = {}
-    draft, line_errors, rec_errors = _read(raw, rows, recs, types, receipt["draft"], errors)
+    draft, line_errors, rec_errors, warranty_errors = _read(raw, rows, recs, held, types, receipt["draft"], errors)
     vehicle_id = int(raw["vehicle_id"]) if raw["vehicle_id"].isdigit() and vehicles.get(conn, int(raw["vehicle_id"])) else None
 
     updates: dict[str, str] = {}
@@ -154,9 +155,10 @@ async def save(request: Request, receipt_id: int, conn: sqlite3.Connection = Dep
         if draft.total_cents is None and any(line.get("amount_cents") is not None for line in draft.lines):
             draft.total_cents = sum(line.get("amount_cents") or 0 for line in draft.lines) + (draft.tax_cents or 0)
 
-    if errors or any(line_errors) or any(rec_errors):
-        return _review(request, conn, receipt, raw=raw, rows=rows, recs=recs, errors=errors,
-                       line_errors=line_errors, rec_errors=rec_errors, status_code=422)
+    if errors or any(line_errors) or any(rec_errors) or any(warranty_errors):
+        return _review(request, conn, receipt, raw=raw, rows=rows, recs=recs, held=held, errors=errors,
+                       line_errors=line_errors, rec_errors=rec_errors, warranty_errors=warranty_errors,
+                       status_code=422)
 
     if action == "confirm":
         receipts.confirm(conn, receipt_id, draft, vehicle_id, updates)  # type: ignore[arg-type]
@@ -283,8 +285,8 @@ def _raw_from(draft: Draft) -> dict[str, str]:
     }
 
 
-def _read(raw: dict, rows: list[dict], recs: list[dict], types: dict, previous: Draft | None,
-          errors: dict[str, str]) -> tuple[Draft, list, list]:
+def _read(raw: dict, rows: list[dict], recs: list[dict], held: list[dict], types: dict, previous: Draft | None,
+          errors: dict[str, str]) -> tuple[Draft, list, list, list]:
     """The posted review form as a draft, with an error per bad field or row."""
     def parse(parser, key, **options):
         try:
@@ -295,6 +297,7 @@ def _read(raw: dict, rows: list[dict], recs: list[dict], types: dict, previous: 
 
     _, line_errors, draft_lines = line_editor.parse_lines(rows, types)
     draft_recs, rec_errors = line_editor.parse_recs(recs, types)
+    draft_warranties, warranty_errors = line_editor.parse_warranties(held, types)
     draft = Draft(
         document_kind=raw["document_kind"] if raw.get("document_kind") in DOCUMENT_KINDS else "invoice",
         shop=raw.get("shop", ""),
@@ -309,13 +312,14 @@ def _read(raw: dict, rows: list[dict], recs: list[dict], types: dict, previous: 
         next_service_miles=parse(forms.miles, "next_service_miles"),
         lines=draft_lines,
         recommendations=draft_recs,
+        warranties=draft_warranties,
         subtotal_cents=previous.subtotal_cents if previous else None,
         tax_cents=parse(forms.money, "tax"),
         total_cents=parse(forms.money, "total"),
         notes=raw.get("notes", ""),
         read_note=previous.read_note if previous else "",
     )
-    return draft, line_errors, rec_errors
+    return draft, line_errors, rec_errors, warranty_errors
 
 
 def _offers(draft: Draft, car: dict | None) -> list[dict]:
@@ -359,9 +363,11 @@ def _review(
     raw: dict | None = None,
     rows: list[dict] | None = None,
     recs: list[dict] | None = None,
+    held: list[dict] | None = None,
     errors: dict | None = None,
     line_errors: list | None = None,
     rec_errors: list | None = None,
+    warranty_errors: list | None = None,
     confirmed: int | None = None,
     saved: bool = False,
     status_code: int = 200,
@@ -371,12 +377,15 @@ def _review(
     reading = receipt["status"] == "read"
     original = None
     if receipt["extraction"]:
-        original = drafts.from_extraction(ReceiptExtraction.model_validate(receipt["extraction"]), types_by_code)
+        # Read before AMG kept warranties, an extraction has none.
+        extraction = ReceiptExtraction.model_validate({"warranties": [], **receipt["extraction"]})
+        original = drafts.from_extraction(extraction, types_by_code)
 
     if draft is not None:
         raw = raw or {**_raw_from(draft), "vehicle_id": str(receipt["vehicle_id"] or "")}
         rows = rows or line_editor.rows_from_draft(draft.lines, original.lines if original else None) or [line_editor.blank_line()]
         recs = recs if recs is not None else line_editor.recs_from_draft(draft.recommendations)
+        held = held if held is not None else line_editor.warranties_from_draft(draft.warranties)
     selected = vehicles.get(conn, int(raw["vehicle_id"])) if raw and str(raw.get("vehicle_id", "")).isdigit() else None
     car = dict(selected) if selected else None
 
@@ -401,6 +410,8 @@ def _review(
             "errors": line_errors or [None] * len(rows or []),
             "recs": recs or [],
             "recErrors": rec_errors or [None] * len(recs or []),
+            "warranties": held or [],
+            "warrantyErrors": warranty_errors or [None] * len(held or []),
             "types": editor_types(conn),
             "reading": reading,
         },

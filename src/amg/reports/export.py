@@ -16,6 +16,7 @@ Back up page's zip does that). It holds:
     recalls.csv           the recalls NHTSA lists for each car, and what you said about each
     specs.csv             each car's specs card
     issues.csv            what you noticed wrong with each car, and what became of it
+    warranties.csv        each car's warranties: what each covers, when it ends, and what it was used for
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use, or a car's specs, were read from
     photos/               your issues' photos, named by date, issue and car
@@ -35,8 +36,9 @@ from pathlib import Path
 from ..engine import specs as spec_catalogue
 from ..engine.renewals import KINDS
 from ..ingest.recalls import campaign_words
-from ..repo import documents, issues, recalls, renewals, reports, schedules, services, specs
+from ..repo import documents, issues, recalls, renewals, reports, schedules, services, specs, warranties
 from ..web import follow_ups as follow_up_words
+from ..web import warranties as warranty_words
 from . import csvs, history
 from .filters import Filters
 
@@ -69,6 +71,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         "recalls.csv": _recalls(conn),
         "specs.csv": _specs(conn),
         "issues.csv": _issues(noted),
+        "warranties.csv": _warranties(conn, today),
     }
     missing: list[str] = []
     taken: set[str] = set()
@@ -221,6 +224,33 @@ def _issues(noted: list[dict]) -> str:
     return csvs.sheet(columns, rows)
 
 
+WARRANTY_STATE = {"in_force": "In force", "ending": "Ending soon"}
+
+
+def _warranties(conn: sqlite3.Connection, today: date) -> str:
+    words = {row.id: row for car in reports.cars(conn)
+             for section in (warranty_words.load(conn, car, today=today),) for row in section.in_force + section.ended}
+    columns = ("Car", "Warranty", "Who honours it", "Covers", "Starts", "Miles then", "Months", "Miles", "Ends on",
+               "Ends at (mi)", "Now", "From", "Used on", "Details")
+    rows = []
+    for found in warranties.everything(conn):
+        row = words[found["id"]]
+        if found["receipt_id"]:
+            source = f"Receipt: {found['event_on'] or ''} {found['event_shop'] or ''}".strip()
+        elif found["service_event_id"]:
+            source = f"Service: {found['event_on']} {found['event_shop'] or ''}".strip()
+        else:
+            source = "You"
+        rows.append([
+            csvs.text(found["car_name"]), csvs.text(found["title"]), csvs.text(found["provider"]),
+            csvs.text(row.covers), found["starts_on"], csvs.number(found["start_miles"]), csvs.number(found["months"]),
+            csvs.number(found["miles"]), row.standing.ends_on.isoformat() if row.standing.ends_on else "",
+            csvs.number(row.standing.end_miles), WARRANTY_STATE.get(row.state) or row.ended, csvs.text(source),
+            csvs.text("; ".join(use.words.removeprefix("Used ") for use in row.used)), csvs.text(found["details"]),
+        ])
+    return csvs.sheet(columns, rows)
+
+
 # ---------- Files ----------
 
 
@@ -282,6 +312,10 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
   issues.csv            what you noticed wrong with each car: open,
                         fixed (and by which visit) or dropped, and the
                         visits it was still there after
+  warranties.csv        each car's warranties, from receipts and typed in:
+                        what each covers, when it ends (by date and by
+                        miles), whether it's in force, and the visits done
+                        under it
 
 Files, as you uploaded them:
 

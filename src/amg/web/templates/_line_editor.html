@@ -99,6 +99,50 @@
 <button type="button" class="btn btn--secondary" @click="addRec()">Add a recommendation</button>
 {%- endmacro %}
 
+{#- A receipt's warranties. One found by the look through older receipts is
+    dashed, with when it was found, until you touch it; saving the receipt checks it. -#}
+{% macro warranties() -%}
+<template x-for="(w, k) in warranties" :key="w._id">
+  <div class="line line--rec" :class="{ 'line--read': w.found && !w.touched }" @input="w.touched = true">
+    <p class="line__found" x-show="w.found && !w.touched" x-text="w.found"></p>
+    <div class="line__top line__top--warranty">
+      <div class="field">
+        <label :for="'w-desc-' + w._id">Description</label>
+        <input :id="'w-desc-' + w._id" x-model="w.description" placeholder="e.g. 36-month free replacement">
+      </div>
+      <div class="field">
+        <label :for="'w-provider-' + w._id">Who honours it</label>
+        <input :id="'w-provider-' + w._id" x-model="w.provider" placeholder="The shop">
+      </div>
+    </div>
+    <div class="line__terms">
+      <div class="field">
+        <label :for="'w-months-' + w._id">Months</label>
+        <input :id="'w-months-' + w._id" x-model="w.months" inputmode="numeric" class="mono" :disabled="w.lifetime">
+      </div>
+      <div class="field">
+        <label :for="'w-miles-' + w._id">Miles</label>
+        <input :id="'w-miles-' + w._id" x-model="w.miles" inputmode="numeric" class="mono" :disabled="w.lifetime">
+      </div>
+    </div>
+    <div class="field">
+      <label :for="'covers-' + w._id">Services it covers</label>
+      {{ chips("w") }}
+    </div>
+    <div class="line__meta">
+      <label class="check">
+        <input type="checkbox" x-model="w.lifetime" @change="w.touched = true"> Lifetime
+      </label>
+      <div class="line__actions">
+        <button type="button" class="btn btn--quiet" @click="removeWarranty(k)">Remove</button>
+      </div>
+    </div>
+    <p class="field__error" x-show="warrantyErrors[k]" x-text="warrantyErrors[k]"></p>
+  </div>
+</template>
+<button type="button" class="btn btn--secondary" @click="addWarranty()">Add a warranty</button>
+{%- endmacro %}
+
 {% macro datalist() -%}
 <datalist id="service-type-names">
   <template x-for="t in types" :key="t.code"><option :value="t.name"></option></template>

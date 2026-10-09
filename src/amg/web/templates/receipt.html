@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_forms.html" import message %}
-{% from "_line_editor.html" import lines as editor_lines, recommendations, datalist %}
+{% from "_line_editor.html" import lines as editor_lines, recommendations, warranties, datalist %}
 {% block title %}{{ (draft.shop if draft and draft.shop else document.filename) }} · Receipt{% endblock %}
 
 {#- One editable field of the draft. While the receipt is unconfirmed, data-read
@@ -150,6 +150,13 @@
         <p class="field__hint">Work the shop suggested or you declined. Kept with the receipt; it doesn't count as done.</p>
         {{ recommendations() }}
       </fieldset>
+
+      <fieldset class="field field--wide lines" id="warranties">
+        <legend>Warranties</legend>
+        <p class="field__hint">What the receipt promises on this visit's parts or work. AMG keeps each until it ends,
+          and asks if a later visit replaces what it covers.</p>
+        {{ warranties() }}
+      </fieldset>
       {{ datalist() }}
 
       <div class="fieldgrid">
@@ -198,6 +205,7 @@
 
       <input type="hidden" name="lines_json" :value="serializedLines()">
       <input type="hidden" name="recs_json" :value="serializedRecs()">
+      <input type="hidden" name="warranties_json" :value="serializedWarranties()">
     </div>
 
     <div class="form__actions review__actions">

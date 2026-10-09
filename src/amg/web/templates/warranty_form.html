@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% from "_forms.html" import input, textarea, message, described %}
+{% from "_line_editor.html" import chips, datalist %}
+{% block title %}{{ "Edit warranty" if warranty else "Add a warranty" }} · {{ car.name }}{% endblock %}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
+  <h1 class="display">{{ "Edit warranty" if warranty else "Add a warranty" }}</h1>
+  <p class="pagehead__lede">The car's own, from its warranty booklet; an extended warranty you bought; or one on a
+    part you fitted yourself. A receipt's warranties are read with the receipt.</p>
+</header>
+
+<form class="sheet form" method="post" x-data='warrantyForm({{ editor | tojson }})'
+      action="{{ '/warranties/%d/edit' % warranty.id if warranty else '/vehicles/%d/warranties' % car.id }}">
+  <div class="form__body">
+    {{ input("title", "Name", raw, errors, cls="field--wide",
+             attrs='maxlength="120" placeholder="e.g. Powertrain, or Battery free replacement"') }}
+    {{ input("provider", "Who honours it", raw, errors, attrs='maxlength="120" placeholder="e.g. Subaru, Costco, the shop"') }}
+
+    <fieldset class="field field--wide warrantyform__covers">
+      <legend>What it covers</legend>
+      <div class="warrantyform__choice">
+        <label class="check"><input type="radio" name="covers" value="whole" x-model="covers"> The whole car</label>
+        <label class="check"><input type="radio" name="covers" value="parts" x-model="covers"> Parts or work</label>
+      </div>
+      <div class="field" x-show="covers === 'parts'">
+        <label :for="'covers-' + lines[0]._id">Services it covers</label>
+        {{ chips("lines[0]") }}
+        <template x-for="code in lines[0].covers" :key="code">
+          <input type="hidden" name="code" :value="code" :disabled="covers !== 'parts'">
+        </template>
+      </div>
+      {{ message("codes", errors, None) }}
+    </fieldset>
+    {{ datalist() }}
+
+    <div class="fieldgrid">
+      {{ input("starts_on", "Starts on", raw, errors, type="date", attrs='max="' ~ today ~ '" x-ref="starts"') }}
+      {{ input("start_miles", "Miles then", raw, errors, hint="Leave blank to estimate it from your readings.",
+               attrs='inputmode="numeric" class="mono" x-ref="startMiles"') }}
+    </div>
+    {% if car.in_service_date %}
+    <p class="warrantyform__new" x-show="covers === 'whole'"{% if raw.covers != "whole" %} x-cloak{% endif %}>
+      <button class="btn btn--quiet" type="button" @click="fromInService()">From the in-service date, {{ car.in_service_date }}</button>
+    </p>
+    {% endif %}
+
+    <fieldset class="field field--wide">
+      <legend>Lasts</legend>
+      <div class="warrantyform__length">
+        <div class="field">
+          <label for="f-length">How long</label>
+          <input id="f-length" name="length" value="{{ raw.length }}" inputmode="numeric" class="mono"
+                 :disabled="lifetime"{{ described("length", errors, None) }}>
+        </div>
+        <div class="field">
+          <label for="f-unit">In</label>
+          <select id="f-unit" name="unit" :disabled="lifetime">
+            {% for unit in ("years", "months") %}<option value="{{ unit }}"{% if raw.unit == unit %} selected{% endif %}>{{ unit | capitalize }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-miles">Or miles</label>
+          <input id="f-miles" name="miles" value="{{ raw.miles }}" inputmode="numeric" class="mono"
+                 :disabled="lifetime"{{ described("miles", errors, None) }}>
+        </div>
+      </div>
+      <p class="field__hint">Whichever comes first.</p>
+      <label class="check">
+        <input type="checkbox" name="lifetime" value="1" x-model="lifetime"> Lifetime: as long as you own the car
+      </label>
+      {{ message("length", errors, None) }}
+      {{ message("miles", errors, None) }}
+    </fieldset>
+
+    <div class="field">
+      <label for="f-event_id">Came with</label>
+      <select id="f-event_id" name="event_id" aria-describedby="f-event_id-hint">
+        <option value="">No visit</option>
+        {% for v in visits %}
+        <option value="{{ v.id }}"{% if raw.event_id == v.id | string %} selected{% endif %}>{{ v.day.isoformat() }} · {{ v.shop or "Your own work" }}</option>
+        {% endfor %}
+      </select>
+      <p class="field__hint" id="f-event_id-hint">The visit that fitted the part, if any.</p>
+    </div>
+
+    {{ textarea("details", "Details", raw, errors, rows=3,
+                hint="The terms as written, a contract number, a phone number for claims.") }}
+  </div>
+
+  <div class="form__actions">
+    <button class="btn btn--primary" type="submit">Save warranty</button>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}#warranties">Cancel</a>
+  </div>
+</form>
+
+{% if warranty %}
+<div class="pagehead__actions" x-data="{ confirming: false }">
+  <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true">Delete warranty</button>
+  <form method="post" action="/warranties/{{ warranty.id }}/delete" class="confirm" x-show="confirming" x-cloak>
+    <span>Delete this warranty?</span>
+    <button class="btn btn--danger" type="submit">Delete warranty</button>
+    <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

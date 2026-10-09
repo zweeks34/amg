@@ -7,14 +7,16 @@ import io
 import zipfile
 from datetime import date
 
-import report_fixtures as rf  # tests/ is on pytest's path
+import receipt_fixtures as fx  # tests/ is on pytest's path
+import report_fixtures as rf
 
 from amg.reports import csvs, export
-from amg.repo import documents, fuel, issues, odometer, prices, receipts, renewals, schedules, specs, vehicles
+from amg.repo import documents, fuel, issues, odometer, prices, receipts, renewals, schedules, specs, vehicles, warranties
 from amg.repo.issues import IssueInput
 from amg.repo.renewals import RenewalInput
 from amg.repo.schedules import ItemInput
 from amg.repo.specs import SpecInput
+from amg.repo.warranties import WarrantyInput
 
 TODAY = date(2026, 10, 4)
 
@@ -37,7 +39,8 @@ def test_everything_is_there(conn, tmp_path):
     vehicles.archive(conn, sold)
     rf.receipt(conn, outback, rf.pdf_bytes("MIDAS"), "scan 1.pdf", date="2019-03-04", shop_name="Midas")
     rf.receipt(conn, outback, rf.pdf_bytes("MIDAS AGAIN"), "scan 2.pdf", date="2019-03-04", shop_name="Midas")
-    rf.receipt(conn, outback, rf.image_bytes("JPEG"), "photo.jpg", date="2020-05-06", shop_name='A/B: "Best" Garage')
+    rf.receipt(conn, outback, rf.image_bytes("JPEG"), "photo.jpg", date="2020-05-06", shop_name='A/B: "Best" Garage',
+               warranties=[fx.warranty()])
     rf.receipt(conn, sold, rf.pdf_bytes("TACOMA"), "t.pdf", date="2015-11-02", shop_name="Bob's")
     waiting, _ = rf.receipt(conn, outback, rf.pdf_bytes("WAITING"), "waiting.pdf", confirm=False, date="2025-01-01")
     thrown, _ = rf.receipt(conn, outback, rf.pdf_bytes("THROWN"), "thrown.pdf", confirm=False, date="2025-01-02")
@@ -66,6 +69,10 @@ def test_everything_is_there(conn, tmp_path):
     issues.fix(conn, spot, "2026-09-01", inspected)
     squeak = issues.create(conn, outback, IssueInput("Squeak over bumps", "Front left, cold mornings", "2026-09-01"))
     issues.still_there(conn, squeak, inspected)
+    warranties.create(conn, outback, WarrantyInput("Basic", "2016-05-01", provider="Subaru", start_miles=0, months=36,
+                                                   whole_car=True))
+    warranties.create(conn, outback, WarrantyInput("Lifetime alignment", "2026-09-01", codes=["wheel_alignment"],
+                                                   event_id=inspected, details="Card in the glovebox"))
 
     zf, missing = build(conn, tmp_path)
     names = sorted(zf.namelist())
@@ -77,7 +84,7 @@ def test_everything_is_there(conn, tmp_path):
         "receipts/2019-03-04 Midas - Outback (2).pdf",
         "receipts/2019-03-04 Midas - Outback.pdf",
         "receipts/2020-05-06 A B Best Garage - Outback.jpg",       # what a file name can't hold, taken out
-        "recommendations.csv", "schedules.csv", "service-history.csv", "specs.csv",
+        "recommendations.csv", "schedules.csv", "service-history.csv", "specs.csv", "warranties.csv",
     ] and missing == []
     assert zf.read("receipts/2019-03-04 Midas - Outback.pdf") == documents.path(
         documents.by_sha(conn, conn.execute("SELECT sha256 FROM documents WHERE filename = 'scan 1.pdf'")
@@ -125,6 +132,17 @@ def test_everything_is_there(conn, tmp_path):
          "Still there after": "2026-09-01 Corner Garage", "Photos": "0"},
     ]
     assert zf.read("photos/2026-08-30 Oil spot under the engine - Outback.jpg") == documents.path(photo).read_bytes()
+    blank = {"Car": "Outback", "Who honours it": "", "Miles then": "", "Months": "", "Miles": "", "Ends on": "",
+             "Ends at (mi)": "", "Used on": "", "Details": ""}
+    assert sheet(zf, "warranties.csv") == [
+        {**blank, "Warranty": "Basic", "Who honours it": "Subaru", "Covers": "The whole car", "Starts": "2016-05-01",
+         "Miles then": "0", "Months": "36", "Ends on": "2019-05-01", "Now": "Ended May 1, 2019", "From": "You"},
+        {**blank, "Warranty": "36-month free replacement", "Covers": "12-volt battery", "Starts": "2020-05-06",
+         "Miles then": "3610", "Months": "36", "Ends on": "2023-05-06", "Now": "Ended May 6, 2023",
+         "From": 'Receipt: 2020-05-06 A/B: "Best" Garage'},
+        {**blank, "Warranty": "Lifetime alignment", "Covers": "Wheel alignment", "Starts": "2026-09-01",
+         "Now": "In force", "From": "Service: 2026-09-01 Corner Garage", "Details": "Card in the glovebox"},
+    ]
     price = sheet(zf, "prices.csv")[0]
     assert (price["Job"], price["From"], price["Low"], price["High"]) == ("Oil and filter", "You", "85.00", "85.00")
 

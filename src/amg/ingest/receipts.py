@@ -50,6 +50,15 @@ class Recommendation(BaseModel):
     quoted_amount: float | None
 
 
+class ReceiptWarranty(BaseModel):
+    description: str = Field(description="The warranty as printed, short: what it is and its terms, e.g. '36-month free replacement' or 'Parts and labor 24 months / 24,000 miles'.")
+    provider: str | None = Field(description="Who honours it, if the document names someone other than the shop: a maker such as Interstate, or a network such as NAPA AutoCare. Null if it's the shop's own.")
+    months: int | None = Field(description="How many months it lasts from this visit; 3 years is 36. Null if no time limit is printed.")
+    miles: int | None = Field(description="How many miles it lasts from this visit. Null if no mileage limit is printed.")
+    lifetime: bool = Field(description="True when the document says lifetime, with no months or miles.")
+    service_codes: list[str] = Field(description="Codes from the catalogue for the parts or work it covers, taken from this visit's lines.")
+
+
 DocumentKind = Literal["invoice", "estimate", "deposit", "inspection_report", "other"]
 DOCUMENT_KINDS: tuple[str, ...] = ("invoice", "estimate", "deposit", "inspection_report", "other")
 
@@ -68,6 +77,7 @@ class ReceiptExtraction(BaseModel):
     next_service_miles: int | None = Field(description="The mileage at which the shop says the next service is due, if written on the document.")
     lines: list[ReceiptLine] = Field(description="The document's work items and charges, in order. For an estimate or deposit, the items it lists.")
     recommendations: list[Recommendation] = Field(description="Work the document itself marks as recommended, declined, deferred or due next time.")
+    warranties: list[ReceiptWarranty] = Field(description="Warranties the document gives on this visit's parts or work, with their terms.")
     subtotal: float | None
     tax: float | None
     total: float | None = Field(description="The total the customer paid or owes for this visit.")
@@ -85,7 +95,7 @@ often marked as such, sometimes stamped "not an invoice". Say which in `document
 list the document's items in `lines`: the owner decides whether the work was done.
 
 Work done versus not done. Dealer invoices often mix in recommended or declined work, "next service \
-due" reminders, multi-point inspection checklists, coupons and warranty boilerplate. Only the work \
+due" reminders, multi-point inspection checklists, coupons and warranty terms. Only the work \
 and charges of this visit go in `lines`. Work the document marks as recommended, declined, deferred \
 or "due next time" goes in `recommendations`. A multi-point inspection is one line covering \
 multipoint_inspection; the checklist's individual findings are not separate lines. A handwritten or \
@@ -105,6 +115,8 @@ code. A line that covers no maintenance (shop supplies, disposal fees, a car was
 list. Choose the action by what happened: replace when a part or fluid was installed, inspect when \
 it was only checked, perform for procedures such as rotations and alignments.
 
+{warranty_rules}
+
 Ignore the customer's personal details — name, address, phone, email. Do not include them anywhere.
 
 Catalogue (code — name, category):
@@ -112,9 +124,26 @@ Catalogue (code — name, category):
 """
 
 
+# Shared with the look through receipts read before AMG kept warranties (ingest/warranties.py).
+WARRANTY_RULES = """\
+Warranties. List in `warranties` each warranty the document gives on this visit's parts or work, \
+with its terms: a battery's free-replacement period, a tire's treadwear or road-hazard warranty, a \
+shop's guarantee on parts and labor, a lifetime warranty on brake pads. months and miles are how long \
+it lasts from this visit, whichever comes first; a warranty printed as lifetime sets lifetime and \
+leaves both null. When it's free for a while and prorated after, months is the free period and the \
+description says the rest. service_codes are the codes of the work it covers, from this visit's \
+lines; for a guarantee on all of the visit's work, every code its lines replaced or performed. \
+Disclaimers are not warranties: leave out "no warranty expressed or implied", "the manufacturer's \
+warranty is the only warranty", and anything else without terms. A warranty the customer bought, \
+such as road hazard, is also a line (a fee)."""
+
+
+def catalogue(types: Iterable[Mapping]) -> str:
+    return "\n".join(f"{t['code']} — {t['name']}, {t['category']}" for t in types)
+
+
 def system_prompt(types: Iterable[Mapping]) -> str:
-    catalogue = "\n".join(f"{t['code']} — {t['name']}, {t['category']}" for t in types)
-    return SYSTEM_PROMPT.format(catalogue=catalogue)
+    return SYSTEM_PROMPT.format(catalogue=catalogue(types), warranty_rules=WARRANTY_RULES)
 
 
 # ---------- Reading one receipt ----------
@@ -217,7 +246,7 @@ def checks(extraction: ReceiptExtraction, known_codes: set[str]) -> list[str]:
         if problem := vin.problem(candidate):
             warnings.append(f"VIN {candidate}: {problem}")
 
-    for item in [*extraction.lines, *extraction.recommendations]:
+    for item in [*extraction.lines, *extraction.recommendations, *extraction.warranties]:
         unknown = [code for code in item.service_codes if code not in known_codes]
         if unknown:
             item.service_codes = [code for code in item.service_codes if code in known_codes]

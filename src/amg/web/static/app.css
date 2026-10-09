@@ -873,6 +873,35 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
 .issueform__photo { display: grid; justify-items: start; gap: 0.25rem; }
 .issueform__photos .upload__pick { margin-top: 0.5rem; }
 
+/* Warranties: a row each, laid out as an issue's; one ending soon carries the due mark. */
+.warranties { margin: 0; padding: 0; list-style: none; }
+.warranty { display: grid; gap: 0.25rem; padding: 0.875rem var(--gutter); border-top: 1px solid var(--rule-soft); }
+.warranty:first-child { border-top: 0; }
+.warranty p { margin: 0; }
+.warranty__title { font-weight: 600; }
+.warranty__provider { font-weight: 400; color: var(--ink-2); }
+.warranty__covers { font-size: 0.9375rem; }
+.warranty__until, .warranty__source { font: 400 0.8125rem/1.35 var(--mono); color: var(--ink-2); }
+.warranty__source a, .warranty__until a { color: inherit; }
+.warranty__ending { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; }
+.warranty__details { max-width: 65ch; font-size: 0.875rem; white-space: pre-line; }
+.warranty--ended .warranty__title { font-weight: 400; }
+.warrantyform__choice { display: flex; flex-wrap: wrap; gap: 0.25rem 1.5rem; }
+.warrantyform__covers > .field { margin-top: 0.5rem; }
+.warrantyform__new { margin: -0.5rem 0 0; }
+.warrantyform__length { display: grid; grid-template-columns: minmax(0, 6rem) minmax(0, 8rem) minmax(0, 9rem); gap: 0.625rem; }
+@media (max-width: 30rem) {
+  .warrantyform__length { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .warrantyform__length > :last-child { grid-column: 1 / -1; }
+}
+/* A receipt's warranty rows: what it says and who honours it, then how long. */
+.line__terms { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.625rem; }
+.line__found { margin: 0; font-size: 0.875rem; font-weight: 600; }
+@media (min-width: 40rem) {
+  .line__top--warranty { grid-template-columns: minmax(0, 1fr) minmax(0, 14rem); }
+  .line__terms { grid-template-columns: 7.5rem 7.5rem; }
+}
+
 /* The sheet for the shop: the car, then your issues numbered as a work order numbers concerns, what's due, and
    what was recommended. */
 .shopsheet { display: grid; gap: 1.75rem; }

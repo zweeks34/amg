@@ -16,7 +16,7 @@ from ..db import now_iso, transaction
 from ..ingest import drafts, vin as vins
 from ..ingest.claude import Usage
 from ..ingest.drafts import Draft
-from . import jobs, services
+from . import jobs, services, warranties
 
 # The suggestion reason when you picked the car yourself while uploading.
 CHOSEN = "You chose this car when uploading."
@@ -271,6 +271,8 @@ def confirm(
             " confirmed_at = coalesce(confirmed_at, ?), updated_at = ? WHERE id = ?",
             (json.dumps(draft.to_dict()), vehicle_id, event_id, now, now, receipt_id),
         )
+        warranties.sync_receipt(conn, receipt_id, vehicle_id, event_id, draft.performed_on or "", draft.odometer,
+                                draft.warranties)
         for phrase, covers in drafts.learnable(draft).items():
             conn.execute(
                 "INSERT INTO service_aliases (phrase, covers_json, updated_at) VALUES (?, ?, ?)"
@@ -300,7 +302,8 @@ def restore(conn: sqlite3.Connection, receipt_id: int) -> None:
 
 
 def release_event(conn: sqlite3.Connection, event_id: int) -> None:
-    """A receipt's service is being deleted: the receipt goes back to be checked."""
+    """A receipt's service is being deleted: the receipt goes back to be checked, and its warranties stop counting."""
+    warranties.release(conn, event_id)
     conn.execute(
         "UPDATE receipts SET status = 'read', service_event_id = NULL, updated_at = ? WHERE service_event_id = ?",
         (now_iso(), event_id),

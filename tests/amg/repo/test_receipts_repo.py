@@ -106,6 +106,22 @@ def test_draft_from_extraction(conn):
     assert draft.recommendations == [{"description": "Brake fluid flush", "codes": ["brake_fluid"], "quoted_cents": 12995}]
 
 
+def test_draft_warranties(conn):
+    lines = [fx.line("Battery", 180.0, ["battery_12v"]), fx.line("Rotate", 20.0, ["tire_rotation"], "perform"),
+             fx.line("Check pads", 0.0, ["brake_pads"], "inspect")]
+    ex = fx.extraction(lines=lines, warranties=[
+        fx.warranty(provider=" Interstate "),
+        fx.warranty("Parts and labor 12/12", months=12, miles=12_000, codes=()),
+        fx.warranty("Lifetime", months=0, codes=["battery_12v"], lifetime=True),
+        fx.warranty("Says lifetime, prints months", months=24, lifetime=True)])
+    battery, visit, life, odd = drafts.from_extraction(ex, _types(conn)).warranties
+    assert battery == {"description": "36-month free replacement", "provider": "Interstate", "months": 36,
+                       "miles": None, "lifetime": False, "codes": ["battery_12v"], "found": ""}
+    assert visit["codes"] == ["battery_12v", "tire_rotation"]      # none named: the visit's work, not its inspections
+    assert (life["months"], life["lifetime"]) == (None, True)
+    assert (odd["months"], odd["lifetime"]) == (24, False)
+
+
 def test_inspection_types_are_never_replaced(conn):
     ex = fx.extraction(lines=[fx.line("Multi-point inspection", 0.0, ["multipoint_inspection"], "replace")])
     assert drafts.from_extraction(ex, _types(conn)).lines[0]["covers"][0]["action"] == "inspect"
