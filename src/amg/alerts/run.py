@@ -69,12 +69,17 @@ def run(conn: sqlite3.Connection, today: date, dry_run: bool = False, say: Calla
         if found:
             say(f"{car['name']}: {len(found)} new recall{'s' if len(found) != 1 else ''} from NHTSA.")
     cars = alerts.cars_watched(conn)
-    if not cars:
-        say("No car has alerts turned on, an inspection or registration date, or an open recall. Turn alerts on "
-            "from the Alerts page, or add the dates on a car's page.")
+    watches = [watch.look(conn, car, today) for car in cars]
+    # A car watched for nothing else is in the run while a warranty of its is ending.
+    known = {car["id"] for car in cars}
+    watches += [found for found in (watch.look(conn, car, today) for car in alerts.cars_with_warranties(conn)
+                                    if car["id"] not in known) if found.warranties]
+    watches.sort(key=lambda w: (w.car["name"].lower(), w.car["id"]))
+    if not watches:
+        say("No car has alerts turned on, an inspection or registration date, an open recall or a warranty "
+            "ending. Turn alerts on from the Alerts page, or add the dates on a car's page.")
         result.email = "no cars"
         return _finish(conn, result, dry_run)
-    watches = [watch.look(conn, car, today) for car in cars]
 
     # Pushes: one per car, for what's newly due soon or overdue.
     push_settings = config.ntfy()

@@ -13,6 +13,7 @@ from . import follow_ups as follow_up_words
 from . import recalls as recall_words
 from . import renewals as renewal_words
 from . import status as car_status
+from . import warranties as warranty_words
 from .deps import get_conn
 from .routes_vehicles import POWERTRAIN_LABELS
 from .templating import render
@@ -29,6 +30,7 @@ def garage(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Re
         car["renewals"] = renewal_words.urgent(renewal_words.rows(conn, car, offers=False))
         car["recommended"] = len(follow_up_words.load(conn, car).recent)
         car["issues"] = noted.get(car["id"], 0)
+        car["warranties"] = len(warranty_words.load(conn, car).ending)
         car["recalls"] = [recall_words.component(row["component"]) for row in recalls.open_for(conn, car["id"])]
     return render(
         request,

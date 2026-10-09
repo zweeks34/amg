@@ -34,8 +34,10 @@ def subject(watches: list[CarWatch]) -> str:
     overdue = sum(len(w.overdue) for w in watches)
     due = sum(len(w.due) for w in watches)
     found = sum(len(w.recalls) for w in watches)
+    ending = sum(len(w.warranties) for w in watches)
     parts = ([f"{overdue} overdue"] * bool(overdue) + [f"{due} due soon"] * bool(due)
-             + [f"{found} open recall{'s' if found != 1 else ''}"] * bool(found))
+             + [f"{found} open recall{'s' if found != 1 else ''}"] * bool(found)
+             + [f"{ending} warrant{'ies' if ending != 1 else 'y'} ending"] * bool(ending))
     return "AMG: " + (", ".join(parts) if parts else "nothing due this week")
 
 
@@ -80,7 +82,8 @@ def text(watches: list[CarWatch], to_check: int, base_url: str) -> str:
     for watch in watches:
         car = watch.car
         lines += ["", car["name"].upper()]
-        for heading, jobs in (("Overdue", watch.overdue), ("Due soon", watch.due), ("Open recalls", watch.recalls)):
+        for heading, jobs in (("Overdue", watch.overdue), ("Due soon", watch.due), ("Open recalls", watch.recalls),
+                              ("Warranties ending", watch.warranties)):
             if jobs:
                 lines += [heading] + [f"  • {job.line}" for job in jobs]
         if not watch.maintenance:

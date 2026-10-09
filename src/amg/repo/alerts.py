@@ -35,6 +35,15 @@ def cars_watched(conn: sqlite3.Connection) -> list[dict]:
         " ORDER BY name COLLATE NOCASE, id")]
 
 
+def cars_with_warranties(conn: sqlite3.Connection) -> list[dict]:
+    """Cars with a warranty that can end (not lifetime); not archived. The run sees whether one is ending."""
+    return [dict(row) for row in conn.execute(
+        "SELECT * FROM vehicles v WHERE archived_at IS NULL"
+        "   AND EXISTS (SELECT 1 FROM warranties w WHERE w.vehicle_id = v.id"
+        "               AND (w.months IS NOT NULL OR w.miles IS NOT NULL))"
+        " ORDER BY name COLLATE NOCASE, id")]
+
+
 def switch(conn: sqlite3.Connection, vehicle_id: int, on: bool) -> None:
     conn.execute("UPDATE vehicles SET alerts = ?, updated_at = ? WHERE id = ?", (int(on), now_iso(), vehicle_id))
 

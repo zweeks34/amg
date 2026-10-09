@@ -17,9 +17,12 @@ with its alerts off is watched for those dates alone.
 Notices aren't jobs, so they stay out of the overdue and due-soon counts: a
 car whose jobs fall due by mileage asks for an odometer reading once the last
 is over two months old. Its round is the last reading's date, so a new
-reading, then two quiet months, asks again. And each open recall NHTSA lists
+reading, then two quiet months, asks again. Each open recall NHTSA lists
 for the car is pushed once, whatever the car's alerts switch says: it comes
-from NHTSA, not your receipts.
+from NHTSA, not your receipts. So is each warranty coming up on its end, 60
+days (or the miles you drive in 60 days) before it: a warranty you confirmed
+can't be wrong the way job alerts are while old receipts go in. Its round is
+its end, by date or by miles, so a changed end warns again.
 """
 
 from __future__ import annotations
@@ -37,6 +40,7 @@ from ..web import follow_ups as follow_up_words
 from ..web import recalls as recall_words
 from ..web import renewals as renewal_words
 from ..web import status as car_status
+from ..web import warranties as warranty_words
 from ..web.templating import dollars
 from . import ics
 from .ntfy import Push
@@ -55,7 +59,7 @@ class Watched:
     name: str
     when: str           # "1,200 mi overdue · due Sep 3"; "expires Oct 31 · in 26 days"
     cost: int | None
-    kind: str = "job"   # job, renewal, reading or recall
+    kind: str = "job"   # job, renewal, reading, recall or warranty
     urgent: bool = False   # a recall NHTSA says not to drive (or to park outside) until it's fixed
 
     @property
@@ -101,6 +105,11 @@ class CarWatch:
         return [n for n in self.notices if n.kind == "recall"]
 
     @property
+    def warranties(self) -> list[Watched]:
+        """Warranties ending soon."""
+        return [n for n in self.notices if n.kind == "warranty"]
+
+    @property
     def dates(self) -> list[renewal_words.Row]:
         """The inspections and registration it has a date for."""
         return [row for row in self.renewals if row.standing]
@@ -131,6 +140,13 @@ def subject(vehicle_id: int, item_status: ItemStatus) -> str:
 def reading_subject(vehicle_id: int, stale: car_status.StaleReading) -> str:
     """A reading wanted: its round is the last reading, so a new one, then two quiet months, asks again."""
     return f"{vehicle_id}:reading:{stale.last_day.isoformat() if stale.last_day else 'none'}"
+
+
+def warranty_subject(vehicle_id: int, row: warranty_words.Row) -> str:
+    """'3:warranty:12:2028-03-01', or '3:warranty:12:60000mi' for one ending by miles: its round is its end."""
+    if row.standing.by == "miles":
+        return f"{vehicle_id}:warranty:{row.id}:{row.standing.end_miles}mi"
+    return f"{vehicle_id}:warranty:{row.id}:{row.standing.end_day.isoformat()}"   # type: ignore[union-attr]
 
 
 def reading_words(stale: car_status.StaleReading, today: date) -> str:
@@ -176,6 +192,10 @@ def look(conn: sqlite3.Connection, car, today: date | None = None, maintenance: 
                 recall_words.when(row), None, kind="recall", urgent=bool(row["park_it"] or row["park_outside"]))
         for row in recalls.open_for(conn, car["id"])
     ]
+    for row in warranty_words.load(conn, car, state.odometer, today).ending:
+        name = f"{row.title} ({row.provider})" if row.provider else row.title
+        notices.append(Watched(car["id"], warranty_subject(car["id"], row), "due", name,
+                               row.ending[:1].lower() + row.ending[1:], None, kind="warranty"))
     if maintenance and (stale := car_status.stale_reading(state)):
         notices.append(Watched(car["id"], reading_subject(car["id"], stale), "due", "Odometer reading wanted",
                                reading_words(stale, today), None, kind="reading"))
@@ -196,12 +216,16 @@ def push(watch: CarWatch, fresh: list[Watched], base_url: str) -> Push:
     overdue = sum(1 for j in dated if j.level == "overdue")
     reading = any(j.kind == "reading" for j in fresh)
     found = [j for j in fresh if j.kind == "recall"]
+    ending = [j for j in fresh if j.kind == "warranty"]
     urgent = any(j.urgent for j in found)
     if len(fresh) == 1:
         job = fresh[0]
         if job.kind == "reading":
             return Push(f"{name}: odometer reading wanted", job.when[:1].upper() + job.when[1:] + ".", priority=3,
                         tags=("wrench",), click=f"{page}#add-reading")
+        if job.kind == "warranty":
+            return Push(f"{name}: warranty ending", job.line + ".", priority=3, tags=("hourglass",),
+                        click=f"{page}#warranties")
         if job.kind == "recall":
             return Push(f"{name}: recall, don't drive it" if job.urgent else f"{name}: recall to check",
                         f"{job.name}: {job.when}", priority=5 if job.urgent else 4, tags=("warning",),
@@ -211,6 +235,7 @@ def push(watch: CarWatch, fresh: list[Watched], base_url: str) -> Push:
     else:
         counts = ([f"{overdue} overdue"] * bool(overdue) + [f"{len(dated) - overdue} due soon"] * bool(len(dated) - overdue)
                   + [f"{len(found)} recall{'s' if len(found) != 1 else ''} to check"] * bool(found)
+                  + [f"{len(ending)} warrant{'ies' if len(ending) != 1 else 'y'} ending"] * bool(ending)
                   + ["odometer reading wanted"] * reading)
         title = f"{name}: {', '.join(counts)}"
         message = "\n".join(j.line for j in fresh)

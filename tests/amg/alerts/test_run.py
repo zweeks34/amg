@@ -47,8 +47,8 @@ def test_a_channel_that_isnt_set_up_is_skipped_and_said(conn, car):
 def test_no_cars_on_says_how_to_turn_them_on(conn):
     said: list[str] = []
     run.run(conn, MONDAY, say=said.append)
-    assert said == ["No car has alerts turned on, an inspection or registration date, or an open recall. Turn alerts "
-                    "on from the Alerts page, or add the dates on a car's page."]
+    assert said == ["No car has alerts turned on, an inspection or registration date, an open recall or a warranty "
+                    "ending. Turn alerts on from the Alerts page, or add the dates on a car's page."]
     assert alerts.last_run(conn)["summary"] == "nothing new to push; no cars on"
 
 
