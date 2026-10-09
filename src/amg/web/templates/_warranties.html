@@ -1,7 +1,38 @@
-{#- A car's warranties: a row each on its page, and the ended ones folded away. -#}
+{#- A car's warranties: a row each on its page, the question a later visit asks, and the ended ones.
+    On a service's page the answers come back there (`from_service`). -#}
 
 {% macro heading(row) %}
 <p class="warranty__title">{{ row.title }}{% if row.provider %} <span class="warranty__provider">· {{ row.provider }}</span>{% endif %}</p>
+{%- endmacro %}
+
+{% macro ask(row, words, from_service=False) %}
+<div class="issue__ask">
+  <p class="issue__question">{{ words }}</p>
+  <div class="issue__acts">
+    {% for answer, label, cls in (("claimed", "Done under the warranty", "btn--secondary"), ("paid", "Paid for it", "btn--quiet")) %}
+    <form method="post" action="/warranties/{{ row.id }}/answer">
+      <input type="hidden" name="event_id" value="{{ row.ask.id }}">
+      <input type="hidden" name="answer" value="{{ answer }}">
+      {% if from_service %}<input type="hidden" name="back" value="service">{% endif %}
+      <button class="btn {{ cls }}" type="submit" aria-label="{{ row.title }}: {{ label | lower }}">{{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro undo(row, event_id, label, from_service=False) %}
+<form method="post" action="/warranties/{{ row.id }}/unanswer">
+  <input type="hidden" name="event_id" value="{{ event_id }}">
+  {% if from_service %}<input type="hidden" name="back" value="service">{% endif %}
+  <button class="btn btn--quiet" type="submit" aria-label="Undo: {{ label }}">Undo</button>
+</form>
+{%- endmacro %}
+
+{% macro edit(row) %}
+<a class="btn btn--quiet" href="{{ row.edit_url }}" aria-label="{{ 'Edit on the receipt' if row.from_receipt else 'Edit' }}: {{ row.title }}">
+  {{- "Edit on the receipt" if row.from_receipt else "Edit" -}}
+</a>
 {%- endmacro %}
 
 {% macro warranty_row(row) %}
@@ -14,11 +45,15 @@
   {% endif %}
   {% if row.source %}<p class="warranty__source"><a href="{{ row.source_url }}">{{ row.source }}</a></p>{% endif %}
   {% if row.details %}<p class="warranty__details">{{ row.details }}</p>{% endif %}
-  <div class="issue__acts">
-    <a class="btn btn--quiet" href="{{ row.edit_url }}" aria-label="{{ 'Edit on the receipt' if row.from_receipt else 'Edit' }}: {{ row.title }}">
-      {{- "Edit on the receipt" if row.from_receipt else "Edit" -}}
-    </a>
-  </div>
+  {% if row.used %}
+  <ul class="warranty__used">
+    {% for use in row.used %}
+    <li><a href="/services/{{ use.event_id }}">{{ use.words }}</a>{{ undo(row, use.event_id, use.words) }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if row.ask %}{{ ask(row, row.question) }}{% endif %}
+  <div class="issue__acts">{{ edit(row) }}</div>
 </li>
 {%- endmacro %}
 
@@ -27,9 +62,8 @@
   {{ heading(row) }}
   <p class="warranty__until">{% if row.paid %}<a href="/services/{{ row.paid }}">{{ row.ended }}</a>{% else %}{{ row.ended }}{% endif %}</p>
   <div class="issue__acts">
-    <a class="btn btn--quiet" href="{{ row.edit_url }}" aria-label="{{ 'Edit on the receipt' if row.from_receipt else 'Edit' }}: {{ row.title }}">
-      {{- "Edit on the receipt" if row.from_receipt else "Edit" -}}
-    </a>
+    {% if row.paid %}{{ undo(row, row.paid, row.title ~ " back in force") }}{% endif %}
+    {{ edit(row) }}
   </div>
 </li>
 {%- endmacro %}

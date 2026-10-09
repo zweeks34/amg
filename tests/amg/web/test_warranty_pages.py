@@ -1,4 +1,5 @@
-"""Warranties on the car's page, the form you add your own with, and a receipt's Warranties block."""
+"""Warranties on the car's page, the form you add your own with, a receipt's Warranties block, the question a
+later visit asks, and the notes on recommendations and the sheet for the shop."""
 
 from __future__ import annotations
 
@@ -10,10 +11,13 @@ from datetime import date, timedelta
 import pytest
 import receipt_fixtures as fx  # tests/ is on pytest's path
 import report_fixtures as rf
+from schedule_fixtures import steady_car
 
-from amg.repo import odometer, receipts, warranties
 from amg.engine.schedule import add_months
+from amg.ingest.receipts import Recommendation
+from amg.repo import odometer, receipts, vehicles, warranties
 from amg.repo.warranties import WarrantyInput
+from amg.web import status
 from amg.web.recalls import day_words
 
 
@@ -252,3 +256,149 @@ def test_the_miles_estimate_when_none_was_given(signed_in, conn, car):
     warranties.create(conn, car, WarrantyInput("Tires", "2025-04-01", months=None, miles=500_000, codes=["tires"]))
     text = page(signed_in, f"/vehicles/{car}")
     assert "Until about 550,983 mi" in text and "mi left" in text   # 50,983 on Apr 1, between the readings
+
+
+# ---------- When a later visit replaces a covered part ----------
+
+
+def _days(n):
+    return (date.today() - timedelta(days=n)).isoformat()
+
+
+@pytest.fixture
+def battery(conn, car):
+    """A battery fitted 400 days ago with Costco's 3-year warranty, and a later visit that replaced it."""
+    fitted = rf.visit(conn, car, _days(400), source="diy", lines=[rf.line("Battery", 18_000, "battery_12v")])
+    made = warranties.create(conn, car, WarrantyInput("Battery free replacement", _days(400), provider="Costco",
+                                                      months=36, codes=["battery_12v"], event_id=fitted))
+    later = rf.visit(conn, car, _days(30), shop="Valley Honda",
+                     lines=[rf.line("Battery", 21_000, "battery_12v"), rf.line("Oil", 6_000, "engine_oil")])
+    return made, later
+
+
+def _answer(signed_in, warranty_id, event_id, said, **extra):
+    return signed_in.post(f"/warranties/{warranty_id}/answer",
+                          data={"event_id": str(event_id), "answer": said, **extra}, follow_redirects=False)
+
+
+def _ends():
+    return day_words(add_months(date.fromisoformat(_days(400)), 36).isoformat())
+
+
+def test_the_question_on_the_car_page(signed_in, conn, car, battery):
+    text = page(signed_in, f"/vehicles/{car}")
+    assert (f"Valley Honda replaced the 12-volt battery on {day_words(_days(30))}. "
+            f"Costco's warranty covered it until {_ends()}.") in text
+    assert "Done under the warranty" in text and "Paid for it" in text
+
+
+def test_done_under_the_warranty_keeps_it_and_undo(signed_in, conn, car, battery):
+    made, later = battery
+    response = _answer(signed_in, made, later, "claimed")
+    assert response.headers["location"] == f"/vehicles/{car}#warranties"
+    text = page(signed_in, f"/vehicles/{car}")
+    assert f"Used {day_words(_days(30))} at Valley Honda" in text and "Done under the warranty" not in text
+    assert " ended</summary>" not in text
+    signed_in.post(f"/warranties/{made}/unanswer", data={"event_id": str(later)})
+    assert warranties.get(conn, made)["answers"] == {}
+
+
+def test_paid_for_it_ends_it_and_undo_brings_it_back(signed_in, conn, car, battery):
+    made, later = battery
+    _answer(signed_in, made, later, "paid")
+    text = page(signed_in, f"/vehicles/{car}")
+    assert "1 ended" in text and "None in force." in text
+    assert f"Ended {day_words(_days(30))}: you paid to replace the 12-volt battery at Valley Honda" in text
+    assert f'href="/services/{later}">Ended' in text
+    signed_in.post(f"/warranties/{made}/unanswer", data={"event_id": str(later)})
+    assert "None in force." not in page(signed_in, f"/vehicles/{car}")
+
+
+def test_a_stale_answer_changes_nothing(signed_in, conn, car, battery):
+    made, later = battery
+    other = rf.visit(conn, car, _days(10), shop="Midas", lines=[rf.line("Oil", 6_000, "engine_oil")])
+    for event, said in ((other, "paid"), (later, "maybe")):
+        _answer(signed_in, made, event, said)
+    assert warranties.get(conn, made)["answers"] == {}
+    _answer(signed_in, made, later, "claimed")
+    _answer(signed_in, made, later, "paid")          # answered already, from a page still showing the question
+    assert warranties.get(conn, made)["answers"] == {later: "claimed"}
+
+
+def test_the_service_page_asks_about_itself_and_answers_come_back(signed_in, conn, car, battery):
+    made, later = battery
+    text = page(signed_in, f"/services/{later}")
+    assert 'id="warranties"' in text and "Was this under the warranty?" in text
+    assert f"It covered the 12-volt battery until {_ends()}." in text
+    response = _answer(signed_in, made, later, "claimed", back="service")
+    assert response.headers["location"] == f"/services/{later}#warranties"
+    text = page(signed_in, f"/services/{later}")
+    assert "Done under this warranty" in text and "Was this under the warranty?" not in text
+    signed_in.post(f"/warranties/{made}/unanswer", data={"event_id": str(later), "back": "service"})
+    assert "Was this under the warranty?" in page(signed_in, f"/services/{later}")
+
+
+def test_the_visit_it_came_with_and_adding_one_to_a_visit(signed_in, conn, car, battery):
+    made, _ = battery
+    fitted = warranties.get(conn, made)["service_event_id"]
+    text = page(signed_in, f"/services/{fitted}")
+    assert "Came with this visit" in text and "Battery free replacement" in text
+    assert f'href="/vehicles/{car}/warranties/new?service={fitted}"' in text
+    nothing = rf.visit(conn, car, _days(5), shop="Midas", lines=[rf.line("Oil", 6_000, "engine_oil")])
+    assert "None came with this visit." in page(signed_in, f"/services/{nothing}")
+    done = rf.visit(conn, car, _days(5), source="attested", lines=[rf.line("Oil", None, "engine_oil")])
+    assert 'id="warranties"' not in page(signed_in, f"/services/{done}")
+
+
+def test_a_receipts_service_sends_you_to_the_receipt(signed_in, conn, car):
+    receipt_id, event = rf.receipt(conn, car, rf.pdf_bytes("Costco"), "c.pdf", shop_name="Costco", date=_days(20))
+    text = page(signed_in, f"/services/{event}")
+    assert f'href="/receipts/{receipt_id}#warranties"' in text and "warranties/new?service" not in text
+
+
+def test_a_procedure_under_warranty_is_a_note_not_a_question(signed_in, conn, car):
+    warranties.create(conn, car, WarrantyInput("Rotations for life", _days(400), provider="Discount Tire",
+                                               codes=["tire_rotation"]))
+    rotated = rf.visit(conn, car, _days(20), shop="Discount Tire",
+                       lines=[rf.line("Rotate", 0, "tire_rotation", action="perform")])
+    text = page(signed_in, f"/services/{rotated}")
+    assert "Tire rotation: under warranty (Rotations for life, Discount Tire) for life." in text
+    assert "Was this under the warranty?" not in text
+
+
+def test_a_review_says_what_was_under_warranty(signed_in, conn, car, battery):
+    made, later = battery
+    receipt_id, _ = rf.receipt(conn, car, rf.pdf_bytes("New battery"), "n.pdf", confirm=False, shop_name="Pep Boys",
+                               date=_days(2), odometer=None, lines=[fx.line("Battery", 199.0, ["battery_12v"])],
+                               recommendations=[], warranties=[fx.warranty()])
+    text = page(signed_in, f"/receipts/{receipt_id}")
+    assert f"The 12-volt battery was under warranty (Battery free replacement, Costco) until {_ends()}." in text
+    _answer(signed_in, made, later, "paid")          # it ended at Valley Honda, before this receipt
+    assert "was under warranty" not in page(signed_in, f"/receipts/{receipt_id}")
+
+
+# ---------- Before the work ----------
+
+
+def test_a_recommendation_for_a_part_under_warranty_says_so(signed_in, conn, car):
+    warranties.create(conn, car, WarrantyInput("Lifetime pads", _days(400), provider="Midas", codes=["brake_pads"]))
+    rf.receipt(conn, car, rf.pdf_bytes("Recs"), "r.pdf", shop_name="Valley Honda", date=_days(20), odometer=None,
+               recommendations=[Recommendation(description="Front brake pads", service_codes=["brake_pads"],
+                                               quoted_amount=280.0)])
+    assert "Under warranty: Midas, for life" in page(signed_in, f"/vehicles/{car}")
+
+
+def test_the_sheet_lists_warranties_in_force_and_notes_the_jobs_they_cover(signed_in, conn):
+    vehicle, _, _ = steady_car(conn, date.today() - timedelta(days=1000))
+    state = status.load(conn, vehicles.get(conn, vehicle))
+    urgent = next(row for row in status.next_up(state) if row["status"] in ("overdue", "due"))
+    code = state.items[urgent["item_id"]]["codes"][0]
+    warranties.create(conn, vehicle, WarrantyInput("Parts for life", _days(100), provider="Midas", codes=[code]))
+    warranties.create(conn, vehicle, WarrantyInput("Basic", _days(900), provider="Test Motors", months=36,
+                                                   whole_car=True))
+    warranties.create(conn, vehicle, WarrantyInput("Expired one", "2015-01-01", months=12, codes=[code]))
+    text = page(signed_in, f"/vehicles/{vehicle}/for-the-shop")
+    assert "Expired one" not in text
+    assert text.index("Basic · Test Motors") < text.index("Parts for life · Midas") < text.index("Due now")
+    assert "The whole car · 3 years" in text and "Under warranty: Midas, for life" in text
+    assert "$" not in text

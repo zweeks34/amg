@@ -27,7 +27,7 @@
 </ol>
 {%- endmacro %}
 
-{% macro follow_up_rows(rows, car_id, names, skipped=False) %}
+{% macro follow_up_rows(rows, car_id, names, skipped=False, cover=none) %}
 <ul class="followups">
   {% for f in rows %}
   <li class="followup">
@@ -35,6 +35,8 @@
     <span class="followup__when"><a href="/services/{{ f.rec.event_id }}">{{ f.rec.day.isoformat() }}</a>
       {%- if f.rec.shop %} · {{ f.rec.shop }}{% endif %}
       {%- if f.rec.quoted_cents and f.rec.quoted_cents > 0 %} · quoted {{ f.rec.quoted_cents | money }}{% endif %}</span>
+    {% set held = cover.covering(f.rec.codes) if cover and not skipped else none %}
+    {% if held %}<span class="followup__warranty"><a href="#warranties">{{ held.note }}</a></span>{% endif %}
     {% if f.rec.codes %}
     <ul class="chips followup__chips" aria-label="Services">
       {% for code in f.rec.codes %}<li class="chip chip--small">{{ names.get(code, code) }}</li>{% endfor %}
@@ -285,14 +287,14 @@
     {% if follow_ups.quoted %}<span class="muted">{{ follow_ups.quoted | dollars }} quoted</span>{% endif %}
   </div>
   {% if follow_ups.recent %}
-  <div class="sheet sheet--flush">{{ follow_up_rows(follow_ups.recent, car.id, type_names) }}</div>
+  <div class="sheet sheet--flush">{{ follow_up_rows(follow_ups.recent, car.id, type_names, cover=warranties) }}</div>
   {% else %}
   <p class="muted">Nothing the shops recommended in the last 12 months is still open.</p>
   {% endif %}
   {% if follow_ups.older %}
   <details class="followups__more">
     <summary>{{ follow_ups.older | length }} older</summary>
-    <div class="sheet sheet--flush">{{ follow_up_rows(follow_ups.older, car.id, type_names) }}</div>
+    <div class="sheet sheet--flush">{{ follow_up_rows(follow_ups.older, car.id, type_names, cover=warranties) }}</div>
   </details>
   {% endif %}
   {% if follow_ups.skipped %}

@@ -140,6 +140,24 @@ def release(conn: sqlite3.Connection, event_id: int) -> None:
                  (event_id,))
 
 
+# ---------- What you said about later visits ----------
+
+
+def answer(conn: sqlite3.Connection, warranty_id: int, event_id: int, said: str) -> None:
+    """Done under the warranty (claimed), or you paid for it (paid), on a later visit that replaced a covered part."""
+    if said not in ANSWERS:
+        raise ValueError(f"An answer is one of {ANSWERS}.")
+    conn.execute(
+        "INSERT INTO warranty_answers (warranty_id, event_id, answer, created_at) VALUES (?, ?, ?, ?)"
+        " ON CONFLICT (warranty_id, event_id) DO UPDATE SET answer = excluded.answer, created_at = excluded.created_at",
+        (warranty_id, event_id, said, now_iso()),
+    )
+
+
+def unanswer(conn: sqlite3.Connection, warranty_id: int, event_id: int) -> None:
+    conn.execute("DELETE FROM warranty_answers WHERE warranty_id = ? AND event_id = ?", (warranty_id, event_id))
+
+
 # ---------- Reading them ----------
 
 

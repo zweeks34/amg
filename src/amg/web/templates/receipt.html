@@ -139,6 +139,13 @@
         {{ field("invoice_number", "Invoice number", mono=True) }}
       </div>
 
+      {% if under_warranty %}
+      <div class="notice field--wide" role="note">
+        <p>Under warranty when this was done. If it was replaced under the warranty, its amount is usually $0;
+          AMG asks once it's confirmed.</p>
+        <ul class="notice__list">{% for note in under_warranty %}<li>{{ note }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
       <fieldset class="field field--wide lines">
         <legend>Work done</legend>
         {{ editor_lines(kinds, receipt=True) }}

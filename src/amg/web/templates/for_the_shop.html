@@ -23,6 +23,22 @@
     {% if sheet.odometer %}<div><dt>Odometer</dt><dd class="mono">{{ sheet.odometer }}</dd></div>{% endif %}
   </dl>
 
+  {% if sheet.warranties %}
+  <section class="shopsheet__part" aria-labelledby="warranty-heading">
+    <h2 class="h3" id="warranty-heading">Under warranty</h2>
+    <ul class="shopsheet__list">
+      {% for row in sheet.warranties %}
+      <li class="shopsheet__row">
+        <span class="mark mark--done" aria-hidden="true"></span>
+        <span class="shopsheet__what">{{ row.title }}{% if row.provider %} · {{ row.provider }}{% endif %}</span>
+        <span class="shopsheet__when">{{ row.until }}</span>
+        <span class="shopsheet__note shopsheet__covers">{{ row.covers }} · {{ row.terms }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
   {% if sheet.issues %}
   <section class="shopsheet__part" aria-labelledby="look-heading">
     <h2 class="h3" id="look-heading">Please look at</h2>
@@ -49,6 +65,7 @@
         <span class="mark mark--{{ job.status }}" aria-hidden="true"></span>
         <span class="shopsheet__what">{{ job.name }}</span>
         <span class="shopsheet__when">{{ job.when }}</span>
+        {% if job.warranty %}<span class="shopsheet__note">{{ job.warranty }}</span>{% endif %}
       </li>
       {% endfor %}
     </ul>
@@ -64,6 +81,7 @@
         <span class="mark mark--later" aria-hidden="true"></span>
         <span class="shopsheet__what">{{ rec.description }}</span>
         <span class="shopsheet__when">{{ rec.where }}</span>
+        {% if rec.warranty %}<span class="shopsheet__note">{{ rec.warranty }}</span>{% endif %}
       </li>
       {% endfor %}
     </ul>

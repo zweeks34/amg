@@ -1,7 +1,9 @@
-"""Warranties you add yourself: the car's own from its booklet, an extended one you bought, or a part you fitted.
+"""Warranties you add yourself, and what you say about a later visit that replaced a covered part.
 
-A receipt's warranties are edited on the receipt, whose draft is the
-record; their pages here send you there.
+Yours are the car's own from its booklet, an extended one you bought, or one
+on a part you fitted. A receipt's warranties are edited on the receipt, whose
+draft is the record; their pages here send you there. Answers come from the
+car's page or a service's page (``back=service``), and go back there.
 """
 
 from __future__ import annotations
@@ -13,6 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import RedirectResponse, Response
 
 from ..repo import services, warranties
+from ..repo.warranties import ANSWERS
+from . import forms
 from . import warranties as warranty_words
 from .deps import get_conn
 from .routes_services import editor_types
@@ -80,7 +84,46 @@ def delete_warranty(warranty_id: int, conn: sqlite3.Connection = Depends(get_con
     return RedirectResponse(f"/vehicles/{row['vehicle_id']}#warranties", status_code=303)
 
 
+# ---------- What became of a covered part ----------
+
+
+@router.post("/warranties/{warranty_id}/answer")
+async def answer(request: Request, warranty_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    """Only about the visit it's asking about now: an answer from a stale page changes nothing."""
+    row = _warranty_or_404(conn, warranty_id)
+    form = await request.form()
+    said, event = forms.text(form.get("answer")), forms.text(form.get("event_id"))
+    car = vehicle_or_404(conn, row["vehicle_id"])
+    shown = next((r for r in _rows(conn, car) if r.id == warranty_id), None)
+    if said in ANSWERS and shown is not None and shown.ask is not None and str(shown.ask.id) == event:
+        warranties.answer(conn, warranty_id, shown.ask.id, said)
+    return _back(form, row)
+
+
+@router.post("/warranties/{warranty_id}/unanswer")
+async def unanswer(request: Request, warranty_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    row = _warranty_or_404(conn, warranty_id)
+    form = await request.form()
+    event = forms.text(form.get("event_id"))
+    if event.isdigit():
+        warranties.unanswer(conn, warranty_id, int(event))
+    return _back(form, row)
+
+
 # ---------- Helpers ----------
+
+
+def _rows(conn: sqlite3.Connection, car) -> list[warranty_words.Row]:
+    section = warranty_words.load(conn, car)
+    return section.in_force + section.ended
+
+
+def _back(form, row: dict) -> Response:
+    """Back to the service's page the answer came from, or to the car's warranties."""
+    event = forms.text(form.get("event_id"))
+    if forms.text(form.get("back")) == "service" and event.isdigit():
+        return RedirectResponse(f"/services/{event}#warranties", status_code=303)
+    return RedirectResponse(f"/vehicles/{row['vehicle_id']}#warranties", status_code=303)
 
 
 def _warranty_or_404(conn: sqlite3.Connection, warranty_id: int) -> dict:

@@ -18,6 +18,7 @@ from ..ingest.drafts import Draft
 from ..ingest.receipts import DOCUMENT_KINDS, ReceiptExtraction
 from ..repo import documents, odometer, receipts, services, vehicles
 from . import forms, line_editor, receipt_finder
+from . import warranties as warranty_words
 from .deps import get_conn
 from .routes_services import KIND_LABELS, editor_types
 from .templating import render
@@ -405,6 +406,10 @@ def _review(
         mismatches=drafts.mismatches(draft, car) if (draft and car) else [],
         duplicates=receipts.possible_duplicates(conn, receipt["id"], draft) if draft else [],
         offers=_offers(draft, car) if draft else [],
+        under_warranty=warranty_words.review_notes(
+            conn, car, draft.performed_on or "", draft.odometer,
+            [c["code"] for line in draft.lines for c in line["covers"] if c["action"] == "replace"], receipt["id"],
+        ) if (draft and car) else [],
         editor={
             "lines": rows or [],
             "errors": line_errors or [None] * len(rows or []),

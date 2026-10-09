@@ -49,6 +49,9 @@ class Row:
     from_receipt: bool
     details: str
     standing: Standing
+    term: engine.Warranty
+    receipt_id: int | None = None
+    answers: dict[int, str] = field(default_factory=dict)   # what you said about later visits, by visit
     until: str = ""                # "Until Mar 1, 2028 or about 72,500 mi"
     left: str = ""                 # "about 2 years 5 months left"
     ending: str = ""               # "Ends in 45 days, Nov 23"
@@ -65,7 +68,7 @@ class Row:
     @property
     def note(self) -> str:
         """'Under warranty: Costco, until Mar 1, 2028', for a recommendation or a job that touches what it covers."""
-        return f"Under warranty: {self.provider or self.title}, {_lower(self.until)}"
+        return f"Under warranty: {self.provider or self.title}, {covered(self)}"
 
 
 @dataclass
@@ -168,7 +171,7 @@ def question(row: Row, visit: Visit, type_names: Mapping[str, str]) -> str:
     """'Valley Honda replaced the 12-volt battery on Sep 20, 2026. Costco's warranty covered it until Mar 1, 2028.'"""
     parts = names(_ordered(visit.replaced & row.codes, type_names), type_names)
     who = visit.shop or "You"
-    whose = f"{row.provider}'s warranty" if row.provider else "Its warranty"
+    whose = f"{row.provider}'s warranty" if row.provider else "This warranty"
     return (f"{who} replaced the {_lower(parts)} on {day_words(visit.day.isoformat())}. "
             f"{whose} covered it {covered(row)}.")
 
@@ -242,6 +245,9 @@ def row(found: Mapping, visits: Sequence[Visit], odometer: Odometer | None, toda
         from_receipt=from_receipt,
         details=found["details"],
         standing=standing,
+        term=term,
+        receipt_id=found["receipt_id"],
+        answers=dict(found["answers"]),
     )
     result.until = until(found, standing, estimated=found["start_miles"] is None)
     today_miles = odometer.miles_on(today) if odometer is not None else None
@@ -283,6 +289,85 @@ def load(conn: sqlite3.Connection, car: Mapping, odometer: Odometer | None = Non
     live.sort(key=lambda r: (r.state != "ending", not r.whole_car, r.standing.end_day or date.max, r.title.lower()))
     ended = sorted((r for r in rows if r.state == "ended"), key=lambda r: r.standing.end_day or date.min, reverse=True)
     return Section(live, ended)
+
+
+# ---------- Elsewhere: a service's page, a receipt's review ----------
+
+
+@dataclass
+class Answered:
+    row: Row
+    answer: str                    # claimed or paid
+    words: str                     # "Done under this warranty"
+
+
+@dataclass
+class ServiceBlock:
+    """A service's page: the warranties that came with it, the ones asking about it, and what you said."""
+    came_with: list[Row] = field(default_factory=list)
+    asked: list[tuple[Row, str]] = field(default_factory=list)    # each with "It covered the 12-volt battery …"
+    answered: list[Answered] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)                # procedures done under one, such as rotations
+
+    def __bool__(self) -> bool:
+        return bool(self.came_with or self.asked or self.answered or self.notes)
+
+
+ANSWER_WORDS = {"claimed": "Done under this warranty", "paid": "You paid for it, so this warranty ended"}
+
+
+def under(row: Row, codes: Iterable[str], type_names: Mapping[str, str]) -> str:
+    """'The 12-volt battery was under warranty (36-month free replacement, Costco) until Mar 1, 2028.'"""
+    parts = names(_ordered(set(codes) & row.codes, type_names), type_names)
+    name = ", ".join(part for part in (row.title, row.provider) if part)
+    return f"The {_lower(parts)} was under warranty ({name}) {covered(row)}."
+
+
+def for_service(conn: sqlite3.Connection, event: Mapping, car: Mapping) -> ServiceBlock:
+    section = load(conn, car)
+    rows = section.in_force + section.ended
+    type_names = {t["code"]: t["name"] for t in services.list_types(conn)}
+    visit = next((v for v in warranties.visits(conn, car["id"]) if v.id == event["id"]), None)
+    block = ServiceBlock(came_with=[row for row in rows if row.term.event_id == event["id"]])
+    for found in rows:
+        if found.ask and found.ask.id == event["id"]:
+            parts = names(_ordered(found.ask.replaced & found.codes, type_names), type_names)
+            block.asked.append((found, f"It covered the {_lower(parts)} {covered(found)}."))
+        elif event["id"] in found.answers:
+            answer = found.answers[event["id"]]
+            block.answered.append(Answered(found, answer, ANSWER_WORDS[answer]))
+    performed = {cover["code"] for line in event["lines"] for cover in line["covers"] if cover["action"] == "perform"}
+    if visit is not None and performed:
+        day, odometer = visit.day, odometer_for(conn, car)
+        miles = visit.odometer if visit.odometer is not None else odometer.miles_on(day)
+        block.notes = [
+            f"{names(_ordered(found.codes & performed, type_names), type_names)}: under warranty "
+            f"({', '.join(part for part in (found.title, found.provider) if part)}) {covered(found)}."
+            for found in rows
+            if not found.whole_car and found.codes & performed and found.term.event_id != event["id"]
+            and engine.in_force_on(found.term, day, miles, odometer)
+        ]
+    return block
+
+
+def review_notes(conn: sqlite3.Connection, car: Mapping, day: str, odometer_miles: int | None,
+                 replaced: Iterable[str], receipt_id: int | None) -> list[str]:
+    """A receipt's review: each part its lines replace that a warranty (not its own) covered on that day."""
+    replaced = set(replaced) - engine.NEVER_ASKS
+    if not (day and replaced):
+        return []
+    odometer = odometer_for(conn, car)
+    section = load(conn, car, odometer)
+    type_names = {t["code"]: t["name"] for t in services.list_types(conn)}
+    when = date.fromisoformat(day)
+    miles = odometer_miles if odometer_miles is not None else odometer.miles_on(when)
+    return [
+        under(found, replaced, type_names)
+        for found in section.in_force + section.ended
+        if not found.whole_car and found.codes & replaced and found.receipt_id != receipt_id
+        and when > found.term.starts_on and engine.in_force_on(found.term, when, miles, odometer)
+        and not (found.standing.paid and found.standing.paid.day < when)
+    ]
 
 
 # ---------- The form ----------

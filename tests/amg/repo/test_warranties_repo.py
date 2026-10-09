@@ -136,3 +136,15 @@ def test_everything_names_the_car(conn, car):
     warranties.create(conn, car, WarrantyInput("Basic", "2024-01-15", months=36, whole_car=True))
     [row] = warranties.everything(conn)
     assert row["car_name"] == "Civic" and row["codes"] == []
+
+
+def test_answers_replace_each_other_and_undo(conn, car):
+    later = rf.visit(conn, car, "2026-01-05", shop="Valley Honda", lines=[rf.line("Battery", 0, "battery_12v")])
+    made = warranties.create(conn, car, WarrantyInput("Battery", "2025-03-01", months=36, codes=["battery_12v"]))
+    warranties.answer(conn, made, later, "claimed")
+    warranties.answer(conn, made, later, "paid")
+    assert warranties.get(conn, made)["answers"] == {later: "paid"}
+    warranties.unanswer(conn, made, later)
+    assert warranties.get(conn, made)["answers"] == {}
+    with pytest.raises(ValueError):
+        warranties.answer(conn, made, later, "maybe")

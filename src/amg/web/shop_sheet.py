@@ -1,8 +1,10 @@
 """The sheet for the shop: what to ask for at the next visit, on one page to show or print.
 
-Your open issues first, numbered so you can say "number 2"; then the
-schedule's jobs overdue or due soon; then what shops recommended in the last
-year that's still open. No prices: it's the page you hand over.
+The warranties in force first, so the shop knows what to claim; then your
+open issues, numbered so you can say "number 2"; then the schedule's jobs
+overdue or due soon; then what shops recommended in the last year that's
+still open, each job or recommendation that touches a part under warranty
+saying so. No prices: it's the page you hand over.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from ..repo import vehicles
 from . import follow_ups as follow_up_words
 from . import issues as issue_words
 from . import status as car_status
+from . import warranties as warranty_words
 from .recalls import day_words
 
 
@@ -25,8 +28,9 @@ class Sheet:
     odometer: str                   # "about 92,400 mi today", "91,850 mi on Sep 30, 2026", or ''
     today: str                      # "Oct 8, 2026"
     issues: list[issue_words.Row] = field(default_factory=list)
-    due: list[dict] = field(default_factory=list)            # next-up rows: overdue and due soon
-    recommended: list[dict] = field(default_factory=list)    # {description, where}
+    due: list[dict] = field(default_factory=list)            # next-up rows: overdue and due soon, and a warranty note
+    recommended: list[dict] = field(default_factory=list)    # {description, where, warranty}
+    warranties: list[warranty_words.Row] = field(default_factory=list)   # in force, the whole car's first
 
     @property
     def empty(self) -> bool:
@@ -46,15 +50,26 @@ def odometer_words(state: car_status.CarStatus, latest: Mapping | None) -> str:
 def load(conn: sqlite3.Connection, car: Mapping, today: date | None = None) -> Sheet:
     today = today or date.today()
     state = car_status.load(conn, car, today)
+    held = warranty_words.load(conn, car, state.odometer, today)
+
+    def note(codes) -> str:
+        found = held.covering(codes)
+        return found.note if found else ""
+
+    due = car_status.next_up(state, limit=0)
+    for row in due:
+        row["warranty"] = note(state.items[row["item_id"]]["codes"])
     return Sheet(
         model=" ".join(str(part) for part in (car["year"], car["make"], car["model"], car["trim"]) if part),
         odometer=odometer_words(state, vehicles.latest_odometer(conn, car["id"])),
         today=day_words(today.isoformat()),
         issues=issue_words.load(conn, car, state.odometer).open,
-        due=car_status.next_up(state, limit=0),
+        due=due,
         recommended=[
             {"description": f.rec.description,
-             "where": f"{f.rec.shop or 'A shop'}, {day_words(f.rec.day.isoformat())}"}
+             "where": f"{f.rec.shop or 'A shop'}, {day_words(f.rec.day.isoformat())}",
+             "warranty": note(f.rec.codes)}
             for f in follow_up_words.load(conn, car, today).recent
         ],
+        warranties=sorted(held.in_force, key=lambda row: not row.whole_car),
     )

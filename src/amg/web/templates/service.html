@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_issues.html" import ask %}
+{% from "_warranties.html" import heading as warranty_heading, ask as warranty_ask, undo as warranty_undo %}
 {% block title %}Service on {{ event.performed_on }} · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -83,6 +84,50 @@
     </li>
     {% endfor %}
   </ul>
+</section>
+{% endif %}
+
+{% if warranty_block is not none %}
+<section class="block" id="warranties" aria-labelledby="warranties-heading">
+  <div class="block__head">
+    <h2 class="h3" id="warranties-heading">Warranties</h2>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}#warranties">All of them</a>
+  </div>
+  {% if warranty_block %}
+  <ul class="warranties sheet sheet--flush">
+    {% for row, words in warranty_block.asked %}
+    <li class="warranty">
+      {{ warranty_heading(row) }}
+      <p class="warranty__covers">{{ words }}</p>
+      {{ warranty_ask(row, "Was this under the warranty?", from_service=True) }}
+    </li>
+    {% endfor %}
+    {% for said in warranty_block.answered %}
+    <li class="warranty">
+      {{ warranty_heading(said.row) }}
+      <p class="warranty__until">{{ said.words }}</p>
+      <div class="issue__acts">{{ warranty_undo(said.row, event.id, said.row.title ~ ": " ~ said.words, from_service=True) }}</div>
+    </li>
+    {% endfor %}
+    {% for row in warranty_block.came_with %}
+    <li class="warranty">
+      {{ warranty_heading(row) }}
+      <p class="warranty__covers">{{ row.covers }} · {{ row.terms }}</p>
+      <p class="warranty__until">Came with this visit · {{ row.ended or row.until }}</p>
+    </li>
+    {% endfor %}
+    {% for note in warranty_block.notes %}
+    <li class="warranty"><p class="warranty__covers">{{ note }}</p></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if receipt %}
+  <p class="muted">{% if not warranty_block %}None came with this visit. {% endif %}A receipt's warranties are read with it:
+    add or change one on <a href="/receipts/{{ receipt.id }}#warranties">the receipt</a>.</p>
+  {% else %}
+  {% if not warranty_block %}<p class="muted">None came with this visit.</p>{% endif %}
+  <p><a class="btn btn--secondary" href="/vehicles/{{ car.id }}/warranties/new?service={{ event.id }}">Add a warranty</a></p>
+  {% endif %}
 </section>
 {% endif %}
 

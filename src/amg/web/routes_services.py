@@ -22,6 +22,7 @@ from ..ingest.drafts import Draft
 from ..repo import follow_ups, odometer, receipts, services
 from . import forms, line_editor
 from . import issues as issue_words
+from . import warranties as warranty_words
 from .deps import get_conn
 from .routes_vehicles import POWERTRAIN_LABELS, vehicle_or_404
 from .templating import render
@@ -69,6 +70,8 @@ def service_page(request: Request, event_id: int, conn: sqlite3.Connection = Dep
     receipt = receipts.for_event(conn, event_id)
     draft = Draft.from_dict(json.loads(receipt["draft_json"])) if receipt and receipt["draft_json"] else None
     issues_fixed, issues_asked = issue_words.for_service(conn, event) if event["confirmed"] else ([], [])
+    # A visit marked done with no receipt isn't one a warranty came with or asks about.
+    visit = event["confirmed"] and event["source"] != "attested"
     return render(
         request,
         "service.html",
@@ -83,6 +86,7 @@ def service_page(request: Request, event_id: int, conn: sqlite3.Connection = Dep
         actions=ACTION_LABELS,
         issues_fixed=issues_fixed,
         issues_asked=issues_asked,
+        warranty_block=warranty_words.for_service(conn, event, car) if visit else None,
     )
 
 
