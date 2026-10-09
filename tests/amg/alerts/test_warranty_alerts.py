@@ -17,7 +17,7 @@ from amg.repo import odometer, vehicles, warranties
 from amg.repo.warranties import WarrantyInput
 
 OCT_9 = date(2026, 10, 9)
-LINE = "Powertrain (Subaru): ends in 23 days, Nov 1"
+LINE = "Powertrain · Subaru: ends in 23 days, Nov 1"
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def test_a_new_end_warns_again(conn, car, powertrain, pushes):
     warranties.update(conn, powertrain, WarrantyInput("Powertrain", "2023-11-01", provider="Subaru", months=37,
                                                       whole_car=True))
     _run(conn, OCT_9 + timedelta(days=1))
-    assert [p.message for p in pushes] == [f"{LINE}.", "Powertrain (Subaru): ends in 52 days, Dec 1."]
+    assert [p.message for p in pushes] == [f"{LINE}.", "Powertrain · Subaru: ends in 52 days, Dec 1."]
 
 
 def test_lifetime_and_ended_ones_never_warn(conn, car, pushes):
@@ -91,7 +91,7 @@ def test_the_weekly_email_lists_them(conn, car, powertrain):
     text = mail.text([looked], 0, "http://amg.home.arpa")
     assert f"OUTBACK\nWarranties ending\n  • {LINE}\n" in text
     body = mail.digest([looked], 0, "http://amg.home.arpa", "").get_body(("html",)).get_content()
-    assert "Warranties ending" in body and "Powertrain (Subaru)" in html.unescape(body)
+    assert "Warranties ending" in body and "Powertrain · Subaru" in html.unescape(body)
 
 
 def test_the_garage_card_counts_them(signed_in, conn, car):

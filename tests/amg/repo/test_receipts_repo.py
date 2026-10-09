@@ -289,3 +289,12 @@ def test_stalled_job_detection_and_resume(conn, receipt):
     assert not jobs.is_stalled(job) and jobs.is_stalled(job, now=later)
     jobs.resume(conn, job_id)
     assert receipts.get(conn, receipt_id)["status"] == "queued"
+
+
+def test_a_guarantee_naming_no_services_covers_the_visits_work_but_not_its_oil(conn):
+    lines = [fx.line("Oil and filter", 60.0, ["engine_oil", "oil_filter"]),
+             fx.line("Front struts", 640.0, ["shocks_struts"])]
+    [row] = drafts.from_extraction(fx.extraction(lines=lines, warranties=[fx.warranty("Parts and labor 24/24",
+                                                                                      codes=())]),
+                                   _types(conn)).warranties
+    assert row["codes"] == ["shocks_struts"]

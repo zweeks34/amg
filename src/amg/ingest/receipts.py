@@ -132,8 +132,10 @@ shop's guarantee on parts and labor, a lifetime warranty on brake pads. months a
 it lasts from this visit, whichever comes first; a warranty printed as lifetime sets lifetime and \
 leaves both null. When it's free for a while and prorated after, months is the free period and the \
 description says the rest. service_codes are the codes of the work it covers, from this visit's \
-lines; for a guarantee on all of the visit's work, every code its lines replaced or performed. \
-Disclaimers are not warranties: leave out "no warranty expressed or implied", "the manufacturer's \
+lines. A shop's general guarantee on its parts and labor, printed on every invoice, covers the \
+visit's repairs: list it only when this visit replaced or repaired something beyond routine \
+maintenance (oil and filter changes, fluids, filters, rotations, inspections), with the codes of \
+that work. Disclaimers are not warranties: leave out "no warranty expressed or implied", "the manufacturer's \
 warranty is the only warranty", and anything else without terms. A warranty the customer bought, \
 such as road hazard, is also a line (a fee)."""
 

@@ -11,15 +11,14 @@ from datetime import date, timedelta
 import pytest
 import receipt_fixtures as fx  # tests/ is on pytest's path
 import report_fixtures as rf
-from schedule_fixtures import steady_car
 
 from amg.engine.schedule import add_months
 from amg.ingest import background
 from amg.ingest import warranties as warranty_reader
 from amg.ingest.receipts import Recommendation
-from amg.repo import odometer, receipts, vehicles, warranties
+from amg.repo import odometer, receipts, schedules, warranties
+from amg.repo.schedules import ItemInput
 from amg.repo.warranties import WarrantyInput
-from amg.web import status
 from amg.web.recalls import day_words
 
 
@@ -257,7 +256,7 @@ def test_the_miles_estimate_when_none_was_given(signed_in, conn, car):
     odometer.add(conn, car, "2025-07-01", 54_000)
     warranties.create(conn, car, WarrantyInput("Tires", "2025-04-01", months=None, miles=500_000, codes=["tires"]))
     text = page(signed_in, f"/vehicles/{car}")
-    assert "Until about 550,983 mi" in text and "mi left" in text   # 50,983 on Apr 1, between the readings
+    assert "Until about 551,000 mi" in text and "mi left" in text   # 50,983 on Apr 1, between the readings
 
 
 # ---------- When a later visit replaces a covered part ----------
@@ -391,18 +390,22 @@ def test_a_recommendation_for_a_part_under_warranty_says_so(signed_in, conn, car
 
 
 def test_the_sheet_lists_warranties_in_force_and_notes_the_jobs_they_cover(signed_in, conn):
-    vehicle, _, _ = steady_car(conn, date.today() - timedelta(days=1000))
-    state = status.load(conn, vehicles.get(conn, vehicle))
-    urgent = next(row for row in status.next_up(state) if row["status"] in ("overdue", "due"))
-    code = state.items[urgent["item_id"]]["codes"][0]
-    warranties.create(conn, vehicle, WarrantyInput("Parts for life", _days(100), provider="Midas", codes=[code]))
+    vehicle = rf.car(conn, "Steady", in_service_date=_days(1100))
+    draft = schedules.create_draft(conn, vehicle, "template", draft={"origin": "template", "items": []})
+    schedules.confirm(conn, draft, vehicle, [ItemInput("Brake pads", "replace", ["brake_pads"], interval_months=12),
+                                             ItemInput("Oil and filter", "replace", ["engine_oil", "oil_filter"],
+                                                       interval_months=12)], {})
+    warranties.create(conn, vehicle, WarrantyInput("Parts for life", _days(100), provider="Midas",
+                                                   codes=["brake_pads", "engine_oil"]))
     warranties.create(conn, vehicle, WarrantyInput("Basic", _days(900), provider="Test Motors", months=36,
                                                    whole_car=True))
-    warranties.create(conn, vehicle, WarrantyInput("Expired one", "2015-01-01", months=12, codes=[code]))
+    warranties.create(conn, vehicle, WarrantyInput("Expired one", "2015-01-01", months=12, codes=["brake_pads"]))
     text = page(signed_in, f"/vehicles/{vehicle}/for-the-shop")
     assert "Expired one" not in text
     assert text.index("Basic · Test Motors") < text.index("Parts for life · Midas") < text.index("Due now")
-    assert "The whole car · 3 years" in text and "Under warranty: Midas, for life" in text
+    assert "The whole car · 3 years" in text
+    assert text.count("Under warranty: Midas, for life") == 1          # the pads; never the oil change
+    assert text.index("Brake pads") < text.index("Under warranty: Midas, for life") < text.index("Oil and filter")
     assert "$" not in text
 
 
@@ -483,3 +486,25 @@ def test_while_it_runs_the_section_polls_and_says_how_far(signed_in, conn, car, 
     assert "Looked at 0 of 2." in page(signed_in, "/receipts/warranty-look")
     signed_in.post("/receipts/look-for-warranties")                    # running already: nothing more queued
     assert conn.execute("SELECT count(DISTINCT job_id) FROM warranty_looks").fetchone()[0] == 1
+
+
+def test_routine_work_is_never_under_warranty(signed_in, conn, car):
+    """A shop's guarantee on an oil change: the next one isn't a claim, and the sheet doesn't call it covered."""
+    warranties.create(conn, car, WarrantyInput("Parts and labor 12/12", _days(60), provider="Valley Honda", months=12,
+                                               codes=["engine_oil", "oil_filter"]))
+    rf.visit(conn, car, _days(10), shop="Midas", lines=[rf.line("Oil", 6_000, "engine_oil", "oil_filter")])
+    rf.receipt(conn, car, rf.pdf_bytes("Recs"), "r.pdf", shop_name="Midas", date=_days(10), odometer=None,
+               recommendations=[Recommendation(description="Oil change next time", service_codes=["engine_oil"],
+                                               quoted_amount=None)])
+    text = page(signed_in, f"/vehicles/{car}")
+    assert "Was this under the warranty?" not in text and "replaced the" not in text
+    assert "Under warranty:" not in text and "Under warranty:" not in page(signed_in, f"/vehicles/{car}/for-the-shop")
+
+
+def test_the_question_names_several_parts(signed_in, conn, car):
+    warranties.create(conn, car, WarrantyInput("Brakes, parts and labor", _days(200), provider="Midas", months=24,
+                                               codes=["brake_pads", "brake_rotors"]))
+    rf.visit(conn, car, _days(10), shop="Firestone",
+             lines=[rf.line("Pads and rotors", 45_000, "brake_pads", "brake_rotors")])
+    assert ("Firestone replaced the brake pads and brake rotors on " in page(signed_in, f"/vehicles/{car}")
+            and "Midas's warranty covered them until" in page(signed_in, f"/vehicles/{car}"))

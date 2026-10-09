@@ -129,3 +129,11 @@ def test_paid_ends_it_that_day_and_nothing_after_is_asked():
     found = standing(battery(), date(2026, 6, 1), ODO, [first, second], {20: "paid"})
     assert (found.state, found.end_day, found.by, found.paid) == ("ended", date(2026, 1, 5), "paid", first)
     assert to_ask(battery(), [first, second], {20: "paid"}, ODO) is None
+
+
+def test_oil_filters_and_fluids_never_ask():
+    guarantee = battery(codes=frozenset({"engine_oil", "oil_filter", "brake_pads"}), months=12, miles=12_000)
+    oil_change = visit(20, date(2025, 6, 1), "engine_oil", "oil_filter")
+    pads = visit(21, date(2025, 8, 1), "brake_pads", "engine_oil")
+    assert to_ask(guarantee, [oil_change, pads], {}, ODO) == pads
+    assert to_ask(battery(codes=frozenset({"engine_oil"})), [oil_change], {}, ODO) is None

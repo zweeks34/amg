@@ -82,8 +82,9 @@ class Section:
         return [row for row in self.in_force if row.state == "ending"]
 
     def covering(self, codes: Iterable[str]) -> Row | None:
-        """The warranty in force on a part these services touch; whole-car ones list no parts."""
-        wanted = set(codes)
+        """The warranty in force on a part these services touch; whole-car ones list no parts, and oil, filters and
+        fluids are never a claim."""
+        wanted = set(codes) - engine.ROUTINE
         return next((row for row in self.in_force if not row.whole_car and row.codes & wanted), None)
 
 
@@ -156,7 +157,7 @@ def until(warranty: Mapping, standing: Standing, estimated: bool) -> str:
     if standing.ends_on:
         parts.append(day_words(standing.ends_on.isoformat()))
     if standing.end_miles is not None:
-        parts.append(("about " if estimated else "") + f"{standing.end_miles:,} mi")
+        parts.append(f"about {round(standing.end_miles, -2):,} mi" if estimated else f"{standing.end_miles:,} mi")
     elif warranty["miles"]:
         parts.append(f"{warranty['miles']:,} mi after it started")
     return "Until " + " or ".join(parts)
@@ -169,11 +170,15 @@ def covered(row: Row) -> str:
 
 def question(row: Row, visit: Visit, type_names: Mapping[str, str]) -> str:
     """'Valley Honda replaced the 12-volt battery on Sep 20, 2026. Costco's warranty covered it until Mar 1, 2028.'"""
-    parts = names(_ordered(visit.replaced & row.codes, type_names), type_names)
+    replaced = _ordered(visit.replaced & row.codes, type_names)
     who = visit.shop or "You"
     whose = f"{row.provider}'s warranty" if row.provider else "This warranty"
-    return (f"{who} replaced the {_lower(parts)} on {day_words(visit.day.isoformat())}. "
-            f"{whose} covered it {covered(row)}.")
+    return (f"{who} replaced the {_lower(names(replaced, type_names))} on {day_words(visit.day.isoformat())}. "
+            f"{whose} covered {_it(replaced)} {covered(row)}.")
+
+
+def _it(parts: Sequence[str]) -> str:
+    return "them" if len(parts) > 1 else "it"
 
 
 def _ended(standing: Standing, codes: frozenset[str], type_names: Mapping[str, str]) -> str:
@@ -318,9 +323,10 @@ ANSWER_WORDS = {"claimed": "Done under this warranty", "paid": "You paid for it,
 
 def under(row: Row, codes: Iterable[str], type_names: Mapping[str, str]) -> str:
     """'The 12-volt battery was under warranty (36-month free replacement, Costco) until Mar 1, 2028.'"""
-    parts = names(_ordered(set(codes) & row.codes, type_names), type_names)
+    parts = _ordered(set(codes) & row.codes, type_names)
     name = ", ".join(part for part in (row.title, row.provider) if part)
-    return f"The {_lower(parts)} was under warranty ({name}) {covered(row)}."
+    were = "were" if len(parts) > 1 else "was"
+    return f"The {_lower(names(parts, type_names))} {were} under warranty ({name}) {covered(row)}."
 
 
 def for_service(conn: sqlite3.Connection, event: Mapping, car: Mapping) -> ServiceBlock:
@@ -331,8 +337,8 @@ def for_service(conn: sqlite3.Connection, event: Mapping, car: Mapping) -> Servi
     block = ServiceBlock(came_with=[row for row in rows if row.term.event_id == event["id"]])
     for found in rows:
         if found.ask and found.ask.id == event["id"]:
-            parts = names(_ordered(found.ask.replaced & found.codes, type_names), type_names)
-            block.asked.append((found, f"It covered the {_lower(parts)} {covered(found)}."))
+            parts = _ordered(found.ask.replaced & found.codes, type_names)
+            block.asked.append((found, f"It covered the {_lower(names(parts, type_names))} {covered(found)}."))
         elif event["id"] in found.answers:
             answer = found.answers[event["id"]]
             block.answered.append(Answered(found, answer, ANSWER_WORDS[answer]))

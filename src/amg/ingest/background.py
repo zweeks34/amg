@@ -213,7 +213,7 @@ def look_one(conn, receipt_id: int) -> None:
         log.exception("looking for warranties on receipt %s failed", receipt_id)
         warranty_looks.mark_failed(conn, receipt_id, f"Something went wrong reading this file ({type(err).__name__}).")
         return
-    done = list(dict.fromkeys(c["code"] for line in draft.lines for c in line["covers"] if c["action"] != "inspect"))
+    done = drafts.visit_work(draft.lines)
     rows = [drafts.warranty_row(w, types, done, found=date.today().isoformat()) for w in found if w.description.strip()]
     warranty_looks.mark_done(conn, receipt_id, warranty_looks.add_found(conn, receipt_id, rows), usage)
 

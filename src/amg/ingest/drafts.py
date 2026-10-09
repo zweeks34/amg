@@ -13,6 +13,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from ..engine.warranties import ROUTINE
 from ..repo.services import Coverage, EventInput, LineInput
 from . import vin as vins
 from .receipts import ReceiptExtraction, ReceiptWarranty
@@ -110,8 +111,7 @@ def from_extraction(
         }
         for rec in extraction.recommendations
     ]
-    done = list(dict.fromkeys(c["code"] for line in lines for c in line["covers"] if c["action"] != "inspect"))
-    warranties = [warranty_row(w, types, done) for w in extraction.warranties]
+    warranties = [warranty_row(w, types, visit_work(lines)) for w in extraction.warranties]
     return Draft(
         document_kind=extraction.document_kind,
         shop=(extraction.shop_name or "").strip(),
@@ -134,8 +134,15 @@ def from_extraction(
     )
 
 
+def visit_work(lines: list[dict]) -> list[str]:
+    """What a visit's lines replaced or performed, leaving out inspections and routine oil, filters and fluids:
+    what a guarantee on its work covers when the receipt doesn't say."""
+    return [code for code in dict.fromkeys(c["code"] for line in lines for c in line["covers"]
+                                           if c["action"] != "inspect") if code not in ROUTINE]
+
+
 def warranty_row(warranty: ReceiptWarranty, types: dict[str, dict], done: list[str], found: str = "") -> dict:
-    """A warranty as a draft row. One that names no services covers what the visit replaced or performed.
+    """A warranty as a draft row. One that names no services covers the visit's work (``visit_work``).
 
     ``found`` is the day the look through older receipts found it: it waits
     to be checked until then.

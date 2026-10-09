@@ -9,9 +9,11 @@ A later visit that replaced a part it covers raises a question, not an
 answer. Done under the warranty keeps it, since a part replaced under
 warranty usually keeps the rest of the term. Paid for it ends it that day,
 since the part it covered is gone. Inspections and procedures never ask: a
-lifetime rotation is used, not used up. Neither does "Other repair", too
-vague to match one repair to another, nor a whole-car warranty, whose parts
-aren't listed.
+lifetime rotation is used, not used up. Neither do oil, filters and fluids,
+replaced on schedule as a matter of course: a shop's guarantee on an oil
+change doesn't make the next oil change a claim. Nor does "Other repair",
+too vague to match one repair to another, nor a whole-car warranty, whose
+parts aren't listed.
 
 Pure: no database, no I/O.
 """
@@ -26,7 +28,13 @@ from .odometer import Odometer
 from .schedule import add_months
 
 ENDING_DAYS = 60                   # ending soon: this close by date, or by the miles driven in this many days
-NEVER_ASKS = frozenset({"other"})
+# Replaced on schedule as a matter of course: never a claim, and never "under warranty" on a job or recommendation.
+ROUTINE = frozenset({
+    "engine_oil", "oil_filter", "engine_air_filter", "cabin_air_filter", "fuel_filter", "engine_coolant",
+    "brake_fluid", "transmission_fluid", "differential_fluid", "transfer_case_fluid", "washer_fluid",
+    "inverter_coolant", "ev_battery_coolant", "hybrid_battery_filter",
+})
+NEVER_ASKS = ROUTINE | {"other"}
 
 
 @dataclass(frozen=True)

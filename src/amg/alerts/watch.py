@@ -193,7 +193,7 @@ def look(conn: sqlite3.Connection, car, today: date | None = None, maintenance: 
         for row in recalls.open_for(conn, car["id"])
     ]
     for row in warranty_words.load(conn, car, state.odometer, today).ending:
-        name = f"{row.title} ({row.provider})" if row.provider else row.title
+        name = f"{row.title} · {row.provider}" if row.provider else row.title
         notices.append(Watched(car["id"], warranty_subject(car["id"], row), "due", name,
                                row.ending[:1].lower() + row.ending[1:], None, kind="warranty"))
     if maintenance and (stale := car_status.stale_reading(state)):
