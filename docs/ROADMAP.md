@@ -903,3 +903,16 @@ it; and an ending warranty arrives as a push and in Monday's email.
   Tesseract + Claude should cover it; revisit if `eval_receipts.py` says otherwise.
 - Importing fuel history from other apps.
 - Reading fuel receipts.
+- Logging a fill-up from Android Auto — discussed 2026-10-09 and decided
+  against for now. Android Auto shows only native apps built with the Car App
+  Library (Kotlin, Android Studio), never a web page. Such an app can't be
+  sideloaded: Android Auto's Unknown sources setting doesn't cover it, so it
+  would need a Play developer account and the internal testing track. A fuel log
+  fits none of the allowed categories (navigation, points of interest, IoT,
+  weather). It would have no form fields and no dictation, only one keyboard
+  screen per number, and that keyboard works only while parked. AMG would also
+  need an app key and a JSON endpoint beside its password login, and the phone
+  would still need NordVPN. The one real gain is reading the odometer from the
+  car (`CAR_MILEAGE`), where the car shares it. The phone form is quicker; Add to
+  Home screen puts it one tap away. Revisit if the car-read odometer becomes
+  worth the toolchain.
