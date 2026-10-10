@@ -48,7 +48,7 @@
         {% if car.running %}
         <div>
           <dt>Running cost</dt>
-          <dd class="mono">{{ car.running }} <span class="muted">a mile</span></dd>
+          <dd class="mono">{{ car.running.value }} <span class="muted">{{ car.running.unit }}</span></dd>
         </div>
         {% endif %}
       </dl>

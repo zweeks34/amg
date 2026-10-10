@@ -134,6 +134,13 @@ def test_with_no_fill_up_costs_fuel_isnt_counted(conn, worked):
     assert shown["total"]["fuel"] == ""
 
 
+def test_a_year_with_nothing_recorded_has_no_figure(conn, worked):
+    conn.execute("UPDATE fuel_logs SET cost_cents = NULL")
+    conn.execute("UPDATE line_items SET amount_cents = NULL WHERE description = 'Pads'")
+    [current, *_] = running_cost.block(_load(conn, worked))["rows"]
+    assert (current["label"], current["service"], current["a_mile"]) == ("2025 so far", "", "—")
+
+
 def test_where_it_starts():
     odo = Odometer([(date(2020, 6, 3), 30_000), (date(2021, 6, 3), 40_000)])
     car = {"acquired_date": None, "in_service_date": "2015-03-01", "archived_at": None}
@@ -231,9 +238,15 @@ def test_the_block_shows_the_next_12_months_but_not_for_an_archived_car(signed_i
 
 
 def test_the_garage_figure(signed_in, conn, worked):
-    assert running_cost.figure(_load(conn, worked)) == "21.5¢"
+    assert running_cost.figure(_load(conn, worked)) == {"value": "21.5¢", "unit": "a mile"}
     text = page(signed_in, "/")
     assert re.search(r"<dt>Running cost</dt> <dd class=\"mono\">[\d.]+¢ <span class=\"muted\">a mile</span>", text)
+
+
+def test_the_garage_figure_says_when_fuel_isnt_in_it(signed_in, conn, worked):
+    conn.execute("UPDATE fuel_logs SET cost_cents = NULL")
+    assert running_cost.figure(_load(conn, worked)) == {"value": "8.5¢", "unit": "a mile, not counting fuel"}
+    assert "a mile, not counting fuel</span>" in page(signed_in, "/")
 
 
 def test_no_garage_figure_with_nothing_to_go_on(signed_in, conn):

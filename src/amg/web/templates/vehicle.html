@@ -64,11 +64,11 @@
 {% macro running_row(row, r) %}
 <tr>
   <th scope="row">{{ row.label }}{% if row.note %} <span class="muted running__when">{{ row.note }}</span>{% endif %}</th>
+  <td class="num mono">{{ row.a_mile }}</td>
   <td class="num mono">{{ row.miles }}</td>
   {% if r.total.fuel %}<td class="num mono">{{ row.fuel }}{% if row.estimated %} <span class="est">est.</span>{% endif %}</td>{% endif %}
   <td class="num mono">{{ row.service }}</td>
   {% if r.total.fees %}<td class="num mono">{{ row.fees }}</td>{% endif %}
-  <td class="num mono">{{ row.a_mile }}</td>
 </tr>
 {%- endmacro %}
 {% block title %}{{ car.name }}{% endblock %}
@@ -472,11 +472,11 @@
       <thead>
         <tr>
           <th scope="col">Year</th>
+          <th scope="col" class="num">A mile</th>
           <th scope="col" class="num">Miles</th>
           {% if r.total.fuel %}<th scope="col" class="num">{{ r.units.title }}</th>{% endif %}
           <th scope="col" class="num">Service and repairs</th>
           {% if r.total.fees %}<th scope="col" class="num">Fees</th>{% endif %}
-          <th scope="col" class="num">A mile</th>
         </tr>
       </thead>
       <tbody>

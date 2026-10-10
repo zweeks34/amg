@@ -153,7 +153,7 @@ def _row(label: str, note: str, period: Period) -> dict:
         "estimated": period.estimated,
         "service": dollars(period.service) if period.service else "",
         "fees": dollars(period.fees) if period.fees else "",
-        "a_mile": cents_a_mile(period.cents_a_mile) or "—",
+        "a_mile": (cents_a_mile(period.cents_a_mile) if period.total else None) or "—",   # nothing recorded: no figure
     }
 
 
@@ -223,9 +223,12 @@ def ahead_words(plan: CarBudget) -> dict | None:
             "extras": extras}
 
 
-def figure(found: RunningCost) -> str | None:
-    """The garage's figure: '31.2¢', or None with nothing to go on."""
-    return None if found.reason or found.whole is None else cents_a_mile(found.whole.cents_a_mile)
+def figure(found: RunningCost) -> dict | None:
+    """The garage's figure: '31.2¢ a mile', saying so when fuel isn't in it; None with nothing to go on."""
+    if found.reason or found.whole is None:
+        return None
+    unit = "a mile" if found.whole.fuel is not None else f"a mile, not counting {found.units.title.lower()}"
+    return {"value": cents_a_mile(found.whole.cents_a_mile), "unit": unit}
 
 
 def block(found: RunningCost, plan: CarBudget | None = None) -> dict:
