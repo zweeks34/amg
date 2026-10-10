@@ -30,6 +30,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-08 | [Specs card](2026-10-08-specs-card.md) | Phase 12 | `7ef5778`…`68bbef4` |
 | 2026-10-08 | [Issues list, and a sheet for the shop](2026-10-08-issues-list.md) | Phase 13 | `8bfe8eb`…`12bdff8` |
 | 2026-10-09 | [Warranties](2026-10-09-warranties.md) | Phase 14 | `d55a24a`…`5fbb16d` |
+| 2026-10-09 | [Running cost](2026-10-09-running-cost.md) | Phase 15 | `8f7bd00`…`2c56175` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the

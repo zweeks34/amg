@@ -897,6 +897,68 @@ it; and an ending warranty arrives as a push and in Monday's email.
 
 ---
 
+## Phase 15 — Running cost
+
+**For:** what each car costs a mile to run (fuel, service and repairs, and
+fees) since you got it, year by year, and for the next 12 months: whether
+it's climbing as the car ages, and how the cars compare. (Added 2026-10-09.)
+
+- [x] The car page's **Running cost** block: since you got it (else since it was new, else since your first record), "16.5¢ a mile", what it came to over how many miles, and its parts: fuel, service and repairs, fees
+- [x] Year by year: a row a calendar year, newest first, the current one "so far" and the first "from Mar 12"; the figure a mile beside the year, then miles, fuel, service and repairs, and fees, with "In all" at the foot. A year under 500 mi, or with nothing recorded, has no figure a mile. On a phone the table scrolls inside its own box
+- [x] Fuel: miles a logged fill-up measured, full tank to full tank, at what they cost, counted in the year the stretch ended; every other mile at the fuel page's cost a mile, marked **est.**, with a note giving the rate. With no fill-up costs fuel isn't counted, and the block and the garage say so
+- [x] Next 12 months: the budget's fuel, priced jobs and fees over the miles the car goes at its recent pace, "~19.1¢ a mile"; what's overdue now left out and said, jobs not priced yet counted, a car with no schedule said
+- [x] The garage: each card's **Running cost**, "16.5¢ a mile", or "a mile, not counting fuel"
+
+**Decisions:**
+
+- **Only what AMG knows:** fuel, confirmed visits, and inspection and
+  registration fees. Insurance, a loan, parking and depreciation aren't
+  kept, so they aren't counted: it's what the car costs to run, not to own.
+- **Early fuel is estimated, and marked.** The log starts with the first
+  fill-up you logged, so the miles before it count at your recent cost a
+  mile, not at the prices of their day, marked est. so it's never taken
+  for what you paid.
+- **Each visit at what it cost,** as the Spending report counts it. A fee
+  logged from a visit is already in its total, so it moves to Fees, and
+  never takes more off the visit than the visit came to.
+- **Overdue work is left out of the next 12 months,** as the put-aside
+  figure leaves it out: it's owed for miles already driven.
+- **An archived car ends at its last reading,** since a car you've sold
+  stops adding miles, and has no next 12 months.
+- **500 miles before a figure a mile means anything** (`MIN_MILES`): under
+  that, one oil change swamps it.
+
+**Data owned:** none new. It reads the visits, fees, fill-ups and odometer
+readings that earlier phases keep.
+
+**Can go wrong:** a used car with no "When you got it" → counted from new,
+so the earlier owner's miles carry no costs and it reads low; the block says
+"Since it was new", and setting the date fixes it. A receipt history still
+going in → the missing years read cheap, or show no figure where nothing was
+recorded. A big repair → it stands out in its year's row, and is spread over
+every mile in the headline. Fuel before your log → at today's prices, marked
+est. No fill-up costs → fuel isn't counted, and the garage says so beside
+the figure, so the cars still compare fairly.
+
+**Tests pin:** a hand-worked car in `tests/amg/engine/test_running_cost.py`
+(got mid-year, read each Jan 1, a fuel log starting in its last year), with
+every year's miles, fuel, service and fees worked out on paper; measured
+stretches at their cost and a costless one estimated; estimated miles never
+negative; no cost a mile, no fuel; no figure under 500 mi; the whole the
+years' sum; and the next 12 months leaving out what's overdue and counting
+what's unpriced. The same car in the database: what each visit and fee
+counts for (before you got it, unconfirmed, done with no receipt, a linked
+fee moved and never more than its visit, a fee with no day done); the
+words; a year with nothing recorded; an archived car and an electric one;
+not enough to go on; the next 12 months with and without a schedule; and
+the garage's figure, with and without fuel.
+
+**Done when:** on the server, each car's running cost looks believable
+against what you know you've spent, and its year rows show what you'd
+expect: the year of a big repair stands out. *That's yours.*
+
+---
+
 ## Parked
 
 - Mathpix as a third reader for the worst scans — credentials are in `.env`, but
