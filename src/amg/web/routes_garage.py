@@ -12,6 +12,7 @@ from . import budget
 from . import follow_ups as follow_up_words
 from . import recalls as recall_words
 from . import renewals as renewal_words
+from . import running_cost
 from . import status as car_status
 from . import warranties as warranty_words
 from .deps import get_conn
@@ -32,6 +33,7 @@ def garage(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Re
         car["issues"] = noted.get(car["id"], 0)
         car["warranties"] = len(warranty_words.load(conn, car).ending)
         car["recalls"] = [recall_words.component(row["component"]) for row in recalls.open_for(conn, car["id"])]
+        car["running"] = running_cost.figure(running_cost.load(conn, car))
     return render(
         request,
         "garage.html",

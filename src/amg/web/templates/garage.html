@@ -45,6 +45,12 @@
           <dt>Services</dt>
           <dd class="mono">{{ car.service_count }}</dd>
         </div>
+        {% if car.running %}
+        <div>
+          <dt>Running cost</dt>
+          <dd class="mono">{{ car.running }} <span class="muted">a mile</span></dd>
+        </div>
+        {% endif %}
       </dl>
       {% set s = car.schedule %}
       {% if s or car.renewals or car.recommended or car.recalls or car.issues or car.warranties %}

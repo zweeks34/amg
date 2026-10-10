@@ -438,7 +438,10 @@
 
 {% set r = running %}
 <section class="block" id="running-cost" aria-labelledby="running-heading">
-  <h2 class="h3" id="running-heading">Running cost</h2>
+  <div class="block__head">
+    <h2 class="h3" id="running-heading">Running cost</h2>
+    {% if r.ahead %}<a class="btn btn--quiet" href="/vehicles/{{ car.id }}/budget">The budget</a>{% endif %}
+  </div>
   {% if r.reason %}
   <div class="sheet empty empty--small"><p>{{ r.reason }}</p></div>
   {% else %}
@@ -453,6 +456,15 @@
           {%- if part.estimated %} <span class="est">est.</span>{% endif %}</span>{% endfor -%}
       </dd>
     </div>
+    {% if r.ahead %}
+    {% set a = r.ahead %}
+    <div class="figure">
+      <dt>{{ a.label }}</dt>
+      <dd class="figure__value mono">{{ a.value }}<span class="figure__unit"> a mile</span></dd>
+      <dd class="figure__note">{{ a.note }}</dd>
+      {% for extra in a.extras %}<dd class="figure__note">{{ extra }}</dd>{% endfor %}
+    </div>
+    {% endif %}
   </dl>
   <div class="tablewrap sheet sheet--flush" role="region" aria-labelledby="running-caption" tabindex="0">
     <table class="sumtable">

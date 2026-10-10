@@ -24,10 +24,11 @@ from datetime import date
 
 import pytest
 
-from amg.engine import fuel
+from amg.engine import forecast, fuel
+from amg.engine.forecast import Due, Fee, Job, Price
 from amg.engine.fuel import Fill
 from amg.engine.odometer import Odometer
-from amg.engine.running_cost import MIN_MILES, Period, Spend, whole, years
+from amg.engine.running_cost import MIN_MILES, Period, Spend, ahead, whole, years
 
 START, TODAY = date(2023, 7, 1), date(2025, 7, 1)
 ODO = Odometer([(START, 40_000), (date(2024, 1, 1), 46_000), (date(2025, 1, 1), 58_000), (TODAY, 64_000)])
@@ -109,3 +110,40 @@ def test_nothing_before_it_starts():
 def test_one_year_on_its_own():
     [only] = years(date(2025, 1, 1), TODAY, ODO, SPENDS, [], 13.0)
     assert (only.miles, only.fuel, only.service) == (6_000, 78_000, 30_000)
+
+
+# ---------- The next 12 months ----------
+
+
+def _price(cents):
+    return Price(cents, cents, cents, "yours")
+
+
+def _months(cents_a_mile=13.0):
+    oil, pads, belt = (Job(frozenset({code}), "replace") for code in ("engine_oil", "brake_pads", "timing_belt"))
+    dues = [Due(1, "Oil", oil, "overdue", TODAY, date(2025, 5, 1), None),
+            Due(2, "Pads", pads, "later", date(2025, 9, 1), date(2025, 9, 1), None),
+            Due(3, "Belt", belt, "later", date(2026, 1, 1), date(2026, 1, 1), None)]
+    fees = [(Fee("registration", "Registration", "overdue", TODAY, date(2025, 6, 30)), _price(8_500)),
+            (Fee("safety", "Safety inspection", "later", date(2026, 3, 31), date(2026, 3, 31)), _price(2_000))]
+    return forecast.budget(dues, {oil.key: _price(6_000), pads.key: _price(30_000), belt.key: None}, TODAY, 12,
+                           40.0, cents_a_mile, fees)
+
+
+def test_ahead_is_the_budgets_months_over_the_miles_to_come():
+    found = ahead(_months(), 40.0)
+    period = found.period
+    assert (period.start, period.end, period.miles) == (TODAY, date(2026, 6, 30), 40.0 * 365)
+    assert (period.service, period.fees) == (30_000, 2_000)
+    assert abs(period.fuel - 40 * 365 * 13) < 12           # each month's fuel is rounded to the cent
+    assert period.cents_a_mile == pytest.approx((period.fuel + 32_000) / 14_600)
+
+
+def test_ahead_leaves_out_whats_due_now_and_counts_whats_unpriced():
+    found = ahead(_months(), 40.0)
+    assert (found.due_now, found.unpriced) == (6_000 + 8_500, 1)
+
+
+def test_ahead_without_a_cost_a_mile_or_a_pace():
+    assert ahead(_months(cents_a_mile=None), 40.0).period.fuel is None
+    assert ahead(_months(), None) is None and ahead([], 40.0) is None

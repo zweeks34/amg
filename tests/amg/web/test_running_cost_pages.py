@@ -20,10 +20,11 @@ import report_fixtures as rf  # tests/ is on pytest's path
 
 from amg.engine.odometer import Odometer
 from amg.engine.running_cost import Spend
-from amg.repo import fuel, odometer, renewals, vehicles
+from amg.repo import fuel, odometer, prices, renewals, schedules, vehicles
 from amg.repo.fuel import FillInput
 from amg.repo.renewals import RenewalInput
-from amg.web import running_cost
+from amg.repo.schedules import ItemInput
+from amg.web import budget, running_cost
 
 TODAY = date(2025, 7, 1)
 
@@ -188,3 +189,54 @@ def test_the_block_on_the_car_page(signed_in, conn, worked):
 def test_the_page_says_why_when_it_cant_tell(signed_in, conn):
     car = rf.car(conn, "Unknown")
     assert running_cost.NO_ODOMETER in page(signed_in, f"/vehicles/{car}")
+
+
+# ---------- The next 12 months, and the garage ----------
+
+
+def _schedule(conn, car, items):
+    draft_id = schedules.create_draft(conn, car, "template", draft={"origin": "template", "items": []})
+    schedules.confirm(conn, draft_id, car, items, {"origin": "template", "items": []})
+
+
+def _ahead(conn, car):
+    return running_cost.ahead_words(budget.load(conn, vehicles.get(conn, car), 12, today=TODAY))
+
+
+def test_the_next_12_months(conn, worked):
+    _schedule(conn, worked, [ItemInput("Oil and filter", "replace", ["engine_oil", "oil_filter"], interval_miles=6_000),
+                             ItemInput("Cabin air filter", "replace", ["cabin_air_filter"], interval_months=12)])
+    prices.set_yours(conn, worked, ["engine_oil", "oil_filter"], "replace", "Oil and filter", 6_000)
+    found = _ahead(conn, worked)
+    assert found["label"] == "Next 12 months" and re.fullmatch(r"~[\d.]+¢", found["value"])
+    assert re.fullmatch(r"~\$[\d,]+ for ~12,100 mi: fuel ~\$1,573, maintenance ~\$120, fees ~\$85",
+                        found["note"]), found["note"]
+    assert "Not counting $80 due now." in found["extras"]      # the oil change overdue, and the expired sticker
+    assert "2 jobs not priced yet." in found["extras"]          # the cabin filter, overdue and again in May
+
+
+def test_the_next_12_months_with_no_schedule(conn, worked):
+    found = _ahead(conn, worked)
+    assert found["note"].startswith("~$") and "maintenance" not in found["note"]
+    assert found["extras"] == ["Not counting $20 due now.",
+                               "Fuel and fees only: with a maintenance schedule, AMG counts its jobs too."]
+
+
+def test_the_block_shows_the_next_12_months_but_not_for_an_archived_car(signed_in, conn, worked):
+    text = page(signed_in, f"/vehicles/{worked}")
+    assert "Next 12 months" in text and f'href="/vehicles/{worked}/budget"' in text
+    vehicles.archive(conn, worked)
+    text = page(signed_in, f"/vehicles/{worked}")
+    assert "Running cost" in text and "Next 12 months" not in text
+
+
+def test_the_garage_figure(signed_in, conn, worked):
+    assert running_cost.figure(_load(conn, worked)) == "21.5¢"
+    text = page(signed_in, "/")
+    assert re.search(r"<dt>Running cost</dt> <dd class=\"mono\">[\d.]+¢ <span class=\"muted\">a mile</span>", text)
+
+
+def test_no_garage_figure_with_nothing_to_go_on(signed_in, conn):
+    car = rf.car(conn, "Unknown")
+    assert running_cost.figure(_load(conn, car)) is None
+    assert "Running cost" not in page(signed_in, "/")

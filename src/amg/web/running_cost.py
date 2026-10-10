@@ -1,4 +1,4 @@
-"""What a car costs to run, a mile: the car page's Running cost block.
+"""What a car costs to run, a mile: the car page's Running cost block, and the garage's figure.
 
 The arithmetic is engine/running_cost.py's. This gathers what was paid since
 you got the car — each confirmed visit at what it cost (its total, or its
@@ -9,6 +9,9 @@ mile", "$14,230 over 45,600 mi from Mar 12, 2019".
 An inspection logged from a visit is already in that visit's total, so its
 cost moves from the visit to Fees rather than counting twice. A fee with no
 day done is counted a kind's usual length before it expires.
+
+The next 12 months are the budget's, from the CarBudget the car page already
+has, so the two pages never disagree.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from ..reports.history import paid
 from ..repo import renewals
 from ..repo import reports as report_repo
 from . import fuel_status
+from .budget import CarBudget
 from .fuel_status import cents_a_mile
 from .recalls import day_words
 from .status import odometer_for
@@ -188,9 +192,45 @@ def fuel_note(found: RunningCost) -> str | None:
             f"{units.full_noun} to the next, are at what they cost.")
 
 
-def block(found: RunningCost) -> dict:
-    """Everything the car page's block shows."""
+def ahead_words(plan: CarBudget) -> dict | None:
+    """'Next 12 months: ~27¢ a mile', what goes into it, and what it leaves out."""
+    found = engine.ahead(plan.months, plan.rate)
+    if found is None or found.period.cents_a_mile is None:
+        return None
+    period, units = found.period, plan.units
+    parts = []
+    if period.fuel is not None:
+        parts.append(f"{units.title.lower()} ~{_cents(period.fuel)}")
+    if plan.jobs:
+        parts.append(f"maintenance ~{dollars(period.service)}")
+    if period.fees:
+        parts.append(f"fees ~{dollars(period.fees)}")
+    miles = round(period.miles / 100) * 100
+    extras = []
+    if found.due_now:
+        extras.append(f"Not counting {dollars(found.due_now)} due now.")
+    if found.unpriced:
+        extras.append(f"{found.unpriced} job{'s' if found.unpriced != 1 else ''} not priced yet.")
+    if period.fuel is None:
+        extras.append(f"Not counting {units.title.lower()}: log {units.fill}s with their cost.")
+    if not plan.jobs:
+        only = " and ".join(w for w, cents in ((units.title.lower(), period.fuel), ("fees", period.fees)) if cents)
+        extras.append(f"{only.capitalize() + ' only' if only else 'Nothing yet'}: with a maintenance schedule, "
+                      f"AMG counts its jobs too.")
+    return {"label": f"Next {plan.count} months", "value": f"~{cents_a_mile(period.cents_a_mile)}",
+            "note": f"~{_cents(period.total)} for ~{miles:,} mi: {', '.join(parts)}" if parts
+                    else f"~{_cents(period.total)} for ~{miles:,} mi",
+            "extras": extras}
+
+
+def figure(found: RunningCost) -> str | None:
+    """The garage's figure: '31.2¢', or None with nothing to go on."""
+    return None if found.reason or found.whole is None else cents_a_mile(found.whole.cents_a_mile)
+
+
+def block(found: RunningCost, plan: CarBudget | None = None) -> dict:
+    """Everything the car page's block shows; ``plan`` brings the next 12 months, for a car still on the road."""
     if found.reason:
         return {"reason": found.reason}
-    return {"reason": "", "headline": headline(found), "rows": year_rows(found), "total": total_row(found),
-            "fuel_note": fuel_note(found), "units": found.units}
+    return {"reason": "", "headline": headline(found), "ahead": ahead_words(plan) if plan else None,
+            "rows": year_rows(found), "total": total_row(found), "fuel_note": fuel_note(found), "units": found.units}
