@@ -48,6 +48,12 @@ def _day(value: str | None) -> date | None:
     return date.fromisoformat(value) if value else None
 
 
+def odometer_for(conn: sqlite3.Connection, car) -> Odometer:
+    """The car's odometer model: every reading, and the in-service date at zero miles."""
+    return Odometer(((date.fromisoformat(p["read_on"]), p["miles"]) for p in readings.points(conn, car["id"])),
+                    in_service=_day(car["in_service_date"]))
+
+
 def load(conn: sqlite3.Connection, car, today: date | None = None, until: date | None = None) -> CarStatus:
     """Run the gap engine over one car's schedule and confirmed services, looking ahead to ``until``."""
     today = today or date.today()
@@ -62,8 +68,7 @@ def load(conn: sqlite3.Connection, car, today: date | None = None, until: date |
                 {code: frozenset(actions) for code, actions in row["coverage"].items()})
         for row in services.coverage(conn, car["id"])
     ]
-    odo = Odometer(((date.fromisoformat(p["read_on"]), p["miles"]) for p in readings.points(conn, car["id"])),
-                   in_service=_day(car["in_service_date"]))
+    odo = odometer_for(conn, car)
     vehicle = Car(_day(car["in_service_date"]), _day(car["acquired_date"]), car["acquired_miles"],
                   bool(car["severe_service"]))
     estimate = odo.miles_on(today)

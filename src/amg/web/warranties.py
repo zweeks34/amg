@@ -16,12 +16,12 @@ from datetime import date
 from ..engine import warranties as engine
 from ..engine.odometer import Odometer
 from ..engine.warranties import Standing, Visit
-from ..repo import odometer as readings
 from ..repo import services, warranties, warranty_looks
 from ..repo.warranties import WarrantyInput
 from . import forms
 from .issues import visit_words
 from .recalls import day_words
+from .status import odometer_for
 
 MAX_TITLE = 120
 MAX_DETAILS = 2000
@@ -274,13 +274,6 @@ def row(found: Mapping, visits: Sequence[Visit], odometer: Odometer | None, toda
         if answer == "claimed" and event_id in by_id
     ]
     return result
-
-
-def odometer_for(conn: sqlite3.Connection, car: Mapping) -> Odometer:
-    """The car's odometer model, as status.load builds it, for a page that has no CarStatus to hand."""
-    in_service = date.fromisoformat(car["in_service_date"]) if car["in_service_date"] else None
-    return Odometer(((date.fromisoformat(p["read_on"]), p["miles"]) for p in readings.points(conn, car["id"])),
-                    in_service=in_service)
 
 
 def load(conn: sqlite3.Connection, car: Mapping, odometer: Odometer | None = None,

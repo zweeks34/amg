@@ -17,6 +17,7 @@ from . import issues as issue_words
 from . import recalls as recall_words
 from . import renewals as renewal_words
 from . import fuel_status
+from . import running_cost
 from . import status as car_status
 from . import warranties as warranty_words
 from .deps import get_conn
@@ -186,6 +187,7 @@ def car_page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status
         stale=None if car["archived_at"] else car_status.stale_reading(state),
         chart=car_status.chart(state, car["name"]),
         fuel=fuel_status.summary(fuel_status.load(conn, car)),
+        running=running_cost.block(running_cost.load(conn, car, state.odometer, state.today)),
         attested=extra.get("attested", False),
         schedule_from=schedules.current_draft(conn, vehicle_id),
         schedule_drafts=schedules.open_drafts(conn, vehicle_id),
