@@ -1,7 +1,8 @@
 """The weekly email: what each car has overdue, due soon and coming up, and the calendar file.
 
-A car whose alerts are off is in it only for its inspection and registration
-dates, which are watched whatever the switch says.
+A car whose alerts are off is in it only for what's watched whatever the
+switch says: its inspection and registration dates, open recalls and
+warranties ending.
 
 Sent through your own mail account (Gmail, with an app password) by SMTP. It
 goes out every week, even with nothing due: an email that stops coming is how

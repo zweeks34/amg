@@ -21,6 +21,7 @@ The Automobile Maintenance Genie (AMG) is an automobile maintenance manager.
 - Set the login password: `.venv\Scripts\python -m amg.cli set-password`
 - Test: `.venv\Scripts\python -m pytest` (run before declaring any task done)
 - Back up / restore: `python -m amg.cli backup` (→ `data/backups/`), `python -m amg.cli restore FILE.zip --replace`
+- Alerts: `python -m amg.cli alerts --dry-run` prints what the daily run would push and email, and sends nothing (on the server, `amg alerts`)
 - Deploy (from WSL, in `/mnt/c/projects/amg`): `bash scripts/deploy.sh` — first-time setup and day-to-day ops are in `docs/DEPLOY-proxmox.md`
 
 ## Layout
@@ -28,8 +29,11 @@ The Automobile Maintenance Genie (AMG) is an automobile maintenance manager.
 - `src/amg/repo/` — all SQL lives here; routes never write SQL
 - `src/amg/engine/` — pure functions (odometer model, gaps, forecast): no DB, no I/O
 - `src/amg/web/` — routes, `templates/`, `static/`
+- `src/amg/ingest/` — getting information in: PDF text, OCR, Claude reading receipts, manuals and specs; NHTSA's VIN decoding and recalls
+- `src/amg/reports/` — the History, Spending and Fuel reports and their CSVs, the sale packet, and Download your data
+- `src/amg/alerts/` — the daily run (`amg-alerts.timer`): ntfy pushes, the weekly email, the calendar file
 - `data/` — runtime data (database, stored files, backups); gitignored. On the server it's `/var/lib/amg` (`AMG_DATA_DIR`), outside the code
-- `deploy/` — the systemd unit and the server's `amg` command; `scripts/deploy.sh` installs both on every deploy
+- `deploy/` — the systemd units (the app, and the daily alerts run with its timer) and the server's `amg` command; `scripts/deploy.sh` installs them on every deploy
 - `samples/` — real receipt/manual scans for extraction trials; gitignored (personal information)
 
 ## Conventions

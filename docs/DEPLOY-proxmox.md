@@ -21,7 +21,7 @@ Phone (NordVPN) / desktop
 | `/opt/amg/app/` | The code, copied by `scripts/deploy.sh` | root, read-only to the app | Replaced every deploy |
 | `/opt/amg/venv/` | Python and the dependencies | root | Updated when `pyproject.toml` changes |
 | `/opt/amg/app/.env` | Your Anthropic key and preferences | root, readable by `amg` | Yes — the deploy never sends or deletes it |
-| `/var/lib/amg/` | **The data**: `amg.sqlite3`, `files/` (every receipt), `backups/`, `previews/` (a cache) | `amg` | Yes — outside the code, so no deploy can reach it |
+| `/var/lib/amg/` | **The data**: `amg.sqlite3`, `files/` (every receipt, manual and photo you uploaded), `backups/`, `previews/` (a cache) | `amg` | Yes — outside the code, so no deploy can reach it |
 
 The app runs as the `amg` user and can write only to `/var/lib/amg`. The code
 belongs to root, so the paint-decoder trap — rsync as root leaving files the
@@ -64,8 +64,8 @@ pct exec 302 -- date        # must say EDT (EST in winter)
 - **Use the template file name `pveam list` printed** if it isn't `…24.04-2…`.
 - **2 GB of memory:** scans are turned into page images in memory, and two
   workers can each be doing one.
-- **16 GB of disk:** every receipt is kept as uploaded, plus the backups you
-  take on the server.
+- **16 GB of disk:** every receipt, manual and photo is kept as uploaded, plus
+  the backups you take on the server.
 - **`--timezone`:** AMG takes "today" from the container's clock. That clock
   sets the default service date and the check that a date isn't in the future.
   If `date` doesn't show Eastern time, run
@@ -275,8 +275,9 @@ From the phone, on NordVPN:
 
 **The habit.** Every so often, open **Back up → Download a backup** and keep the
 zip off the server: OneDrive, the NAS, anywhere but LXC 302. The zip holds the
-database (including your login password) and every receipt. It doesn't hold
-`.env`, so keep your Anthropic key somewhere yourself.
+database (including your login password) and every receipt, manual and photo
+you uploaded. It doesn't hold `.env`, so keep your Anthropic key somewhere
+yourself.
 
 **From a shell** (**LXC 302**), the same zip:
 
@@ -345,13 +346,24 @@ Only do this before the server has data of its own: the restore replaces it.
 Every morning at 8:00 a systemd timer (`amg-alerts.timer`, installed by the
 deploy) runs AMG's alerts:
 
-- **A push to your phone** through ntfy, when a job on a car comes due soon
-  or goes overdue. Each job is pushed once at each step.
-- **An email on Mondays** with what each car has overdue, due soon and coming
-  up. The next 12 months of jobs come attached as a calendar file.
+- **A push to your phone** through ntfy, one per car, when something on it is
+  newly due. Each is pushed once at each step:
+  - a job, when it comes due soon and when it goes overdue
+  - an inspection or registration, 30 days before it expires, in its last
+    week, and the day after it expires
+  - a warranty, 60 days before it ends (or the miles you drive in 60 days)
+  - a recall NHTSA lists for the car. The run asks NHTSA about each car once
+    a week; **Check now**, under Recalls on a car's page, asks now
+  - an odometer reading, when a car's jobs fall due by mileage and its last
+    reading is over two months old
+- **An email on Mondays** with what each car has overdue and due soon, its
+  open recalls and warranties ending, and what shops recommended. The next 12
+  months of jobs, and when inspections and registrations expire, come attached
+  as a calendar file.
 
-Both only need the container to reach the internet, so they reach you off the
-VPN. Each one is off until its settings are in `.env`.
+Pushes, email and the recall check only need the container to reach the
+internet, so the alerts reach you off the VPN. Pushes and email are each off
+until their settings are in `.env`.
 
 **Pushes.** Install the **ntfy** app on your phone. Pick a topic name nobody
 would guess, because anyone who knows a topic on ntfy.sh can read it. On
@@ -390,10 +402,14 @@ systemctl restart amg
       off until all its old receipts are in.** Until then, AMG thinks some
       work is overdue that was really done.
 
+The switch covers jobs, odometer readings and what shops recommended.
+Inspections, registration, recalls and warranties are watched whatever it
+says: they don't come from your old receipts, so they can't be wrong that way.
+
 Then, on **LXC 302**:
 
 ```bash
-amg alerts --dry-run                  # what a run would send now; sends nothing
+amg alerts --dry-run                  # what a run would send now; sends nothing, asks NHTSA nothing
 systemctl list-timers amg-alerts      # the next run, and the last
 journalctl -u amg-alerts -n 30        # what the last run said
 ```
@@ -473,6 +489,8 @@ your newest full backup as in step 9.
 | "attempt to write a readonly database", or Permission denied under `/var/lib/amg` | Something ran as root against the data | `chown -R amg:amg /var/lib/amg`, restart; use the `amg` command, which refuses to run as root there |
 | New services default to tomorrow's date late in the evening | The container isn't on Eastern time | `pct set 302 --timezone America/New_York`, then `pct reboot 302` |
 | `deploy.sh`: "Permission denied (publickey)" | The key isn't in the container | Step 2 |
+| Recalls: "Couldn't reach NHTSA's recall service" on a car's page, or "Couldn't check recalls" in the alerts run's log | NHTSA is down, or the container can't reach the internet | Nothing to do: the next run tries again. To see which, **LXC 302:** `curl -sI https://api.nhtsa.gov` |
+| **Look up** beside a car's VIN: "Couldn't reach NHTSA's VIN service" | The same, for NHTSA's VIN service | Fill in the details by hand, or try later. **LXC 302:** `curl -sI https://vpic.nhtsa.dot.gov` |
 | Test push: "Couldn't reach ntfy.sh" | The container can't reach the internet | **LXC 302:** `curl -sI https://ntfy.sh` |
 | Test push sent, but nothing on the phone | The app isn't subscribed to that exact topic | Compare the topic on the Alerts page with the app's |
 | Test email: "must be an app password" | `AMG_SMTP_PASSWORD` is your Google password, or the app password was revoked | Step 10: make a new app password |

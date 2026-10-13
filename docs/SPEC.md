@@ -13,15 +13,15 @@ I'd like to have the tool review the manufacturer suggested maintenance routine 
 - Approximate future costs for budgeting purposes
 
 ## Features
-- [ ] AMG must support more than one automobile.
-- [ ] AMG should allow the user to generate flexible, on-demand reports so that I can review prior maintenance history
-- [ ] AMG will need to be able to parse PDF documents and extract maintenance history
-- [ ] AMG will need to be able to parse PNG, JPG or GIF documents and extract maintenance history
-- [ ] AMG will need it's own self contained data storage mechanism
-- [ ] AMG should be web-based; compatible with mobile, tablet and desktop web-browsers
-- [ ] Tesseract, PyMuPDF, Mathpix, Claude can all be used to work with PDFs
-- [ ] AMG should also allow the user to enter self-service maintenance information
-- [ ] AMG should also allow the user to track fuel usage information (cost, fuel economy, etc)
+- [x] AMG must support more than one automobile.
+- [x] AMG should allow the user to generate flexible, on-demand reports so that I can review prior maintenance history
+- [x] AMG will need to be able to parse PDF documents and extract maintenance history
+- [x] AMG will need to be able to parse PNG, JPG or GIF documents and extract maintenance history
+- [x] AMG will need it's own self contained data storage mechanism
+- [x] AMG should be web-based; compatible with mobile, tablet and desktop web-browsers
+- [x] Tesseract, PyMuPDF, Mathpix, Claude can all be used to work with PDFs
+- [x] AMG should also allow the user to enter self-service maintenance information
+- [x] AMG should also allow the user to track fuel usage information (cost, fuel economy, etc)
 
 ## Constraints
 - Runs on home lab; prefer low-cost solutions over paid APIs
