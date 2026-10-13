@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("set-password", help="set the login password (signs out every session)")
     commands.add_parser("migrate", help="apply pending database migrations")
-    backing_up = commands.add_parser("backup", help="zip the database and the stored receipts")
+    backing_up = commands.add_parser("backup", help="zip the database and the stored files")
     backing_up.add_argument("--out", type=Path, help="the zip to write, or a folder to put it in (default: data/backups/)")
     backing_up.add_argument("--no-files", action="store_true",
                             help="the database only: small, but it can't bring back the scans")

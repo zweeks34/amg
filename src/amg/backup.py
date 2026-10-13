@@ -6,7 +6,7 @@ git; the Anthropic key lives in .env, which is the owner's to keep. A backup is:
 
     amg.sqlite3          a consistent snapshot, taken with SQLite's online
                          backup while the app keeps running
-    files/ab/<sha>.pdf   every stored receipt and manual, as uploaded
+    files/ab/<sha>.pdf   every stored receipt, manual and photo, as uploaded
     README.txt           what this is and how to put it back
 
 The snapshot is taken first, and the files it lists are copied after it. Files
@@ -187,7 +187,7 @@ def _snapshot(path: Path) -> int:
 
 def _readme(name: str, counts: dict[str, int], version: int, include_files: bool, missing: list[str]) -> str:
     files_line = (
-        "files/        every receipt and manual, as uploaded"
+        "files/        every receipt, manual and photo, as uploaded"
         if include_files
         else "files/        NOT INCLUDED — this backup is the database only. It\n"
              "              restores onto a server that still has its files, but\n"
@@ -206,7 +206,8 @@ Taken {datetime.now():%Y-%m-%d %H:%M} · database version {version}
 {counts['files']} stored file(s).
 
 amg.sqlite3   the database: cars, services, receipts, schedules, fill-ups,
-              settings and your login password
+              prices, inspections and registration, recalls, specs,
+              issues, warranties, settings and your login password
 {files_line}
 {missing_note}
 Not in here: the server's .env, which holds your Anthropic key. Keep a
