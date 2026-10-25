@@ -292,6 +292,9 @@ there is one.
 - [x] What meets what: a service covering any of the item's service types — an inspection item by anything done to the part, a replacement or procedure only by a replacement or procedure. **A multi-point or state inspection meets every inspection item**, never a replacement (your call: otherwise the dealer's checks would all read as missed)
 - [x] Count from a date (added after the phase shipped, 2026-10-06): a repeating item can start its count on a date you set, from **Add a start date** in the schedule editor, as if done that day, so a job you never kept records of (topping up washer fluid) isn't missed every interval since new. Nothing before the date is judged, services before it don't count for it, and "first at" no longer applies. Shown on the schedule page ("every 3 months, counting from Oct 6, 2026") and in the schedule export; editing keeps it, copying to another car drops it
 - [x] Mark as done ("done, no receipt") → an attested service covering the item, from **Mark as done** on next up, **It was done** on a missed one, or a missed or overdue mark on the chart; it shows in the history as "Done, no receipt"; deleting it undoes it
+- [x] Tag a line from the schedule (added after the phase shipped, 2026-10-25): each line on **Log a service**, **Edit service** and a receipt's review has a **From the schedule…** menu of the car's jobs, due ones first. Picking one adds the job's service types with the job's own action, so the line meets the job even where a type's usual action is to inspect. A line keeps the action it was saved with when it's edited
+- [x] What a service counted for (added 2026-10-25): a service's page says, under **On the schedule**, the jobs it counted for and when each was due; the jobs it matches but didn't count for, and why (before the job's count-from date, on or before the day the schedule counts from, or another service counted that day); or that it counts for nothing, and how to tag it. A "Done, no receipt" for the same job within 30 days is pointed to, so the duplicate can be deleted
+- [x] Mark as done with a service you logged (added 2026-10-25): Mark as done first offers the car's own services, dated nearest when the job fell due, that don't already count for it. **Tag it for this job** opens the service (or its receipt's review) with the job on a line, to check and save. Then **Log a service for it**, a new service with a line tagged for the job; then done with no receipt, as before
 - [x] Interval chart per car: the items that apply, grouped as the schedule is; ● done where the work was done (links to the service), ✕ missed and ▲ overdue (link to mark as done), ◐ due soon, ○ later; today's estimated odometer as the ink line. Open on wide screens; on phones next up comes first and the chart is one tap away, scrolling sideways with the item column fixed
 - [x] Car page: next up (every overdue and due-soon item, then the next few, folded after six), "N missed in the past" with each one listed, today's estimated odometer
 - [x] Garage: each card says what's next and counts overdue, due soon and missed
@@ -317,7 +320,11 @@ when you got it. A service with no odometer → placed on the chart from the
 odometer model. A long silence → one missed mark per interval that passed.
 A job nobody records (washer fluid, wiper blades) → give it a count-from date,
 or every interval since new reads as missed. Wiper blades got one when
-migration 0012 ran, wherever none were on record.
+migration 0012 ran, wherever none were on record. A logged service whose lines
+carry no service types → it counts for nothing, as AMG had no way to tell what
+it did: its page now says so, and the line can be tagged from the schedule. A
+job marked done with no receipt for work already logged → two entries; the
+service's page points to the other one to delete.
 
 **Tests pin:** whichever comes first, both ways round; first-due offsets
 (first at 7,500, then every 15,000) and "first at 11 years"; the late-service
@@ -327,7 +334,12 @@ acquisition cutoff; zero readings; what meets what, including multi-point
 inspections; normal and severe; the odometer model's straight lines, pace,
 in-service anchor and edge cases; **a hand-checked car** — five items, five
 services, every mark of its chart and every next-up line worked out on paper
-in `tests/amg/web/test_status.py` and matched exactly; marking as done.
+in `tests/amg/web/test_status.py` and matched exactly; marking as done. Tying
+a service to a job (`tests/amg/web/test_schedule_links.py`): a line's own
+action kept, a line tagged from the menu meeting its job (a replacement on a
+type usually inspected too), what a service counted for and every reason it
+didn't, the duplicate pointed to, Mark as done's services and where each
+opens, and a job applied to the first untagged line or a new one.
 
 **Done when:** the chart matches a hand-checked car. *The engine matches the
 hand-checked car in the tests (2026-10-02), and run over the 14 sample receipts
