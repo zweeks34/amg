@@ -793,6 +793,7 @@ with what's due and what was recommended. (Added 2026-10-08.)
 - [x] Issues: **Note an issue** on the car's page: what's wrong, details, the day you noticed it and up to 10 photos, taken or chosen, each stored as receipt scans are. Each open one shows when you noticed it (with the miles then, estimated from your readings), its details, its photos and what's been tried. **It's fixed** (one of your visits since, or a date), **Drop it** and **Undo**; Edit and Delete. The garage card counts open ones, and Download your data gets `issues.csv` and `photos/`
 - [x] The question: once a confirmed service is logged on or after the day you noticed it, the issue asks about the newest one ("Did Valley Honda fix it on Sep 20?"). **Yes, fixed then** closes it with that visit; **No, still there** keeps the visit as what's been tried and waits for the next. A service's page shows the issues it fixed and asks about itself, so logging one by hand asks at once
 - [x] **For the shop**, from the car's page: the car (year, make, model, engine, VIN, plate, today's miles), your open issues numbered with their details, photos and what's been tried, the schedule's jobs overdue or due soon, and open shop recommendations from the last year. No prices. It prints on its own
+- [x] Each due job's action (added after the phase shipped, 2026-10-25): "Due now" puts **Replace**, **Inspect** or **Perform** before each job's name, a small capitalised word in ink that prints in black and white, with the names lined up after it
 
 **Decisions:**
 
