@@ -62,6 +62,9 @@
         <option value="{{ job.id }}">{{ job.name }}{% if job.when %} · {{ job.when }}{% endif %}</option>
         {% endfor %}
       </select>
+      <p class="line__tagged" role="status" hidden :hidden="!taggedFor(line).length">
+        <span class="line__tick" aria-hidden="true">✓</span>
+        <span x-text="'Tagged for ' + taggedFor(line).join(', ')"></span></p>
       {% endif %}
     </div>
 

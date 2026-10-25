@@ -4,10 +4,11 @@
 document.addEventListener("alpine:init", () => {
   let nextId = 1;
   const withId = (row) => ({ ...row, covers: [...(row.covers || [])], ...(row.actions ? { actions: { ...row.actions } } : {}),
-                               query: "", touched: false, _id: nextId++ });
-  const strip = ({ query, touched, _id, ...row }) => row;
-  const blankLine = () => withId({ description: "", kind: "other", amount: "", covers: [], actions: {}, inspect_only: false,
-                                    part_number: "", quantity: "", covers_source: "you", from_read: false });
+                               ...(row.jobs ? { jobs: [...row.jobs] } : {}), query: "", touched: false, _id: nextId++ });
+  const strip = ({ query, touched, _id, jobs, ...row }) => row;
+  const blankLine = () => withId({ description: "", kind: "other", amount: "", covers: [], actions: {}, jobs: [],
+                                    inspect_only: false, part_number: "", quantity: "", covers_source: "you",
+                                    from_read: false });
   const blankRec = () => withId({ description: "", covers: [], amount: "" });
   const blankWarranty = () => withId({ description: "", provider: "", months: "", miles: "", lifetime: false,
                                        covers: [], found: "" });
@@ -62,11 +63,13 @@ document.addEventListener("alpine:init", () => {
       // the job's own action, so the line meets the job whatever a type's usual
       // action is. An inspection on an untagged line marks it inspected only;
       // a replacement or procedure clears that. A line with no description
-      // takes the job's name.
+      // takes the job's name. The menu goes back to its prompt, ready for
+      // another job, so the line says beneath it which jobs it was tagged for.
       fromSchedule(row, event) {
         const job = this.schedule.find((j) => String(j.id) === event.target.value);
         event.target.value = "";
         if (!job) return;
+        row.jobs = [...(row.jobs || []).filter((id) => id !== job.id), job.id];
         row.actions = row.actions || {};
         const untagged = !row.covers.length;
         for (const code of job.codes) {
@@ -78,6 +81,13 @@ document.addEventListener("alpine:init", () => {
         if (!row.description.trim()) row.description = job.name;
         row.touched = true;
         row.covers_source = "you";
+      },
+      // The jobs a line was tagged for from the menu, while their chips are all still on it.
+      taggedFor(row) {
+        return (row.jobs || [])
+          .map((id) => this.schedule.find((j) => j.id === id))
+          .filter((job) => job && job.codes.every((code) => row.covers.includes(code)))
+          .map((job) => job.name);
       },
       add() {
         this.lines.push(blankLine());

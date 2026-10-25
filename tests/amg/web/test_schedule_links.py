@@ -120,6 +120,7 @@ def test_the_service_form_offers_the_cars_jobs(signed_in, steady):
     page = html.unescape(signed_in.get(f"/vehicles/{car}/services/new").text)
     assert "aria-label=\"Tag this line for a job on the Steady's schedule\"" in page
     assert '<option value="">From the schedule…</option>' in page
+    assert "x-text=\"'Tagged for ' + taggedFor(line).join(', ')\"" in page   # beneath it, what it tagged the line for
     assert re.search(r'<option value="\d+">Cabin air filter · [\d,]+ mi overdue', page)
     assert '<option value="' in page and ">Tire rotation</option>" in page
 
@@ -342,6 +343,7 @@ def test_tagging_a_logged_service_fills_in_its_first_untagged_line(signed_in, co
     assert [(line["description"], line["covers"]) for line in editor["lines"]] == [
         ("Oil", ["engine_oil"]), ("Cabin filter", ["cabin_air_filter"])]
     assert editor["lines"][1]["actions"] == {"cabin_air_filter": "replace"}
+    assert editor["lines"][1]["jobs"] == [cabin["id"]] and "jobs" not in editor["lines"][0]   # the line says so
     assert "Tagged for Cabin air filter on a line below" in page
     assert _current(conn, car, "Cabin air filter").status == "overdue"           # nothing changes until it's saved
     signed_in.post(f"/services/{event}/edit", data=_service_form(editor["lines"], performed_on=day(999).isoformat()))
@@ -357,7 +359,7 @@ def test_a_service_with_every_line_tagged_gets_a_new_line_and_another_cars_job_i
     other = vehicles.create(conn, vehicles.VehicleFields(name="Other", in_service_date="2024-01-01"))
     _schedule(conn, other, [ItemInput("Cabin air filter", "replace", ["cabin_air_filter"], interval_months=12)])
     page = signed_in.get(f"/services/{visits[900]}/edit?item={_item_row(conn, other, 'Cabin air filter')['id']}").text
-    assert "Tagged for" not in page and len(_service_editor(page)["lines"]) == 2
+    assert "on a line below" not in page and len(_service_editor(page)["lines"]) == 2
 
 
 def test_log_a_service_for_a_job(signed_in, conn, steady):

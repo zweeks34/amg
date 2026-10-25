@@ -19,8 +19,10 @@ from .recalls import day_words
 
 
 def blank_line() -> dict:
-    return {"description": "", "kind": "other", "amount": "", "covers": [], "actions": {}, "inspect_only": False,
-            "part_number": "", "quantity": "", "covers_source": "you", "from_read": False}
+    """An empty line. ``jobs`` are the schedule jobs it was tagged for from the menu; the page shows them, and
+    they aren't posted back."""
+    return {"description": "", "kind": "other", "amount": "", "covers": [], "actions": {}, "jobs": [],
+            "inspect_only": False, "part_number": "", "quantity": "", "covers_source": "you", "from_read": False}
 
 
 def blank_rec() -> dict:

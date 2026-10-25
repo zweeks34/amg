@@ -145,7 +145,8 @@ def apply_item(rows: list[dict], picked: dict) -> list[dict]:
             covers.append(code)
         if picked["action"] != "inspect":
             actions[code] = picked["action"]
-    target.update(covers=covers, actions=actions, inspect_only=picked["action"] == "inspect", covers_source="you")
+    target.update(covers=covers, actions=actions, inspect_only=picked["action"] == "inspect", covers_source="you",
+                  jobs=[*target.get("jobs", []), picked["id"]])
     if not str(target.get("description") or "").strip():
         target["description"] = picked["name"]
     return rows

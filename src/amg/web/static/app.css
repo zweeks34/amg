@@ -1040,6 +1040,8 @@ fieldset.field > legend {
 .line .field { gap: 0.25rem; }
 .line .field > label { font-size: 0.8125rem; }
 .line .field input, .line .field select { background: var(--sheet); min-height: 2.5rem; }
+.line__tagged { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--ink); }
+.line__tick { color: var(--done); }
 /* Description, kind and amount on one row where there's room for it. */
 .line__top { display: grid; gap: 0.625rem; }
 /* Part number and quantity below them, the quantity under the amount. */
