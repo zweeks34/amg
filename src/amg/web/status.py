@@ -9,7 +9,7 @@ or upcoming one where it fell (or falls) due.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from ..engine.odometer import Odometer
@@ -31,6 +31,7 @@ class CarStatus:
     odometer: Odometer
     today: date
     today_miles: int | None
+    services: list[Service] = field(default_factory=list)   # the confirmed services the engine read
 
     @property
     def missed(self) -> int:
@@ -73,7 +74,7 @@ def load(conn: sqlite3.Connection, car, today: date | None = None, until: date |
                   bool(car["severe_service"]))
     estimate = odo.miles_on(today)
     return CarStatus(car["id"], {row["id"]: row for row in rows}, assess(items, done, odo, vehicle, today, until), odo,
-                     today, None if estimate is None else round(estimate))
+                     today, None if estimate is None else round(estimate), done)
 
 
 # ---------- Words ----------
@@ -151,6 +152,22 @@ def missed(status: CarStatus) -> list[dict]:
         for s in status.statuses for o in s.missed
     ]
     return sorted(rows, key=lambda row: row["due_day"], reverse=True)
+
+
+def picks(status: CarStatus) -> list[dict]:
+    """The jobs a service's line can be tagged for: overdue and due soon first, as next up orders them, then the
+    rest in schedule order. Each with the service types it's matched on and its action, so a line tagged from it
+    meets it."""
+    rank = {"overdue": 0, "due": 1}
+    urgent = sorted(((s, s.current) for s in status.statuses if s.current and s.current.status in rank),
+                    key=lambda pair: (rank[pair[1].status], pair[1].due_day, pair[0].item.name))
+    first = {s.item.id for s, _ in urgent}
+    ordered = urgent + [(s, None) for s in status.statuses if s.item.id not in first]
+    return [
+        {"id": s.item.id, "name": s.item.name, "codes": list(status.items[s.item.id]["codes"]), "action": s.item.action,
+         "when": when(occurrence, status) if occurrence else ""}
+        for s, occurrence in ordered
+    ]
 
 
 def summary(status: CarStatus) -> dict:

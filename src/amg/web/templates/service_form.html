@@ -46,7 +46,7 @@
       <p class="field__hint">One line per item on the invoice. Tag each with the services it covers. That's what
         the maintenance schedule is checked against.</p>
 
-      {{ editor_lines(kinds) }}
+      {{ editor_lines(kinds, schedule=editor.schedule, schedule_of=car.name) }}
       {{ message("lines", errors, None) }}
       {{ datalist() }}
     </fieldset>

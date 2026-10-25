@@ -373,3 +373,23 @@ def test_a_link_that_doesnt_name_the_file_is_checked_each_time(signed_in, conn, 
 
 def test_files_need_a_session(client, conn, reads):
     assert client.get("/documents/1/pages/1", follow_redirects=False).status_code == 303
+
+
+def test_review_offers_the_cars_schedule_to_tag_lines_from(signed_in, conn, reads, outback):
+    from amg.repo import schedules
+    from amg.repo.schedules import ItemInput
+
+    draft_id = schedules.create_draft(conn, outback, "template", draft={"origin": "template", "items": []})
+    schedules.confirm(conn, draft_id, outback, [ItemInput("Engine oil and filter", "replace", ["engine_oil", "oil_filter"],
+                                                          interval_months=12)], {"origin": "template", "items": []})
+    reads.append(fx.extraction(vin=OUTBACK_VIN))
+    _upload(signed_in, ("a.pdf", _pdf()))
+    page = signed_in.get(f"/receipts/{_only_receipt(conn)}").text
+    assert [job["name"] for job in _editor(page)["schedule"]] == ["Engine oil and filter"]
+    assert "From the Outback's schedule…" in page
+
+
+def test_review_without_a_car_has_no_schedule(signed_in, conn, reads):
+    _upload(signed_in, ("a.pdf", _pdf()))
+    page = signed_in.get(f"/receipts/{_only_receipt(conn)}").text
+    assert _editor(page)["schedule"] == [] and "line__schedule" not in page

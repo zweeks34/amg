@@ -16,7 +16,8 @@
        placeholder="Type to add, e.g. Engine oil" autocomplete="off">
 {%- endmacro %}
 
-{% macro lines(kinds, receipt=False) -%}
+{#- ``schedule`` is the car's jobs (status.picks), for tagging a line from; ``schedule_of`` the car's name. -#}
+{% macro lines(kinds, receipt=False, schedule=None, schedule_of="") -%}
 <template x-for="(line, i) in lines" :key="line._id">
   <div class="line" {% if receipt %}:class="{ 'line--read': unread(line) }" @input="line.touched = true"{% endif %}>
     <div class="line__top">
@@ -53,6 +54,15 @@
         {% if receipt %}<span class="field__source" x-show="line.covers.length && line.covers_source === 'learned'">from your earlier receipts</span>{% endif %}
       </label>
       {{ chips("line") }}
+      {% if schedule %}
+      <select class="line__schedule" @change="fromSchedule(line, $event)"
+              aria-label="Tag this line for a job on the {{ schedule_of }}'s schedule">
+        <option value="">From the {{ schedule_of }}'s schedule…</option>
+        {% for job in schedule %}
+        <option value="{{ job.id }}">{{ job.name }}{% if job.when %} · {{ job.when }}{% endif %}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
     </div>
 
     <div class="line__meta">

@@ -18,6 +18,7 @@ from ..ingest.drafts import Draft
 from ..ingest.receipts import DOCUMENT_KINDS, ReceiptExtraction
 from ..repo import documents, jobs, odometer, receipts, services, vehicles, warranty_looks
 from . import forms, line_editor, receipt_finder
+from . import status as car_status
 from . import warranties as warranty_words
 from .deps import get_conn
 from .routes_services import KIND_LABELS, editor_types
@@ -442,6 +443,7 @@ def _review(
             "warranties": held or [],
             "warrantyErrors": warranty_errors or [None] * len(held or []),
             "types": editor_types(conn),
+            "schedule": car_status.picks(car_status.load(conn, car)) if car else [],
             "reading": reading,
         },
         kinds=KIND_LABELS,

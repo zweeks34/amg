@@ -22,6 +22,7 @@ from ..ingest.drafts import Draft
 from ..repo import follow_ups, odometer, receipts, services
 from . import forms, line_editor
 from . import issues as issue_words
+from . import status as car_status
 from . import warranties as warranty_words
 from .deps import get_conn
 from .routes_vehicles import POWERTRAIN_LABELS, vehicle_or_404
@@ -221,7 +222,9 @@ def _form(
     event: dict | None = None,
     status_code: int = 200,
 ) -> Response:
-    in_use = {code for line in lines for code in line.get("covers", [])}
+    schedule = car_status.picks(car_status.load(conn, car))
+    in_use = {code for line in lines for code in line.get("covers", [])} | {
+        code for job in schedule for code in job["codes"]}
     return render(
         request,
         "service_form.html",
@@ -235,6 +238,7 @@ def _form(
             "lines": lines,
             "errors": line_errors or [None] * len(lines),
             "types": editor_types(conn, car["powertrain"], in_use),
+            "schedule": schedule,
         },
         sources=SOURCE_LABELS,
         kinds=KIND_LABELS,

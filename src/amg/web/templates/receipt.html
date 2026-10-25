@@ -152,7 +152,7 @@
       {% endif %}
       <fieldset class="field field--wide lines">
         <legend>Work done</legend>
-        {{ editor_lines(kinds, receipt=True) }}
+        {{ editor_lines(kinds, receipt=True, schedule=editor.schedule, schedule_of=car.name if car else "") }}
         {{ message("lines", errors, None) }}
       </fieldset>
 

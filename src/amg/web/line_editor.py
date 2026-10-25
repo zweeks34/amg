@@ -19,7 +19,7 @@ from .recalls import day_words
 
 
 def blank_line() -> dict:
-    return {"description": "", "kind": "other", "amount": "", "covers": [], "inspect_only": False,
+    return {"description": "", "kind": "other", "amount": "", "covers": [], "actions": {}, "inspect_only": False,
             "part_number": "", "quantity": "", "covers_source": "you", "from_read": False}
 
 
@@ -36,6 +36,7 @@ def clean_lines(posted: str | None) -> list[dict]:
             "kind": str(item.get("kind", "other")),
             "amount": forms.text(str(item.get("amount", ""))),
             "covers": [str(c) for c in item.get("covers", []) if isinstance(c, str)],
+            "actions": _actions(item.get("actions")),
             "inspect_only": bool(item.get("inspect_only")),
             "part_number": forms.text(str(item.get("part_number", ""))),
             "quantity": forms.text(str(item.get("quantity", ""))),
@@ -60,7 +61,10 @@ def parse_lines(rows: list[dict], types: Mapping[str, Mapping]) -> tuple[list[se
     """(lines, one error or None per row, the same lines as draft dicts).
 
     Empty rows are dropped. A line with no description is named after the
-    services it covers.
+    services it covers. Each service it covers was inspected if the line says
+    so; otherwise it takes the row's own action for it, where it has one (a
+    job picked from the schedule, or the line as it was saved), else the
+    service type's usual one.
     """
     lines: list[services.LineInput] = []
     drafts: list[dict] = []
@@ -76,8 +80,9 @@ def parse_lines(rows: list[dict], types: Mapping[str, Mapping]) -> tuple[list[se
         errors.append(None)
         if not row["description"] and not covers and amount is None:
             continue
+        own = row.get("actions") or {}
         coverage = [
-            services.Coverage(code, "inspect" if row["inspect_only"] else types[code]["default_action"])
+            services.Coverage(code, "inspect" if row["inspect_only"] else own.get(code) or types[code]["default_action"])
             for code in covers
         ]
         line = services.LineInput(
@@ -133,6 +138,7 @@ def rows_from_draft(lines: list[dict], read: list[dict] | None = None) -> list[d
             "kind": line["kind"],
             "amount": dollars(line.get("amount_cents")),
             "covers": covers,
+            "actions": {c["code"]: c["action"] for c in line["covers"] if c["action"] != "inspect"},
             "inspect_only": bool(covers) and all(c["action"] == "inspect" for c in line["covers"]),
             "part_number": line.get("part_number") or "",
             "quantity": "" if line.get("quantity") is None else f"{line['quantity']:g}",
@@ -220,6 +226,13 @@ def warranties_from_draft(warranties: list[dict]) -> list[dict]:
         }
         for w in warranties
     ]
+
+
+def _actions(value) -> dict[str, str]:
+    """A posted row's own actions, by service code: only real ones."""
+    if not isinstance(value, dict):
+        return {}
+    return {str(code): action for code, action in value.items() if action in services.ACTIONS}
 
 
 def _same_line(a: dict, b: dict) -> bool:

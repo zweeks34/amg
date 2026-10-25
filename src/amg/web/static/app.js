@@ -3,9 +3,10 @@
 
 document.addEventListener("alpine:init", () => {
   let nextId = 1;
-  const withId = (row) => ({ ...row, covers: [...(row.covers || [])], query: "", touched: false, _id: nextId++ });
+  const withId = (row) => ({ ...row, covers: [...(row.covers || [])], ...(row.actions ? { actions: { ...row.actions } } : {}),
+                               query: "", touched: false, _id: nextId++ });
   const strip = ({ query, touched, _id, ...row }) => row;
-  const blankLine = () => withId({ description: "", kind: "other", amount: "", covers: [], inspect_only: false,
+  const blankLine = () => withId({ description: "", kind: "other", amount: "", covers: [], actions: {}, inspect_only: false,
                                     part_number: "", quantity: "", covers_source: "you", from_read: false });
   const blankRec = () => withId({ description: "", covers: [], amount: "" });
   const blankWarranty = () => withId({ description: "", provider: "", months: "", miles: "", lifetime: false,
@@ -14,11 +15,13 @@ document.addEventListener("alpine:init", () => {
   // Rows with service-type chips — a service's lines, a receipt's lines and
   // its recommendations. Every row travels to the server inside one JSON field,
   // so rows, chips and checkboxes stay together however many are added or
-  // removed. `editor` is {lines, errors, types}. Methods, not getters: this
-  // object is spread into components, and spreading would freeze a getter.
+  // removed. `editor` is {lines, errors, types}, and the car's schedule where
+  // a line can be tagged from it. Methods, not getters: this object is spread
+  // into components, and spreading would freeze a getter.
   function lineEditor(editor) {
     return {
       types: editor.types,
+      schedule: editor.schedule || [],
       errors: [...editor.errors],
       lines: editor.lines.map(withId),
 
@@ -51,6 +54,28 @@ document.addEventListener("alpine:init", () => {
       },
       unpick(row, code) {
         row.covers = row.covers.filter((c) => c !== code);
+        if (row.actions) delete row.actions[code];
+        row.touched = true;
+        row.covers_source = "you";
+      },
+      // A job from the car's schedule: its service types as chips, each with
+      // the job's own action, so the line meets the job whatever a type's usual
+      // action is. An inspection on an untagged line marks it inspected only;
+      // a replacement or procedure clears that. A line with no description
+      // takes the job's name.
+      fromSchedule(row, event) {
+        const job = this.schedule.find((j) => String(j.id) === event.target.value);
+        event.target.value = "";
+        if (!job) return;
+        row.actions = row.actions || {};
+        const untagged = !row.covers.length;
+        for (const code of job.codes) {
+          if (!row.covers.includes(code)) row.covers.push(code);
+          if (job.action !== "inspect") row.actions[code] = job.action;
+        }
+        if (job.action !== "inspect") row.inspect_only = false;
+        else if (untagged) row.inspect_only = true;
+        if (!row.description.trim()) row.description = job.name;
         row.touched = true;
         row.covers_source = "you";
       },
