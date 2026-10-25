@@ -297,6 +297,7 @@ there is one.
 - [x] Mark as done with a service you logged (added 2026-10-25): Mark as done first offers the car's own services, dated nearest when the job fell due, that don't already count for it. **Tag it for this job** opens the service (or its receipt's review) with the job on a line, to check and save. Then **Log a service for it**, a new service with a line tagged for the job; then done with no receipt, as before
 - [x] Interval chart per car: the items that apply, grouped as the schedule is; ● done where the work was done (links to the service), ✕ missed and ▲ overdue (link to mark as done), ◐ due soon, ○ later; today's estimated odometer as the ink line. Open on wide screens; on phones next up comes first and the chart is one tap away, scrolling sideways with the item column fixed
 - [x] Car page: next up (every overdue and due-soon item, then the next few, folded after six), "N missed in the past" with each one listed, today's estimated odometer
+- [x] Each next-up job's action (added after the phase shipped, 2026-10-25): the schedule page's stamp, **R** replace, **I** inspect or **P** perform, between the status mark and the name, read out as "Replace: Engine oil and filter"; the stamps' key beneath the list
 - [x] Garage: each card says what's next and counts overdue, due soon and missed
 
 **Data owned:** none new — the engine is pure functions over the tables

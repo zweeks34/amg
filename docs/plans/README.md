@@ -32,6 +32,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-09 | [Warranties](2026-10-09-warranties.md) | Phase 14 | `d55a24a`…`5fbb16d` |
 | 2026-10-09 | [Running cost](2026-10-09-running-cost.md) | Phase 15 | `8f7bd00`…`2c56175` |
 | 2026-10-25 | [Tie a logged service to the schedule job it did](2026-10-25-services-to-schedule-jobs.md) | Phase 5 | `4c18760`…`4735345` |
+| 2026-10-25 | [Show each next-up job's action](2026-10-25-next-up-actions.md) | Phase 5 | `08f6f5a` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
