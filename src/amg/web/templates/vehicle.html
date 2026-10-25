@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_forms.html" import input %}
 {% from "_chart.html" import interval_chart, mark, next_up as next_up_list %}
+{% from "_schedule_editor.html" import legend as action_key %}
 {% from "_renewal_fields.html" import renewal_fields %}
 {% from "_issues.html" import issue_row, closed_row %}
 {% from "_warranties.html" import warranty_row, ended_row %}
@@ -121,6 +122,7 @@
       {{ next_up_list(upcoming[6:]) }}
     </details>
     {% endif %}
+    <div class="nextup__key">{{ action_key(action_words) }}</div>
   </div>
   {% endif %}
   {% if plan.maintenance or plan.unpriced %}

@@ -65,6 +65,10 @@ STATUS_WORDS = {
     "later": "Later",
 }
 
+# What a schedule job does, by the manual's own letters: the schedule page's
+# stamps and their key, and next up.
+ACTION_WORDS = {"replace": "Replace", "inspect": "Inspect", "perform": "Perform"}
+
 
 def who(event) -> str:
     """Who did a service, as its title: the shop, you, or nobody on paper."""
@@ -121,6 +125,7 @@ templates.env.globals["receipts_to_check"] = receipts_to_check
 templates.env.globals["fill_word"] = fill_word
 templates.env.globals["axis"] = axis
 templates.env.globals["status_words"] = STATUS_WORDS
+templates.env.globals["action_words"] = ACTION_WORDS
 templates.env.globals["origin_words"] = SCHEDULE_ORIGINS
 templates.env.globals["page_url"] = page_url
 templates.env.globals["who"] = who

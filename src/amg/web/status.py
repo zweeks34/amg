@@ -140,6 +140,7 @@ def next_up(status: CarStatus, limit: int = NEXT_UP, costs: dict[int, int] | Non
         {
             "item_id": item_status.item.id,
             "name": item_status.item.name,
+            "action": item_status.item.action,
             "status": occurrence.status,
             "when": when(occurrence, status),
             "attest_url": attest_url(status.vehicle_id, item_status.item.id) if occurrence.status == "overdue" else None,

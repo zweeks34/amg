@@ -71,7 +71,10 @@
   {% for item in items %}
   <li class="nextup__item">
     {{ mark(item.status, status_words[item.status]) }}
-    <span class="nextup__name">{{ item.name }}</span>
+    {%- if item.action %}
+    <span class="stamp stamp--small stamp--{{ item.action }}" aria-hidden="true">{{ action_words[item.action][0] }}</span>
+    {%- endif %}
+    <span class="nextup__name">{% if item.action %}<span class="vh">{{ action_words[item.action] }}: </span>{% endif %}{{ item.name }}</span>
     <span class="nextup__when">{{ item.when }}</span>
     <span class="nextup__side">
       {%- if item.cost is defined and item.cost is not none %}

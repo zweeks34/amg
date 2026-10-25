@@ -101,6 +101,9 @@ def test_next_up_is_overdue_first_then_soonest(steady):
         ("Engine coolant", "later", "in 20,000 mi · ~Jul 2024"),
     ]
     assert all(row["attest_url"] for row in status.next_up(state) if row["status"] == "overdue")
+    assert {row["name"]: row["action"] for row in status.next_up(state)} == {   # each job's action, for its stamp
+        "Cabin air filter": "replace", "Engine oil and filter": "replace", "Tire rotation": "perform",
+        "Brake inspection": "inspect", "Engine coolant": "replace"}
 
 
 def test_missed_and_the_garage_line(steady):

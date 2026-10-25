@@ -24,12 +24,12 @@ from .deps import get_conn
 from .routes_services import editor_types
 from .routes_vehicles import vehicle_or_404
 from .schedule_editor import blank_row, clean_items, editor_row, parse_items
-from .templating import render
+from .templating import ACTION_WORDS, render
 
 router = APIRouter()
 
 ACTION_LETTERS = {"replace": "R", "inspect": "I", "perform": "P"}
-ACTION_LABELS = {"replace": "Replace", "inspect": "Inspect", "perform": "Perform"}
+ACTION_LABELS = ACTION_WORDS
 APPLIES_LABELS = {"always": "Both", "normal": "Normal only", "severe": "Severe only"}
 
 

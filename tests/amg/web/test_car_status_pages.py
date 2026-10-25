@@ -33,6 +33,16 @@ def test_the_car_page_shows_next_up_missed_and_the_chart(signed_in, steady):
     assert "Mark as done" in page
 
 
+def test_next_up_stamps_each_jobs_action(signed_in, steady):
+    car, _, _ = steady
+    page = signed_in.get(f"/vehicles/{car}").text
+    for action, letter in (("replace", "R"), ("inspect", "I"), ("perform", "P")):
+        assert f'<span class="stamp stamp--small stamp--{action}" aria-hidden="true">{letter}</span>' in page
+    assert '<span class="vh">Replace: </span>Cabin air filter' in page          # read out, as on the schedule page
+    assert '<span class="vh">Inspect: </span>Brake inspection' in page
+    assert 'class="nextup__key"' in page and "Perform</span>" in page             # and the key beneath
+
+
 def test_the_garage_counts_whats_overdue_and_missed(signed_in, steady):
     page = signed_in.get("/").text
     assert "2 overdue" in page and "1 missed" in page and "Next:" in page
