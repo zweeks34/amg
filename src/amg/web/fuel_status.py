@@ -15,6 +15,7 @@ from datetime import date, timedelta
 from ..engine import fuel as engine
 from ..engine.fuel import Fill, Stretch
 from ..repo import fuel
+from .recalls import day_words
 from .templating import money
 
 YEAR = timedelta(days=365)
@@ -97,6 +98,30 @@ def quantity_words(quantity: float, units: Units) -> str:
     if units.quantity == "gal":
         return f"{quantity:.3f} gal"
     return f"{quantity:.3f}".rstrip("0").rstrip(".") + " kWh"
+
+
+_PLACES = {"home": "Home", "public": "Public"}
+
+
+def copy_words(row, units: Units, stretch: Stretch | None) -> str:
+    """A fill on one line, for the clipboard, in the log's own words:
+    'Oct 20, 2026 · 45,210 mi · 10.200 gal · $34.67 ($3.399/gal) · 32.4 mpg · Full tank · Costco on Main'.
+    A part it hasn't got (a cost, economy) is left out."""
+    cost = None
+    if row["cost_cents"] is not None:
+        cost = f"{money(row['cost_cents'])} ({price_words(row['cost_cents'] / row['quantity'], units)})"
+    parts = [
+        day_words(row["filled_on"]),
+        f"{row['odometer']:,} mi",
+        quantity_words(row["quantity"], units),
+        cost,
+        economy_words(stretch.economy, units) if stretch else None,
+        units.full_noun.capitalize() if row["full"] else "Partial " + ("fill" if units.quantity == "gal" else "charge"),
+        _PLACES.get(row["place"] or ""),
+        "After one not logged" if row["missed_before"] else None,
+        " ".join((row["note"] or "").split()),
+    ]
+    return " · ".join(part for part in parts if part)
 
 
 def _span(state: FuelStatus) -> tuple[date | None, str]:
@@ -226,6 +251,9 @@ def log_rows(state: FuelStatus) -> list[dict]:
         rows.append({
             "id": row["id"],
             "day": row["filled_on"],
+            "when": day_words(row["filled_on"]),
+            "fill": units.fill,
+            "line": copy_words(row, units, stretch),
             "odometer": row["odometer"],
             "quantity": quantity_words(row["quantity"], units),
             "price": price_words(price, units),
@@ -234,7 +262,7 @@ def log_rows(state: FuelStatus) -> list[dict]:
             "partial": not row["full"],
             "missed_before": bool(row["missed_before"]),
             "unusual": row["id"] in flagged,
-            "place": {"home": "Home", "public": "Public"}.get(row["place"] or ""),
+            "place": _PLACES.get(row["place"] or ""),
             "note": row["note"],
         })
     return rows

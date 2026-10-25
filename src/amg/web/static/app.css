@@ -1636,18 +1636,35 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .pick__car:hover { border-color: var(--ink); }
 .pick__name { font: 700 1.75rem/1 var(--display); }
 
-/* The log: date, odometer, quantity, price, total, economy; two lines on a phone. */
+/* The log: date, odometer, quantity, price, total, economy; two lines on a phone.
+   A fill opens in place to Edit, Copy and Delete, one at a time. */
+.fuellog__hint { margin: -0.25rem 0 0.5rem; font-size: 0.875rem; }
 .fuellog { margin: 0; padding: 0; list-style: none; }
 .fuellog li + li { border-top: 1px solid var(--rule-soft); }
+.fuellog__item > summary { display: block; list-style: none; cursor: pointer; }
+.fuellog__item > summary::-webkit-details-marker { display: none; }
+.fuellog__item > summary:hover, .fuellog__item[open] { background: var(--band); }
+.fuellog__item > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 .fuellog__row {
   display: grid;
-  grid-template-columns: 6.5rem 6.5rem 7rem 6.5rem 5.5rem minmax(0, 1fr);
+  grid-template-columns: 6.5rem 6.5rem 7rem 6.5rem 5.5rem minmax(0, 1fr) auto;
   align-items: baseline;
   gap: 0.25rem 1rem;
   padding: 0.75rem var(--gutter);
-  text-decoration: none;
 }
-.fuellog__row:hover { background: var(--band); }
+.fuellog__open { font-size: 1.125rem; line-height: 1; }
+.fuellog__open::before { content: "▸"; color: var(--steel); }
+.fuellog__item[open] .fuellog__open::before { content: "▾"; color: var(--ink); }
+.fuellog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 var(--gutter) 0.875rem;
+}
+.fuellog__copied { display: grid; gap: 0.25rem; flex-basis: 100%; font-size: 0.875rem; }
+.fuellog__copied[hidden] { display: none; }
+.fuellog__copied input { width: 100%; background: var(--sheet); }
 .fuellog__price, .fuellog__qty, .fuellog__miles { color: var(--ink-2); }
 .fuellog__total { text-align: right; }
 .fuellog__econ { font-weight: 600; white-space: nowrap; }
@@ -1662,15 +1679,17 @@ p.notice, div.notice { margin-bottom: 1rem; }
 }
 @media (max-width: 48rem) {
   /* Economy, the figure you came for, on the first line; type a size down so
-     a date, a six-figure odometer and "3.30 mi/kWh" share 360px. */
+     a date, a six-figure odometer, "3.30 mi/kWh" and the open arrow share
+     360px (with 10px to spare). */
   .fuellog__row {
-    gap: 0.25rem 0.625rem;
+    gap: 0.25rem 0.5rem;
     font-size: 0.875rem;
-    grid-template-columns: auto auto 1fr;
+    grid-template-columns: auto auto 1fr auto;
     grid-template-areas:
-      "date miles econ"
-      "qty price total";
+      "date miles econ open"
+      "qty price total open";
   }
+  .fuellog__open { grid-area: open; align-self: center; }
   .fuellog__date { grid-area: date; }
   .fuellog__miles { grid-area: miles; }
   .fuellog__total { grid-area: total; }

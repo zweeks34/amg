@@ -288,6 +288,27 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
+  // A line of text to the clipboard: a fill-up from the fuel log. If the
+  // browser refuses, the line is shown selected, to copy by hand.
+  Alpine.data("copyLine", (text) => ({
+    text,
+    copied: false,
+    failed: false,
+    timer: null,
+
+    async copy() {
+      const done = await toClipboard(text);
+      this.failed = !done;
+      this.copied = done;
+      clearTimeout(this.timer);
+      if (done) {
+        this.timer = setTimeout(() => { this.copied = false; }, 2000);
+      } else {
+        this.$nextTick(() => { this.$refs.line.focus(); this.$refs.line.select(); });
+      }
+    },
+  }));
+
   // The interval chart opens scrolled so today's odometer line is in view —
   // on a phone the chart is wider than the screen and would otherwise open at
   // zero miles, showing only the car's distant past.
@@ -306,6 +327,38 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 });
+
+// Text to the clipboard; true if it got there. The clipboard API is only
+// given to secure pages, and AMG is served over plain HTTP at home, so the
+// older copy command comes next: a hidden read-only box, selected and copied
+// within the tap. Font size 12pt keeps iOS from zooming to it.
+async function toClipboard(text) {
+  if (window.isSecureContext && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // refused: try the older way
+    }
+  }
+  const before = document.activeElement;
+  const box = document.createElement("textarea");
+  box.value = text;
+  box.setAttribute("readonly", "");
+  box.style.cssText = `position: absolute; left: -9999px; top: ${window.scrollY}px; font-size: 12pt`;
+  document.body.append(box);
+  box.select();
+  box.setSelectionRange(0, text.length);
+  let done = false;
+  try {
+    done = document.execCommand("copy");
+  } catch {
+    done = false;
+  }
+  box.remove();
+  if (before instanceof HTMLElement) before.focus();
+  return done;
+}
 
 // A suggestion fills its box as if typed: data-for names the box, data-use holds the value.
 document.addEventListener("click", (event) => {

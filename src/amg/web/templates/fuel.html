@@ -12,6 +12,7 @@
 </header>
 
 {% if saved %}<p class="notice notice--done" role="status">{{ saved }}</p>{% endif %}
+{% if deleted %}<p class="notice notice--done" role="status">{{ units.fill | capitalize }} deleted.</p>{% endif %}
 
 {% if figures %}
 <dl class="figures sheet">
@@ -35,10 +36,14 @@
 <section class="block" aria-labelledby="log-heading">
   <h2 class="h3" id="log-heading">The log</h2>
   {% if log %}
+  <p class="muted fuellog__hint">Tap a {{ units.fill }} to edit, copy or delete it.</p>
   <ol class="fuellog sheet sheet--flush">
     {% for row in log %}
     <li>
-      <a class="fuellog__row" href="/fuel/{{ row.id }}/edit">
+      {#- One open at a time: details sharing a name close each other. -#}
+      <details class="fuellog__item" name="fuellog">
+      <summary>
+      <span class="fuellog__row">
         <span class="fuellog__date mono">{{ row.day }}</span>
         <span class="fuellog__miles mono">{{ row.odometer | miles }}</span>
         <span class="fuellog__qty mono">{{ row.quantity }}</span>
@@ -48,13 +53,35 @@
           {%- if row.economy %}<span class="mono">{{ row.economy }}</span>
           {%- elif row.partial %}<span class="muted">Partial</span>{% endif -%}
         </span>
+        <span class="fuellog__open" aria-hidden="true"></span>
         {% if row.unusual or row.place or row.missed_before or row.note %}
         <span class="fuellog__more">
           {%- if row.unusual %}<span class="fuellog__flag">Unusual, check it</span> {% endif -%}
           {{- [row.place, "After one not logged" if row.missed_before else "", row.note] | select | join(" · ") -}}
         </span>
         {% endif %}
-      </a>
+      </span>
+      </summary>
+      <div class="fuellog__actions" x-data='copyLine({{ row.line | tojson }})'>
+        <a class="btn btn--secondary" href="/fuel/{{ row.id }}/edit" aria-label="Edit the {{ row.fill }} of {{ row.when }}">Edit</a>
+        <button class="btn btn--secondary" type="button" @click="copy()" aria-label="Copy the {{ row.fill }} of {{ row.when }}"
+                x-text="copied ? 'Copied' : 'Copy'">Copy</button>
+        <span class="vh" role="status" x-text="copied ? 'Copied to the clipboard' : ''"></span>
+        <div class="fuellog__delete" x-data="{ confirming: false }">
+          <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true"
+                  aria-label="Delete the {{ row.fill }} of {{ row.when }}">Delete</button>
+          <form method="post" action="/fuel/{{ row.id }}/delete" class="confirm" x-show="confirming" x-cloak>
+            <span>Delete this {{ row.fill }}? Its odometer reading goes with it.</span>
+            <button class="btn btn--danger" type="submit">Delete {{ row.fill }}</button>
+            <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>
+          </form>
+        </div>
+        <div class="fuellog__copied" hidden :hidden="!failed">
+          <label for="copy-{{ row.id }}">This browser wouldn't copy. Copy it from here:</label>
+          <input id="copy-{{ row.id }}" class="mono" readonly x-ref="line" :value="text">
+        </div>
+      </div>
+      </details>
     </li>
     {% endfor %}
   </ol>

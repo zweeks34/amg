@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, timedelta
 
 import pytest
@@ -119,6 +120,62 @@ def test_edit_and_delete_a_fill(signed_in, conn, car):
     signed_in.post(f"/fuel/{fill_id}/delete")
     assert fuel.get(conn, fill_id) is None
     assert signed_in.get(f"/fuel/{fill_id}/edit").status_code == 404
+
+
+def test_each_fill_copies_as_one_line_in_the_logs_words(conn, car, ev):
+    from amg.web import fuel_status
+
+    for fill in (fuel.FillInput("2026-10-01", 45_000, "gas", 10.0, 3_400),                  # the first: no economy
+                 fuel.FillInput("2026-10-10", 45_150, "gas", 4.0, full=False),               # partial, no cost
+                 fuel.FillInput("2026-10-20", 45_330, "gas", 6.2, 2_108),                    # 330 mi on 10.2 gal
+                 fuel.FillInput("2026-10-25", 45_600, "gas", 9.0, 3_000, missed_before=True, note="Costco\non Main")):
+        fuel.create(conn, car, fill)
+    rows = fuel_status.log_rows(fuel_status.load(conn, vehicles.get(conn, car)))
+    assert [row["line"] for row in rows] == [
+        "Oct 25, 2026 · 45,600 mi · 9.000 gal · $30.00 ($3.333/gal) · Full tank · After one not logged · Costco on Main",
+        "Oct 20, 2026 · 45,330 mi · 6.200 gal · $21.08 ($3.400/gal) · 32.4 mpg · Full tank",
+        "Oct 10, 2026 · 45,150 mi · 4.000 gal · Partial fill",
+        "Oct 1, 2026 · 45,000 mi · 10.000 gal · $34.00 ($3.400/gal) · Full tank",
+    ]
+
+    fuel.create(conn, ev, fuel.FillInput("2026-10-01", 12_000, "electric", 30.0, 420, place="home"))
+    fuel.create(conn, ev, fuel.FillInput("2026-10-20", 12_121, "electric", 31.5, 441, place="home"))
+    fuel.create(conn, ev, fuel.FillInput("2026-10-22", 12_180, "electric", 12.5, full=False, place="public"))
+    rows = fuel_status.log_rows(fuel_status.load(conn, vehicles.get(conn, ev)))
+    assert [row["line"] for row in rows] == [
+        "Oct 22, 2026 · 12,180 mi · 12.5 kWh · Partial charge · Public",
+        "Oct 20, 2026 · 12,121 mi · 31.5 kWh · $4.41 (14.0¢/kWh) · 3.84 mi/kWh · Full charge · Home",
+        "Oct 1, 2026 · 12,000 mi · 30 kWh · $4.20 (14.0¢/kWh) · Full charge · Home",
+    ]
+
+
+def test_tapping_a_fill_opens_edit_copy_and_delete(signed_in, conn, car):
+    _log(signed_in, car, "2026-09-28", "64,300", "11.482", cost="39.72")
+    fill_id = fuel.last(conn, car)["id"]
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert "Tap a fill-up to edit, copy or delete it." in page
+    assert page.count('<details class="fuellog__item" name="fuellog">') == 1       # one open at a time
+    assert f'href="/fuel/{fill_id}/edit" aria-label="Edit the fill-up of Sep 28, 2026">Edit</a>' in page
+    line = "Sep 28, 2026 · 64,300 mi · 11.482 gal · $39.72 ($3.459/gal) · Full tank"
+    assert f"x-data='copyLine({json.dumps(line)})'" in page
+    assert 'aria-label="Copy the fill-up of Sep 28, 2026"' in page
+    assert f'<form method="post" action="/fuel/{fill_id}/delete" class="confirm"' in page
+    assert "Delete this fill-up? Its odometer reading goes with it." in page and "Keep it" in page
+
+    response = signed_in.post(f"/fuel/{fill_id}/delete", follow_redirects=False)
+    assert response.headers["location"] == f"/vehicles/{car}/fuel?deleted=1"
+    assert "Fill-up deleted." in signed_in.get(response.headers["location"]).text
+    assert fuel.get(conn, fill_id) is None
+
+
+def test_an_evs_log_says_charge(signed_in, conn, ev):
+    fuel.create(conn, ev, fuel.FillInput("2026-10-20", 12_121, "electric", 31.5, 441, place="home"))
+    fill_id = fuel.last(conn, ev)["id"]
+    page = signed_in.get(f"/vehicles/{ev}/fuel").text
+    assert "Tap a charge to edit, copy or delete it." in page and "Delete this charge?" in page
+    assert 'aria-label="Copy the charge of Oct 20, 2026"' in page
+    response = signed_in.post(f"/fuel/{fill_id}/delete")
+    assert "Charge deleted." in response.text
 
 
 def test_the_car_page_shows_fuel_and_fill_ups_as_readings(signed_in, conn, car):

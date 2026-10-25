@@ -57,7 +57,7 @@ async def create_fill(request: Request, vehicle_id: int, conn: sqlite3.Connectio
 
 
 @router.get("/vehicles/{vehicle_id}/fuel")
-def fuel_page(request: Request, vehicle_id: int, saved: int | None = None,
+def fuel_page(request: Request, vehicle_id: int, saved: int | None = None, deleted: int | None = None,
               conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     car = vehicle_or_404(conn, vehicle_id)
     state = status.load(conn, car)
@@ -71,6 +71,7 @@ def fuel_page(request: Request, vehicle_id: int, saved: int | None = None,
         trend=status.trend(state),
         log=status.log_rows(state),
         saved=status.saved(state, saved) if saved else None,
+        deleted=bool(deleted),
     )
 
 
@@ -108,7 +109,7 @@ async def update_fill(request: Request, fill_id: int, conn: sqlite3.Connection =
 def delete_fill(fill_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     row = _fill_or_404(conn, fill_id)
     fuel.delete(conn, fill_id)
-    return RedirectResponse(f"/vehicles/{row['vehicle_id']}/fuel", status_code=303)
+    return RedirectResponse(f"/vehicles/{row['vehicle_id']}/fuel?deleted=1", status_code=303)
 
 
 # ---------- Helpers ----------
