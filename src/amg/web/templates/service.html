@@ -65,6 +65,10 @@
     <li class="counted__row">
       <p class="counted__name">{{ row.name }}</p>
       <p class="counted__when">Doesn't count for it: {{ row.why }}.</p>
+      {% for twin in row.twins %}
+      <p class="counted__twin">You also marked it done with no receipt on {{ twin.day }}.
+        <a href="{{ twin.href }}">Open that one</a> to delete it, and this one counts.</p>
+      {% endfor %}
     </li>
     {% endfor %}
   </ul>

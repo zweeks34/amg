@@ -118,7 +118,8 @@ def test_a_severe_only_job_isnt_offered_on_a_car_in_normal_service(conn):
 def test_the_service_form_offers_the_cars_jobs(signed_in, steady):
     car, _, _ = steady
     page = html.unescape(signed_in.get(f"/vehicles/{car}/services/new").text)
-    assert "From the Steady's schedule…" in page
+    assert "aria-label=\"Tag this line for a job on the Steady's schedule\"" in page
+    assert '<option value="">From the schedule…</option>' in page
     assert re.search(r'<option value="\d+">Cabin air filter · [\d,]+ mi overdue', page)
     assert '<option value="' in page and ">Tire rotation</option>" in page
 
@@ -195,7 +196,7 @@ def test_a_service_before_a_jobs_count_from_day_says_so(conn):
     assert found.met == []
     assert found.unmet == [{"name": "Wiper blades",
                             "why": f"it's on or before {counts_from:%b} {counts_from.day}, {counts_from.year}, "
-                                   "the day this job counts from"}]
+                                   "the day this job counts from", "twins": []}]
 
 
 def test_a_second_service_the_same_day_doesnt_count_and_says_so(conn, steady):
@@ -204,7 +205,7 @@ def test_a_second_service_the_same_day_doesnt_count_and_says_so(conn, steady):
     second = _log(conn, car, date.today(), ("cabin_air_filter", "replace"))
     assert [row["name"] for row in _counted(conn, car, first).met] == ["Cabin air filter"]
     assert _counted(conn, car, second).unmet == [
-        {"name": "Cabin air filter", "why": "another service the same day already counted for it"}]
+        {"name": "Cabin air filter", "why": "another service the same day already counted for it", "twins": []}]
 
 
 def test_a_cars_first_record_is_where_its_count_starts(conn):
@@ -227,6 +228,19 @@ def test_the_same_job_marked_done_with_no_receipt_nearby_is_pointed_to(signed_in
     page = signed_in.get(f"/services/{logged}").text
     assert "You also marked it done with no receipt on" in page and f'href="/services/{attested}"' in page
     assert [m["twins"] for m in _counted(conn, car, attested).met] == [[]]   # not the other way round
+
+
+def test_marked_done_with_no_receipt_the_same_day_it_counts_instead_and_is_pointed_to(signed_in, conn, steady):
+    car, _, _ = steady
+    cabin = next(i for i in schedules.items(conn, car) if i["name"] == "Cabin air filter")
+    signed_in.post(f"/vehicles/{car}/schedule-items/{cabin['id']}/done",
+                   data={"performed_on": date.today().isoformat(), "odometer": "", "notes": ""})
+    attested = next(e["id"] for e in services.history(conn, car) if e["source"] == "attested")
+    logged = _log(conn, car, date.today(), ("cabin_air_filter", "replace"))
+    [unmet] = _counted(conn, car, logged).unmet
+    assert unmet["why"] == "another service the same day already counted for it"
+    assert [t["href"] for t in unmet["twins"]] == [f"/services/{attested}"]
+    assert "to delete it, and this one counts" in signed_in.get(f"/services/{logged}").text
 
 
 def test_no_section_without_a_schedule_or_before_a_service_is_confirmed(signed_in, conn):

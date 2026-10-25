@@ -33,7 +33,7 @@ CANDIDATES = 5   # services Mark as done offers
 @dataclass
 class Counted:
     met: list[dict] = field(default_factory=list)     # {name, due, twins}: the jobs it counted for
-    unmet: list[dict] = field(default_factory=list)   # {name, why}: jobs it matches but didn't count for
+    unmet: list[dict] = field(default_factory=list)   # {name, why, twins}: jobs it matches but didn't count for
 
 
 def counted_for(conn: sqlite3.Connection, car, event: dict) -> Counted | None:
@@ -44,18 +44,20 @@ def counted_for(conn: sqlite3.Connection, car, event: dict) -> Counted | None:
     service = next((s for s in state.services if s.id == event["id"]), None)
     if not state.statuses or service is None:
         return None
-    attested = [s for s in state.services if s.id in _attested(conn, car["id"]) and s.id != service.id]
+    # A "Done, no receipt" for the same job close by is likely this work recorded twice: whether this one
+    # counted, or that one did instead (the same day, it may have been first).
+    attested = [] if event["source"] == "attested" else [
+        s for s in state.services if s.id in _attested(conn, car["id"]) and s.id != service.id]
     found = Counted()
     for item_status in state.statuses:
+        twins = [{"day": day_words(s.day.isoformat()), "href": f"/services/{s.id}"}
+                 for s in attested if meets(s, item_status.item) and abs((s.day - service.day).days) <= TWIN_DAYS]
         done = [o for o in item_status.occurrences if o.status == "done" and o.service and o.service.id == service.id]
         if done:
-            twins = [] if event["source"] == "attested" else [
-                {"day": day_words(s.day.isoformat()), "href": f"/services/{s.id}"}
-                for s in attested if meets(s, item_status.item) and abs((s.day - service.day).days) <= TWIN_DAYS
-            ]
             found.met.append({"name": item_status.item.name, "due": _due(done[0], service), "twins": twins})
         elif meets(service, item_status.item):
-            found.unmet.append({"name": item_status.item.name, "why": _why(item_status, service, state, car)})
+            found.unmet.append({"name": item_status.item.name, "why": _why(item_status, service, state, car),
+                                "twins": twins})
     return found
 
 

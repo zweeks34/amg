@@ -57,7 +57,7 @@
       {% if schedule %}
       <select class="line__schedule" @change="fromSchedule(line, $event)"
               aria-label="Tag this line for a job on the {{ schedule_of }}'s schedule">
-        <option value="">From the {{ schedule_of }}'s schedule…</option>
+        <option value="">From the schedule…</option>
         {% for job in schedule %}
         <option value="{{ job.id }}">{{ job.name }}{% if job.when %} · {{ job.when }}{% endif %}</option>
         {% endfor %}

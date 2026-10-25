@@ -386,7 +386,7 @@ def test_review_offers_the_cars_schedule_to_tag_lines_from(signed_in, conn, read
     _upload(signed_in, ("a.pdf", _pdf()))
     page = signed_in.get(f"/receipts/{_only_receipt(conn)}").text
     assert [job["name"] for job in _editor(page)["schedule"]] == ["Engine oil and filter"]
-    assert "From the Outback's schedule…" in page
+    assert "Tag this line for a job on the Outback's schedule" in page
 
 
 def test_review_without_a_car_has_no_schedule(signed_in, conn, reads):
