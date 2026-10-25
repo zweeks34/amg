@@ -967,6 +967,14 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
 .shopsheet__row:first-child { border-top: 0; }
 .shopsheet__row > .mark { align-self: center; }
 .shopsheet__when { font: 400 0.8125rem/1.3 var(--mono); color: var(--ink-2); text-align: right; }
+/* What to do to a due job, before its name: Replace, Inspect, Perform (all seven letters, so names line up). */
+.shopsheet__action {
+  display: inline-block;
+  min-width: 4.5rem;
+  font: 600 0.8125rem/1 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 .shopsheet__note { grid-column: 2 / -1; font-size: 0.8125rem; font-weight: 600; }
 .shopsheet__covers { font-weight: 400; color: var(--ink-2); }
 .shopsheet__empty { margin: 0; color: var(--ink-2); }

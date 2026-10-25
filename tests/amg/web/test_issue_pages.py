@@ -251,6 +251,8 @@ def test_the_sheet_lists_only_whats_due_now_and_no_prices(signed_in, conn):
     assert "Due now" in text and all(name in text for name in urgent)
     assert not any(name in text for name in later) and "mi overdue" in text
     assert "$" not in text
+    for name in ("Cabin air filter", "Engine oil and filter"):          # what to do to each, before its name
+        assert f'<span class="shopsheet__action">Replace</span> {name}</span>' in text
 
 
 def test_the_sheet_lists_recent_open_recommendations(signed_in, conn):
