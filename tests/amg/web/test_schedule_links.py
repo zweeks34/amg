@@ -16,7 +16,7 @@ from schedule_fixtures import steady_car  # tests/ is on pytest's path
 
 from amg.repo import schedules, services, vehicles
 from amg.repo.schedules import ItemInput
-from amg.web import line_editor, status
+from amg.web import line_editor, schedule_links, status
 
 
 @pytest.fixture
@@ -143,3 +143,93 @@ def test_a_job_done_in_a_way_its_types_dont_usually_say_is_met_from_the_menu(sig
     assert _current(conn, car, "Coolant hoses").status == "overdue"
     signed_in.post(f"/vehicles/{car}/services", data=_service_form([_picked(job)]))
     assert _current(conn, car, "Coolant hoses").status == "later"
+
+
+# ---------- What a service counted for ----------
+
+
+def _log(conn, car, day, *covers, source="diy"):
+    """A service on ``day`` covering (code, action) pairs; an empty one is a line with no tags."""
+    lines = [services.LineInput(description=code, covers=[services.Coverage(code, action)]) for code, action in covers]
+    return services.create_event(conn, car, services.EventInput(
+        performed_on=day.isoformat(), source=source, lines=lines or [services.LineInput(description="Oil change")]))
+
+
+def _counted(conn, car, event_id):
+    return schedule_links.counted_for(conn, vehicles.get(conn, car), services.get_event(conn, event_id))
+
+
+def test_a_service_says_what_it_counted_for(signed_in, conn, steady):
+    car, day, visits = steady
+    found = _counted(conn, car, visits[190])
+    # Day 190's visit: the oil, the tire rotation, and a multi-point inspection meeting the brake inspection.
+    assert [row["name"] for row in found.met] == ["Engine oil and filter", "Brake inspection", "Tire rotation"]
+    assert found.met[0]["due"].startswith("was due at 6,000 mi · ") and found.met[0]["due"].endswith(", done early")
+    assert found.unmet == []
+    page = html.unescape(signed_in.get(f"/services/{visits[190]}").text)
+    assert "On the schedule" in page and "Counts for it · was due at 6,000 mi" in page
+
+
+def test_an_untagged_service_counts_for_nothing_and_says_how_to_fix_it(signed_in, conn, steady):
+    car, _, _ = steady
+    event = _log(conn, car, date.today())
+    found = _counted(conn, car, event)
+    assert found.met == [] and found.unmet == []
+    page = html.unescape(signed_in.get(f"/services/{event}").text)
+    assert "This doesn't count for anything on the Steady's schedule" in page
+    assert f'href="/services/{event}/edit">edit the service</a>' in page
+
+
+def test_a_service_before_a_jobs_count_from_day_says_so(conn):
+    car = vehicles.create(conn, vehicles.VehicleFields(
+        name="Wipers", in_service_date=(date.today() - timedelta(days=400)).isoformat()))
+    counts_from = date.today() - timedelta(days=10)
+    _schedule(conn, car, [ItemInput("Wiper blades", "replace", ["wiper_blades"], interval_months=12,
+                                    counts_from=counts_from.isoformat())])
+    event = _log(conn, car, date.today() - timedelta(days=20), ("wiper_blades", "replace"))
+    found = _counted(conn, car, event)
+    assert found.met == []
+    assert found.unmet == [{"name": "Wiper blades",
+                            "why": f"it's on or before {counts_from:%b} {counts_from.day}, {counts_from.year}, "
+                                   "the day this job counts from"}]
+
+
+def test_a_second_service_the_same_day_doesnt_count_and_says_so(conn, steady):
+    car, _, _ = steady
+    first = _log(conn, car, date.today(), ("cabin_air_filter", "replace"))
+    second = _log(conn, car, date.today(), ("cabin_air_filter", "replace"))
+    assert [row["name"] for row in _counted(conn, car, first).met] == ["Cabin air filter"]
+    assert _counted(conn, car, second).unmet == [
+        {"name": "Cabin air filter", "why": "another service the same day already counted for it"}]
+
+
+def test_a_cars_first_record_is_where_its_count_starts(conn):
+    car = vehicles.create(conn, vehicles.VehicleFields(name="Undated"))
+    _schedule(conn, car, [ItemInput("Cabin air filter", "replace", ["cabin_air_filter"], interval_months=12)])
+    event = _log(conn, car, date.today() - timedelta(days=30), ("cabin_air_filter", "replace"))
+    [unmet] = _counted(conn, car, event).unmet
+    assert unmet["why"].startswith("it's the car's first record, which the schedule counts from")
+
+
+def test_the_same_job_marked_done_with_no_receipt_nearby_is_pointed_to(signed_in, conn, steady):
+    car, _, _ = steady
+    cabin = next(i for i in schedules.items(conn, car) if i["name"] == "Cabin air filter")
+    signed_in.post(f"/vehicles/{car}/schedule-items/{cabin['id']}/done",
+                   data={"performed_on": date.today().isoformat(), "odometer": "", "notes": ""})
+    attested = next(e["id"] for e in services.history(conn, car) if e["source"] == "attested")
+    logged = _log(conn, car, date.today() - timedelta(days=3), ("cabin_air_filter", "replace"))
+    [met] = _counted(conn, car, logged).met
+    assert met["name"] == "Cabin air filter" and [t["href"] for t in met["twins"]] == [f"/services/{attested}"]
+    page = signed_in.get(f"/services/{logged}").text
+    assert "You also marked it done with no receipt on" in page and f'href="/services/{attested}"' in page
+    assert [m["twins"] for m in _counted(conn, car, attested).met] == [[]]   # not the other way round
+
+
+def test_no_section_without_a_schedule_or_before_a_service_is_confirmed(signed_in, conn):
+    car = vehicles.create(conn, vehicles.VehicleFields(name="Bare"))
+    event = _log(conn, car, date.today(), ("engine_oil", "replace"))
+    assert _counted(conn, car, event) is None and "On the schedule" not in signed_in.get(f"/services/{event}").text
+    unconfirmed = services.create_event(conn, car, services.EventInput(
+        performed_on=date.today().isoformat(), source="receipt", lines=[services.LineInput(description="Oil")]),
+        confirmed=False)
+    assert _counted(conn, car, unconfirmed) is None

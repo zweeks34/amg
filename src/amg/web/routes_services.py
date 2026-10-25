@@ -22,6 +22,7 @@ from ..ingest.drafts import Draft
 from ..repo import follow_ups, odometer, receipts, services
 from . import forms, line_editor
 from . import issues as issue_words
+from . import schedule_links
 from . import status as car_status
 from . import warranties as warranty_words
 from .deps import get_conn
@@ -88,6 +89,7 @@ def service_page(request: Request, event_id: int, conn: sqlite3.Connection = Dep
         issues_fixed=issues_fixed,
         issues_asked=issues_asked,
         warranty_block=warranty_words.for_service(conn, event, car) if visit else None,
+        schedule=schedule_links.counted_for(conn, car, event),
     )
 
 

@@ -55,6 +55,12 @@ def odometer_for(conn: sqlite3.Connection, car) -> Odometer:
                     in_service=_day(car["in_service_date"]))
 
 
+def engine_car(car) -> Car:
+    """What the gap engine needs to know about a car: when it was new, when you got it, and how it's driven."""
+    return Car(_day(car["in_service_date"]), _day(car["acquired_date"]), car["acquired_miles"],
+               bool(car["severe_service"]))
+
+
 def load(conn: sqlite3.Connection, car, today: date | None = None, until: date | None = None) -> CarStatus:
     """Run the gap engine over one car's schedule and confirmed services, looking ahead to ``until``."""
     today = today or date.today()
@@ -70,8 +76,7 @@ def load(conn: sqlite3.Connection, car, today: date | None = None, until: date |
         for row in services.coverage(conn, car["id"])
     ]
     odo = odometer_for(conn, car)
-    vehicle = Car(_day(car["in_service_date"]), _day(car["acquired_date"]), car["acquired_miles"],
-                  bool(car["severe_service"]))
+    vehicle = engine_car(car)
     estimate = odo.miles_on(today)
     return CarStatus(car["id"], {row["id"]: row for row in rows}, assess(items, done, odo, vehicle, today, until), odo,
                      today, None if estimate is None else round(estimate), done)

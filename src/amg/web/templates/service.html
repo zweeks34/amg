@@ -43,6 +43,39 @@
   </div>
 </section>
 
+{% if schedule %}
+<section class="block" id="schedule" aria-labelledby="schedule-heading">
+  <div class="block__head">
+    <h2 class="h3" id="schedule-heading">On the schedule</h2>
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}/schedule">The schedule</a>
+  </div>
+  {% if schedule.met or schedule.unmet %}
+  <ul class="counted sheet sheet--flush">
+    {% for row in schedule.met %}
+    <li class="counted__row">
+      <p class="counted__name">{{ row.name }}</p>
+      <p class="counted__when">Counts for it · {{ row.due }}</p>
+      {% for twin in row.twins %}
+      <p class="counted__twin">You also marked it done with no receipt on {{ twin.day }}.
+        <a href="{{ twin.href }}">Open that one</a> to delete it.</p>
+      {% endfor %}
+    </li>
+    {% endfor %}
+    {% for row in schedule.unmet %}
+    <li class="counted__row">
+      <p class="counted__name">{{ row.name }}</p>
+      <p class="counted__when">Doesn't count for it: {{ row.why }}.</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="notice notice--due">This doesn't count for anything on the {{ car.name }}'s schedule. Tag its lines with the
+    services they covered, or pick the job from the schedule:
+    {% if receipt %}<a href="/receipts/{{ receipt.id }}">check the receipt</a>{% else %}<a href="/services/{{ event.id }}/edit">edit the service</a>{% endif %}.</p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if draft and draft.recommendations %}
 <section class="block" aria-labelledby="recs-heading">
   <h2 class="h3" id="recs-heading">Recommended, not done</h2>
