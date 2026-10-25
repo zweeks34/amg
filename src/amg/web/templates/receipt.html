@@ -90,6 +90,9 @@
   {% if draft %}
   <form class="review__form sheet form" method="post" action="/receipts/{{ receipt.id }}"
         x-data='receiptEditor({{ editor | tojson }})'>
+    {% if tagged %}
+    <p class="notice">Tagged for {{ tagged }} on a line of the work done. Check it, then save.</p>
+    {% endif %}
     {% if status == "read" %}
     <p class="review__key"><span class="review__swatch" aria-hidden="true"></span>Dashed boxes still hold what AMG read.
       Change anything that's wrong; confirming accepts the rest.</p>

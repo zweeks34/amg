@@ -6,21 +6,48 @@
 <header class="pagehead">
   <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
   <h1 class="display">Mark as done</h1>
-  <p class="pagehead__lede">{{ item.name }} ({{ actions[item.action] | lower }}). Record that it was done, though you have
-    no receipt: it goes in {{ car.name }}'s history as done with no receipt, and counts for the schedule.</p>
+  <p class="pagehead__lede">{{ item.name }} ({{ actions[item.action] | lower }}). Say where it was done, and it counts
+    for the schedule.</p>
 </header>
 
-<form class="sheet form attest" method="post" action="/vehicles/{{ car.id }}/schedule-items/{{ item.id }}/done">
-  <div class="fieldgrid">
-    {{ input("performed_on", "When it was done", raw, errors, type="date",
-             hint=("It was due around " ~ due ~ ". A rough date is fine.") if due else "A rough date is fine.") }}
-    {{ input("odometer", "Odometer", raw, errors, hint="If you know it.", attrs='inputmode="numeric" class="mono"') }}
-  </div>
-  {{ textarea("notes", "Note", raw, errors, hint="Where or how it was done, if you like.", rows=2) }}
-  {% if due %}<input type="hidden" name="due" value="{{ due }}">{% endif %}
-  <div class="form__actions">
-    <button class="btn btn--primary" type="submit">Mark as done</button>
-    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}#next">Cancel</a>
-  </div>
-</form>
+{% if candidates %}
+<section class="block" aria-labelledby="logged-heading">
+  <h2 class="h3" id="logged-heading">Was it a service you logged?</h2>
+  <ul class="counted sheet sheet--flush">
+    {% for row in candidates %}
+    <li class="counted__row">
+      <p class="counted__name">{{ row.day }} · {{ row.who }}</p>
+      <p class="counted__when">{{ row.lines }}</p>
+      <p><a class="btn btn--secondary" href="{{ row.href }}">Tag it for this job</a></p>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="muted">Tagging opens the service with this job on one of its lines. Nothing changes until you save it.</p>
+</section>
+{% endif %}
+
+<section class="block" aria-labelledby="log-heading">
+  <h2 class="h3" id="log-heading">Not logged yet?</h2>
+  <p><a class="btn btn--secondary" href="{{ log_href }}">Log a service for it</a></p>
+  <p class="muted">With its date, odometer and what it cost, for your history and the reports.</p>
+</section>
+
+<section class="block" aria-labelledby="attest-heading">
+  <h2 class="h3" id="attest-heading">Done with no receipt</h2>
+  <p class="muted">Record that it was done, though you have no receipt: it goes in {{ car.name }}'s history as done with
+    no receipt, and counts for the schedule.</p>
+  <form class="sheet form attest" method="post" action="/vehicles/{{ car.id }}/schedule-items/{{ item.id }}/done">
+    <div class="fieldgrid">
+      {{ input("performed_on", "When it was done", raw, errors, type="date",
+               hint=("It was due around " ~ due ~ ". A rough date is fine.") if due else "A rough date is fine.") }}
+      {{ input("odometer", "Odometer", raw, errors, hint="If you know it.", attrs='inputmode="numeric" class="mono"') }}
+    </div>
+    {{ textarea("notes", "Note", raw, errors, hint="Where or how it was done, if you like.", rows=2) }}
+    {% if due %}<input type="hidden" name="due" value="{{ due }}">{% endif %}
+    <div class="form__actions">
+      <button class="btn btn--primary" type="submit">Mark as done</button>
+      <a class="btn btn--quiet" href="/vehicles/{{ car.id }}#next">Cancel</a>
+    </div>
+  </form>
+</section>
 {% endblock %}

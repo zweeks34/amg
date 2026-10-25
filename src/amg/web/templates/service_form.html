@@ -13,6 +13,9 @@
       action="{{ '/services/%d/edit' % event.id if event else '/vehicles/%d/services' % car.id }}"
       x-data='serviceLines({{ editor | tojson }}, {{ raw.get("source", "shop") | tojson }})'>
   <div class="form__body">
+    {% if tagged %}
+    <p class="notice">Tagged for {{ tagged }} on a line below. Check it, then save the service.</p>
+    {% endif %}
     {% if recommended %}
     <p class="notice">Logging what {{ recommended.shop or "the shop" }} recommended on {{ recommended.day.isoformat() }}.
       Saving it closes the recommendation.</p>

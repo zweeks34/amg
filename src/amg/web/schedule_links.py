@@ -1,4 +1,4 @@
-"""A service and the schedule's jobs: what a service counted for.
+"""A service and the schedule's jobs: what a service counted for, and the services a job might have been done in.
 
 Nothing stores which job a service did: the gap engine counts a service for a
 job when one of its lines covers one of the job's service types, with an
@@ -6,19 +6,28 @@ action that meets it (engine/schedule.meets). So what a service counted for is
 read off the engine's answer, the done marks it made. A service can match a job
 and still not count for it, and the page says why, so a line tagged wrongly, or
 not at all, can be put right.
+
+Mark as done offers the car's own services near when a job fell due, so a job
+done in one you logged is tagged there (on its edit form, or its receipt's
+review, with the job applied as the menu would apply it) rather than recorded
+again as done with no receipt.
 """
 
 from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass, field
+from datetime import date
 
 from ..engine.schedule import ItemStatus, Service, meets, start_point
-from ..repo import services
+from ..repo import receipts, services
+from . import line_editor
 from . import status as car_status
 from .recalls import day_words
+from .templating import who
 
 TWIN_DAYS = 30   # a "Done, no receipt" this close to a service, for the same job, is likely the same work
+CANDIDATES = 5   # services Mark as done offers
 
 
 @dataclass
@@ -79,6 +88,65 @@ def _why(item_status: ItemStatus, service: Service, state: car_status.CarStatus,
     if not repeats:
         return "it's done once, and an earlier service already did it"
     return "another service the same day already counted for it"
+
+
+
+def candidates(conn: sqlite3.Connection, car, item_id: int, near: date | None = None) -> list[dict]:
+    """The car's own services a job might have been done in, newest first: none marked done with no receipt,
+    none that already meet it, none on or before the day it counts from; the few dated nearest ``near`` (by
+    default when the job fell or falls due next)."""
+    state = car_status.load(conn, car)
+    item_status = next((s for s in state.statuses if s.item.id == item_id), None)
+    if item_status is None:
+        return []
+    item = item_status.item
+    if near is None:
+        near = item_status.current.due_day if item_status.current else state.today
+    attested = _attested(conn, car["id"])
+    counts_from = item.counts_from if item.interval_miles or item.interval_months else None
+    found = [s for s in state.services
+             if s.id not in attested and not meets(s, item) and not (counts_from and s.day <= counts_from)]
+    nearest = sorted(found, key=lambda s: (abs((s.day - near).days), -s.id))[:CANDIDATES]
+    rows = []
+    for service in sorted(nearest, key=lambda s: (s.day, s.id), reverse=True):
+        event = services.get_event(conn, service.id)
+        receipt = receipts.for_event(conn, service.id)
+        names = [line["description"] for line in event["lines"]]
+        rows.append({
+            "day": day_words(event["performed_on"]),
+            "who": who(event),
+            "lines": ", ".join(names[:3]) + (f" and {len(names) - 3} more" if len(names) > 3 else ""),
+            "href": (f"/receipts/{receipt['id']}?item={item_id}" if receipt
+                     else f"/services/{service.id}/edit?item={item_id}"),
+        })
+    return rows
+
+
+def job(conn: sqlite3.Connection, car, item_id: int | None) -> dict | None:
+    """One of the car's jobs, as the menu offers it; None for another car's, or one that doesn't apply to this car."""
+    if item_id is None:
+        return None
+    return next((p for p in car_status.picks(car_status.load(conn, car)) if p["id"] == item_id), None)
+
+
+def apply_item(rows: list[dict], picked: dict) -> list[dict]:
+    """Editor rows with a job applied, as picking it from the menu applies it: on the first untagged row, else
+    on a new one. Its service types go on with the job's own action, and the row takes its name if it has none."""
+    rows = [dict(row) for row in rows]
+    target = next((row for row in rows if not row.get("covers")), None)
+    if target is None:
+        target = line_editor.blank_line()
+        rows.append(target)
+    covers, actions = list(target.get("covers") or []), dict(target.get("actions") or {})
+    for code in picked["codes"]:
+        if code not in covers:
+            covers.append(code)
+        if picked["action"] != "inspect":
+            actions[code] = picked["action"]
+    target.update(covers=covers, actions=actions, inspect_only=picked["action"] == "inspect", covers_source="you")
+    if not str(target.get("description") or "").strip():
+        target["description"] = picked["name"]
+    return rows
 
 
 def _attested(conn: sqlite3.Connection, vehicle_id: int) -> set[int]:

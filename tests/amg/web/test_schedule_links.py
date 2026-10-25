@@ -1,4 +1,5 @@
-"""Tying a logged service to the schedule job it did: a line tagged from the car's schedule.
+"""Tying a logged service to the schedule job it did: a line tagged from the car's schedule, what a service
+counted for, and Mark as done with a service you logged.
 
 The hand-checked car (schedule_fixtures.steady_car), new 1000 days ago: its cabin air filter and its oil and
 filter are overdue, everything else later.
@@ -11,10 +12,13 @@ import json
 import re
 from datetime import date, timedelta
 
+import pymupdf
 import pytest
-from schedule_fixtures import steady_car  # tests/ is on pytest's path
+import receipt_fixtures as fx  # tests/ is on pytest's path
+from schedule_fixtures import steady_car
 
-from amg.repo import schedules, services, vehicles
+from amg.ingest import drafts
+from amg.repo import documents, jobs, receipts, schedules, services, vehicles
 from amg.repo.schedules import ItemInput
 from amg.web import line_editor, schedule_links, status
 
@@ -233,3 +237,134 @@ def test_no_section_without_a_schedule_or_before_a_service_is_confirmed(signed_i
         performed_on=date.today().isoformat(), source="receipt", lines=[services.LineInput(description="Oil")]),
         confirmed=False)
     assert _counted(conn, car, unconfirmed) is None
+
+
+# ---------- Mark as done, with a service you logged ----------
+
+
+def _item_row(conn, car, name):
+    return next(i for i in schedules.items(conn, car) if i["name"] == name)
+
+
+def _service_editor(page: str) -> dict:
+    """The JSON the service form hands its line editor."""
+    return json.JSONDecoder().raw_decode(page, page.index("serviceLines(") + len("serviceLines("))[0]
+
+
+def _receipt(conn, car, day, work):
+    """A receipt read and confirmed for the car, its one line tagged with nothing."""
+    with pymupdf.open() as doc:
+        doc.new_page().insert_text((72, 72), f"{day} {work}")
+        document, _ = documents.store(conn, doc.tobytes(), "receipt.pdf")
+    job_id = jobs.create(conn, "read_receipts")
+    receipt_id = receipts.create(conn, document["id"], job_id)
+    receipts.claim_next(conn, job_id)
+    extraction = fx.extraction(date=day.isoformat(), odometer=None, lines=[fx.line(work, 40.0, ())],
+                               recommendations=[], subtotal=40.0, tax=0, total=40.0)
+    receipts.mark_read(conn, receipt_id, extraction.model_dump(), drafts.from_extraction(extraction, _types(conn)), [],
+                       fx.USAGE)
+    receipts.confirm(conn, receipt_id, receipts.get(conn, receipt_id)["draft"], car)
+    return receipt_id
+
+
+def test_mark_as_done_offers_the_cars_own_services_nearest_when_it_falls_due(signed_in, conn, steady):
+    car, day, visits = steady
+    cabin = _item_row(conn, car, "Cabin air filter")
+    untagged = [_log(conn, car, day(999)), _log(conn, car, day(1000))]
+    _log(conn, vehicles.create(conn, vehicles.VehicleFields(name="Other")), day(745))
+    rotation = _item_row(conn, car, "Tire rotation")
+    signed_in.post(f"/vehicles/{car}/schedule-items/{rotation['id']}/done",
+                   data={"performed_on": day(746).isoformat(), "odometer": "", "notes": ""})
+    found = schedule_links.candidates(conn, vehicles.get(conn, car), cabin["id"])
+    # It fell due again on day 745. The five of the car's own services nearest that, newest first: not day 380's,
+    # which did the filter, nor the "Done, no receipt" on day 746, nor the other car's; day 190's is sixth nearest.
+    assert [row["href"] for row in found] == [f"/services/{e}/edit?item={cabin['id']}" for e in
+                                              (untagged[1], untagged[0], visits[900], visits[640], visits[400])]
+    assert (found[0]["who"], found[0]["lines"]) == ("Your own work", "Oil change")
+    assert (found[2]["who"], found[2]["lines"]) == ("Corner Garage", "tire_rotation, brake_pads")
+
+
+def test_the_mark_as_done_page_offers_a_logged_service_then_logging_one_then_no_receipt(signed_in, conn, steady):
+    car, _, visits = steady
+    cabin = _item_row(conn, car, "Cabin air filter")
+    page = html.unescape(signed_in.get(f"/vehicles/{car}/schedule-items/{cabin['id']}/done").text)
+    assert f'href="/services/{visits[900]}/edit?item={cabin["id"]}">Tag it for this job' in page
+    assert f'href="/vehicles/{car}/services/new?item={cabin["id"]}">Log a service for it' in page
+    assert page.index("Was it a service you logged?") < page.index("Not logged yet?") < page.index(
+        "Done with no receipt") < page.index('<button class="btn btn--primary" type="submit">Mark as done')
+
+
+def test_a_missed_job_offers_the_services_nearest_when_it_was_missed(signed_in, conn, steady):
+    car, _, visits = steady
+    [missed] = status.missed(_state(conn, car))
+    rotation = _item_row(conn, car, "Tire rotation")
+    page = signed_in.get(missed["attest_url"]).text
+    # Missed on day 390; of the car's services, only days 380 and 400 didn't rotate the tires.
+    offered = re.findall(r'href="/services/(\d+)/edit\?item=' + str(rotation["id"]), page)
+    assert offered == [str(visits[400]), str(visits[380])]
+    assert signed_in.get(f"/vehicles/{car}/schedule-items/{rotation['id']}/done?due=soon").status_code == 200
+
+
+def test_services_on_or_before_a_jobs_count_from_day_arent_offered(conn):
+    car = vehicles.create(conn, vehicles.VehicleFields(
+        name="Wipers", in_service_date=(date.today() - timedelta(days=400)).isoformat()))
+    _schedule(conn, car, [ItemInput("Wiper blades", "replace", ["wiper_blades"], interval_months=12,
+                                    counts_from=(date.today() - timedelta(days=10)).isoformat())])
+    _log(conn, car, date.today() - timedelta(days=20))
+    after = _log(conn, car, date.today() - timedelta(days=5))
+    item = _item_row(conn, car, "Wiper blades")
+    found = schedule_links.candidates(conn, vehicles.get(conn, car), item["id"])
+    assert [row["href"] for row in found] == [f"/services/{after}/edit?item={item['id']}"]
+
+
+def test_tagging_a_logged_service_fills_in_its_first_untagged_line(signed_in, conn, steady):
+    car, day, _ = steady
+    cabin = _item_row(conn, car, "Cabin air filter")
+    event = services.create_event(conn, car, services.EventInput(performed_on=day(999).isoformat(), source="diy", lines=[
+        services.LineInput(description="Oil", covers=[services.Coverage("engine_oil", "replace")]),
+        services.LineInput(description="Cabin filter", amount_cents=1_800)]))
+    page = signed_in.get(f"/services/{event}/edit?item={cabin['id']}").text
+    editor = _service_editor(page)
+    assert [(line["description"], line["covers"]) for line in editor["lines"]] == [
+        ("Oil", ["engine_oil"]), ("Cabin filter", ["cabin_air_filter"])]
+    assert editor["lines"][1]["actions"] == {"cabin_air_filter": "replace"}
+    assert "Tagged for Cabin air filter on a line below" in page
+    assert _current(conn, car, "Cabin air filter").status == "overdue"           # nothing changes until it's saved
+    signed_in.post(f"/services/{event}/edit", data=_service_form(editor["lines"], performed_on=day(999).isoformat()))
+    assert _current(conn, car, "Cabin air filter").status == "later"
+
+
+def test_a_service_with_every_line_tagged_gets_a_new_line_and_another_cars_job_is_ignored(signed_in, conn, steady):
+    car, _, visits = steady
+    cabin = _item_row(conn, car, "Cabin air filter")
+    lines = _service_editor(signed_in.get(f"/services/{visits[900]}/edit?item={cabin['id']}").text)["lines"]
+    assert [(line["description"], line["covers"]) for line in lines] == [
+        ("tire_rotation", ["tire_rotation"]), ("brake_pads", ["brake_pads"]), ("Cabin air filter", ["cabin_air_filter"])]
+    other = vehicles.create(conn, vehicles.VehicleFields(name="Other", in_service_date="2024-01-01"))
+    _schedule(conn, other, [ItemInput("Cabin air filter", "replace", ["cabin_air_filter"], interval_months=12)])
+    page = signed_in.get(f"/services/{visits[900]}/edit?item={_item_row(conn, other, 'Cabin air filter')['id']}").text
+    assert "Tagged for" not in page and len(_service_editor(page)["lines"]) == 2
+
+
+def test_log_a_service_for_a_job(signed_in, conn, steady):
+    car, _, _ = steady
+    brakes = _item_row(conn, car, "Brake inspection")
+    [line] = _service_editor(signed_in.get(f"/vehicles/{car}/services/new?item={brakes['id']}").text)["lines"]
+    assert (line["description"], line["covers"], line["inspect_only"], line["actions"]) == (
+        "Brake inspection", ["brake_pads", "brake_rotors"], True, {})
+
+
+def test_a_service_from_a_receipt_is_tagged_on_the_receipts_review(signed_in, conn, steady):
+    car, day, _ = steady
+    cabin = _item_row(conn, car, "Cabin air filter")
+    receipt_id = _receipt(conn, car, day(990), "Cabin filter")
+    event = receipts.get(conn, receipt_id)["service_event_id"]
+    hrefs = [row["href"] for row in schedule_links.candidates(conn, vehicles.get(conn, car), cabin["id"])]
+    assert f"/receipts/{receipt_id}?item={cabin['id']}" in hrefs
+    response = signed_in.get(f"/services/{event}/edit?item={cabin['id']}", follow_redirects=False)
+    assert response.headers["location"] == f"/receipts/{receipt_id}?item={cabin['id']}"
+    page = signed_in.get(response.headers["location"]).text
+    start = page.index("receiptEditor(") + len("receiptEditor(")
+    [line] = json.JSONDecoder().raw_decode(page, start)[0]["lines"]
+    assert (line["description"], line["covers"]) == ("Cabin filter", ["cabin_air_filter"])
+    assert "Tagged for Cabin air filter on a line of the work done" in page

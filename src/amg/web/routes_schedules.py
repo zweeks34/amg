@@ -19,7 +19,7 @@ from ..ingest import background, manuals
 from ..ingest import schedule_drafts as sd
 from ..ingest import schedule_templates as templates
 from ..repo import documents, odometer, schedules, services, vehicles
-from . import forms
+from . import forms, schedule_links
 from .deps import get_conn
 from .routes_services import editor_types
 from .routes_vehicles import vehicle_or_404
@@ -156,7 +156,7 @@ def attest_form(request: Request, vehicle_id: int, item_id: int, due: str = "",
     except ValueError:
         due_day = None
     raw = {"performed_on": due_day or date.today().isoformat(), "odometer": "", "notes": ""}
-    return _attest(request, car, item, raw, {}, due_day)
+    return _attest(request, conn, car, item, raw, {}, due_day)
 
 
 @router.post("/vehicles/{vehicle_id}/schedule-items/{item_id}/done")
@@ -182,7 +182,7 @@ async def attest(request: Request, vehicle_id: int, item_id: int,
         if clash := odometer.conflict(conn, vehicle_id, performed_on, miles):
             errors["odometer"] = clash.message()
     if errors:
-        return _attest(request, car, item, raw, errors, raw["due"] or None, status_code=422)
+        return _attest(request, conn, car, item, raw, errors, raw["due"] or None, status_code=422)
     services.create_event(conn, vehicle_id, services.EventInput(
         performed_on=performed_on,  # type: ignore[arg-type]
         source="attested",
@@ -290,10 +290,18 @@ def _item_or_404(conn: sqlite3.Connection, vehicle_id: int, item_id: int) -> dic
     return item
 
 
-def _attest(request: Request, car, item: dict, raw: dict, errors: dict, due: str | None,
+def _attest(request: Request, conn: sqlite3.Connection, car, item: dict, raw: dict, errors: dict, due: str | None,
             status_code: int = 200) -> Response:
+    """Mark as done: a service you logged, one to log now, or done with no receipt."""
+    try:
+        parsed = forms.day(due)
+    except ValueError:
+        parsed = None
+    near = date.fromisoformat(parsed) if parsed else None
     return render(request, "attest.html", status_code=status_code, active="garage", car=car, item=item, raw=raw,
-                  errors=errors, due=due, actions=ACTION_LABELS)
+                  errors=errors, due=due, actions=ACTION_LABELS,
+                  candidates=schedule_links.candidates(conn, car, item["id"], near),
+                  log_href=f"/vehicles/{car['id']}/services/new?item={item['id']}")
 
 
 def _types(conn: sqlite3.Connection) -> dict[str, dict]:

@@ -17,7 +17,7 @@ from ..ingest import background, drafts, vin as vins
 from ..ingest.drafts import Draft
 from ..ingest.receipts import DOCUMENT_KINDS, ReceiptExtraction
 from ..repo import documents, jobs, odometer, receipts, services, vehicles, warranty_looks
-from . import forms, line_editor, receipt_finder
+from . import forms, line_editor, receipt_finder, schedule_links
 from . import status as car_status
 from . import warranties as warranty_words
 from .deps import get_conn
@@ -137,10 +137,11 @@ def review(
     receipt_id: int,
     confirmed: int | None = None,
     saved: int | None = None,
+    item: int | None = None,
     conn: sqlite3.Connection = Depends(get_conn),
 ) -> Response:
     receipt = _receipt_or_404(conn, receipt_id)
-    return _review(request, conn, receipt, confirmed=confirmed, saved=bool(saved))
+    return _review(request, conn, receipt, confirmed=confirmed, saved=bool(saved), item=item)
 
 
 @router.post("/receipts/{receipt_id}")
@@ -396,7 +397,9 @@ def _review(
     confirmed: int | None = None,
     saved: bool = False,
     status_code: int = 200,
+    item: int | None = None,
 ) -> Response:
+    """The review page. ``item`` is a schedule job of the receipt's car to tag a line for (from Mark as done)."""
     draft: Draft | None = receipt["draft"]
     types_by_code = {row["code"]: dict(row) for row in services.list_types(conn)}
     reading = receipt["status"] == "read"
@@ -413,6 +416,9 @@ def _review(
         held = held if held is not None else line_editor.warranties_from_draft(draft.warranties)
     selected = vehicles.get(conn, int(raw["vehicle_id"])) if raw and str(raw.get("vehicle_id", "")).isdigit() else None
     car = dict(selected) if selected else None
+    picked = schedule_links.job(conn, car, item) if car and draft is not None else None
+    if picked:
+        rows = schedule_links.apply_item(rows or [], picked)
 
     return render(
         request,
@@ -450,4 +456,5 @@ def _review(
         document_kinds=DOCUMENT_KIND_LABELS,
         just_confirmed=receipts.get(conn, confirmed) if confirmed else None,
         saved=saved,
+        tagged=picked["name"] if picked else None,
     )

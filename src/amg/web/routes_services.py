@@ -42,14 +42,16 @@ _FIELDS = ("performed_on", "odometer", "source", "shop", "invoice_number", "tax"
 
 
 @router.get("/vehicles/{vehicle_id}/services/new")
-def new_service(request: Request, vehicle_id: int, receipt: str = "", rec: str = "",
+def new_service(request: Request, vehicle_id: int, receipt: str = "", rec: str = "", item: int | None = None,
                 conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     car = vehicle_or_404(conn, vehicle_id)
     raw = {"performed_on": date.today().isoformat(), "source": "shop", "follow_up_receipt": receipt, "follow_up": rec}
     lines = [line_editor.blank_line()]
     if recommended := _recommended(conn, vehicle_id, raw):
         lines = [{**lines[0], "description": recommended.description, "covers": list(recommended.codes)}]
-    return _form(request, conn, car, raw=raw, lines=lines, errors={})
+    if picked := schedule_links.job(conn, car, item):
+        lines = schedule_links.apply_item(lines, picked)
+    return _form(request, conn, car, raw=raw, lines=lines, errors={}, tagged=picked["name"] if picked else None)
 
 
 @router.post("/vehicles/{vehicle_id}/services")
@@ -94,10 +96,11 @@ def service_page(request: Request, event_id: int, conn: sqlite3.Connection = Dep
 
 
 @router.get("/services/{event_id}/edit")
-def edit_service(request: Request, event_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+def edit_service(request: Request, event_id: int, item: int | None = None,
+                 conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     event = _event_or_404(conn, event_id)
     if receipt := receipts.for_event(conn, event_id):
-        return RedirectResponse(f"/receipts/{receipt['id']}", status_code=303)
+        return RedirectResponse(f"/receipts/{receipt['id']}" + (f"?item={item}" if item else ""), status_code=303)
     car = vehicle_or_404(conn, event["vehicle_id"])
     raw = {
         "performed_on": event["performed_on"],
@@ -110,7 +113,9 @@ def edit_service(request: Request, event_id: int, conn: sqlite3.Connection = Dep
         "notes": event["notes"],
     }
     rows = line_editor.rows_from_draft(event["lines"]) or [line_editor.blank_line()]
-    return _form(request, conn, car, raw, rows, errors={}, event=event)
+    if picked := schedule_links.job(conn, car, item):
+        rows = schedule_links.apply_item(rows, picked)
+    return _form(request, conn, car, raw, rows, errors={}, event=event, tagged=picked["name"] if picked else None)
 
 
 @router.post("/services/{event_id}/edit")
@@ -223,6 +228,7 @@ def _form(
     line_errors: list[str | None] | None = None,
     event: dict | None = None,
     status_code: int = 200,
+    tagged: str | None = None,
 ) -> Response:
     schedule = car_status.picks(car_status.load(conn, car))
     in_use = {code for line in lines for code in line.get("covers", [])} | {
@@ -245,6 +251,7 @@ def _form(
         sources=SOURCE_LABELS,
         kinds=KIND_LABELS,
         recommended=None if event else _recommended(conn, car["id"], raw),
+        tagged=tagged,
     )
 
 
