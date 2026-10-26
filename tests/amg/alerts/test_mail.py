@@ -30,8 +30,8 @@ def test_the_digest_says_what_is_overdue_due_and_coming(conn, car):
     message = _digest(conn, car, to_check=2)
     assert message["Subject"] == "AMG: 1 overdue, 1 due soon"
     text = message.get_body(("plain",)).get_content()
-    assert ("OUTBACK\nOverdue\n  • Oil and filter: overdue since Jul 1 · ~$80\n"
-            "Due soon\n  • Wiper blades: by Sep 1\nComing up\n  • Cabin air filter: ~Jan 2028\n") in text
+    assert ("OUTBACK\nOverdue\n  • REPLACE Oil and filter: overdue since Jul 1 · ~$80\n"
+            "Due soon\n  • REPLACE Wiper blades: by Sep 1\nComing up\n  • REPLACE Cabin air filter: ~Jan 2028\n") in text
     assert ("~$240 of maintenance in the next 12 months, $80 of it overdue now: put aside $13 a month for the rest"
             " (2 jobs not priced yet).") in text                 # three oil changes at $80
     assert "2 receipts to check: http://amg.home.arpa/receipts" in text
@@ -44,6 +44,8 @@ def test_the_html_part_escapes_and_the_calendar_is_attached(conn):
     html = message.get_body(("html",)).get_content()
     assert "Mum&#39;s &lt;Outback&gt;" in html and "<Outback>" not in html
     assert "Oil and filter" in html and "overdue since Jul 1" in html
+    assert 'text-transform:uppercase">Replace</span> Oil and filter' in html      # what to do to it
+    assert 'text-transform:uppercase">Replace</span> Cabin air filter' in html    # in Coming up too
     (attachment,) = list(message.iter_attachments())
     assert attachment.get_content_type() == "text/calendar" and attachment.get_filename() == "amg-maintenance.ics"
     assert "BEGIN:VCALENDAR" in attachment.get_content()

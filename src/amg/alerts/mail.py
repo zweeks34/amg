@@ -18,7 +18,7 @@ from email.message import EmailMessage
 from email.utils import formataddr
 
 from ..config import Smtp
-from ..web.templating import dollars, money, templates
+from ..web.templating import ACTION_WORDS, dollars, money, templates
 from .watch import CarWatch
 
 TIMEOUT = 30   # seconds
@@ -68,6 +68,11 @@ def _row(row: dict) -> str:
     return f"{row['name']}: {row['when']}" + (f" · ~{dollars(row['cost'])}" if row.get("cost") else "")
 
 
+def _word(action: str | None) -> str:
+    """What to do to a schedule job, before its line: 'REPLACE '; nothing for anything else."""
+    return f"{ACTION_WORDS[action].upper()} " if action else ""
+
+
 def dates_line(watch: CarWatch) -> str:
     """A car with nothing due, watched for its dates alone: when each expires."""
     dates = "; ".join(f"{row.kind.name} {row.when}" for row in watch.dates)
@@ -86,7 +91,7 @@ def text(watches: list[CarWatch], to_check: int, base_url: str) -> str:
         for heading, jobs in (("Overdue", watch.overdue), ("Due soon", watch.due), ("Open recalls", watch.recalls),
                               ("Warranties ending", watch.warranties)):
             if jobs:
-                lines += [heading] + [f"  • {job.line}" for job in jobs]
+                lines += [heading] + [f"  • {_word(job.action)}{job.line}" for job in jobs]
         if not watch.maintenance:
             if not watch.jobs:
                 lines.append(dates_line(watch))
@@ -101,7 +106,7 @@ def text(watches: list[CarWatch], to_check: int, base_url: str) -> str:
             if watch.state.missed:
                 lines.append(f"Missed earlier: {watch.state.missed}. The car's page lists them.")
             if watch.coming_up:
-                lines += ["Coming up"] + [f"  • {_row(row)}" for row in watch.coming_up]
+                lines += ["Coming up"] + [f"  • {_word(row['action'])}{_row(row)}" for row in watch.coming_up]
             if budget := budget_line(watch):
                 lines.append(budget)
         if watch.recommended:

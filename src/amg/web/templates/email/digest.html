@@ -3,6 +3,8 @@
     the app's: ink, shop-floor gray, safety yellow and signal red. -#}
 {%- set ink = "#16202b" -%}
 {%- set steel = "#5a6672" -%}
+{#- What to do to a schedule job, before its name: as the garage card's word. -#}
+{%- set word = "font:700 12px/1 'Arial Narrow',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase" -%}
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>{{ subject }}</title></head>
@@ -21,7 +23,7 @@
     <p style="margin:12px 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase">
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ colour }};margin-right:6px"></span>{{ heading }}</p>
     <ul style="margin:0;padding-left:20px">
-      {% for job in jobs %}<li>{{ job.name }} <span style="color:{{ steel }}">· {{ job.when }}{% if job.cost %} · ~{{ job.cost | dollars }}{% endif %}</span></li>{% endfor %}
+      {% for job in jobs %}<li>{% if job.action %}<span style="{{ word }}">{{ action_words[job.action] }}</span> {% endif %}{{ job.name }} <span style="color:{{ steel }}">· {{ job.when }}{% if job.cost %} · ~{{ job.cost | dollars }}{% endif %}</span></li>{% endfor %}
     </ul>
     {% endfor %}
     {% if not w.maintenance %}
@@ -36,7 +38,7 @@
       {% if w.coming_up %}
       <p style="margin:12px 0 4px;font:700 13px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:{{ steel }}">Coming up</p>
       <ul style="margin:0;padding-left:20px">
-        {% for r in w.coming_up %}<li>{{ r.name }} <span style="color:{{ steel }}">· {{ r.when }}{% if r.cost %} · ~{{ r.cost | dollars }}{% endif %}</span></li>{% endfor %}
+        {% for r in w.coming_up %}<li>{% if r.action %}<span style="{{ word }}">{{ action_words[r.action] }}</span> {% endif %}{{ r.name }} <span style="color:{{ steel }}">· {{ r.when }}{% if r.cost %} · ~{{ r.cost | dollars }}{% endif %}</span></li>{% endfor %}
       </ul>
       {% endif %}
       {% set line = budget_line(w) %}

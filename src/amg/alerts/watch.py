@@ -61,6 +61,7 @@ class Watched:
     cost: int | None
     kind: str = "job"   # job, renewal, reading, recall or warranty
     urgent: bool = False   # a recall NHTSA says not to drive (or to park outside) until it's fixed
+    action: str | None = None   # a schedule job's: replace, inspect or perform
 
     @property
     def renewal(self) -> bool:
@@ -180,7 +181,8 @@ def look(conn: sqlite3.Connection, car, today: date | None = None, maintenance: 
         if any(j.subject == key for j in jobs):
             continue   # two items asking for the same job: the more urgent speaks for both
         jobs.append(Watched(car["id"], key, occurrence.status, item_status.item.name,
-                            car_status.when(occurrence, state), costs.get(item_status.item.id)))
+                            car_status.when(occurrence, state), costs.get(item_status.item.id),
+                            action=item_status.item.action))
     rows = renewal_words.rows(conn, car, today, offers=False)
     for row in renewal_words.urgent(rows):
         jobs.append(Watched(car["id"], renewal_subject(car["id"], row),
