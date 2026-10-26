@@ -37,6 +37,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-25 | [The action words on the For the shop sheet](2026-10-25-shop-sheet-actions.md) | Phase 13 | `895a998` |
 | 2026-10-25 | [The action word on the garage card's Next line](2026-10-25-garage-next-action.md) | Phase 5 | `32b0981` |
 | 2026-10-25 | [The action words in the weekly email](2026-10-25-email-actions.md) | Phase 8 | `df4eb09` |
+| 2026-10-25 | [The action words in the ntfy pushes](2026-10-25-push-actions.md) | Phase 8 | `57df82c` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
