@@ -79,13 +79,15 @@ cookie is rejected; every page but `/login` redirects when logged out.
 whether receipt extraction is good enough to build a UI around.
 
 - [x] Vehicles: add / edit / archive; VIN decode via NHTSA vPIC fills year/make/model/trim/powertrain
+- [x] A photo for each car (added after the phase shipped, 2026-10-25): **Add a car** and **Edit car** take one (**Choose a photo**, or **Take a photo** on a phone), previewed before saving. It shows as a round avatar beside the car's name on the garage card, the car's page (tap for full size) and the Fill-up picker; a car with none shows its initial, which on its page links to adding one. Download your data puts it in `photos/`
 - [x] Odometer readings: manual entry; every reading keeps its source (the `odometer_points` view unions typed readings, services and the acquired mileage); a reading that runs backwards is refused
 - [x] Service-type catalogue seeded (oil, filters, rotation, fluids, plugs, brakes, 12V battery, hybrid inverter coolant, EV battery coolant, …) with categories — 46 types (washer fluid joined on 2026-10-06, right after wiper blades; washer-fluid wording learned with no service was forgotten, so the receipt reader can suggest it), plus your own from `/service-types`
 - [x] Service entry by hand (DIY or a receipt typed in): date, odometer, shop, line items, each line mapped to service types with an action (replace / inspect / perform)
 - [x] Service history per vehicle
 - [x] `scripts/try_receipt.py <file>` — local text/OCR → Claude → JSON printed, in `text`, `vision` or `both` mode. Run on all 14 scans in `samples/` (findings below)
 
-**Data owned:** `vehicles`, `odometer_readings`, `service_types`,
+**Data owned:** `vehicles` (its `photo_document_id`, one of the stored files,
+since migration 0020), `odometer_readings`, `service_types`,
 `service_events`, `line_items`, `line_item_services`.
 
 **Can go wrong:** vPIC is down or doesn't know the VIN → manual entry always

@@ -39,6 +39,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-25 | [The action words in the weekly email](2026-10-25-email-actions.md) | Phase 8 | `df4eb09` |
 | 2026-10-25 | [The action words in the ntfy pushes](2026-10-25-push-actions.md) | Phase 8 | `57df82c` |
 | 2026-10-25 | [The action words in the calendar file](2026-10-25-calendar-actions.md) | Phase 8 | `5997dd8` |
+| 2026-10-25 | [A photo for each car, shown as its avatar](2026-10-25-car-photos.md) | Phase 1 | `2bf6d40` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
