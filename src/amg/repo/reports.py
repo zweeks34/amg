@@ -10,6 +10,14 @@ from __future__ import annotations
 import sqlite3
 
 
+def car_photos(conn: sqlite3.Connection) -> list[dict]:
+    """Each car's photo (its document), with the car's name; A to Z."""
+    return [dict(row) for row in conn.execute(
+        "SELECT d.*, v.name AS car_name FROM vehicles v JOIN documents d ON d.id = v.photo_document_id"
+        " ORDER BY v.name COLLATE NOCASE, v.id"
+    )]
+
+
 def cars(conn: sqlite3.Connection) -> list[dict]:
     """Every car, the ones in the garage first, then the archived ones; A to Z within each."""
     return [dict(row) for row in conn.execute(

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import date
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
 from starlette.responses import RedirectResponse, Response
 
 from ..ingest import vin as vins
-from ..repo import odometer, schedules, services, vehicles
+from ..repo import documents, odometer, schedules, services, vehicles
 from . import budget, forms
 from . import follow_ups as follow_up_words
 from . import issues as issue_words
@@ -21,7 +23,7 @@ from . import running_cost
 from . import status as car_status
 from . import warranties as warranty_words
 from .deps import get_conn
-from .templating import render
+from .templating import page_url, render
 
 router = APIRouter()
 
@@ -43,17 +45,22 @@ def vehicle_or_404(conn: sqlite3.Connection, vehicle_id: int) -> sqlite3.Row:
 
 
 @router.get("/vehicles/new")
-def new_vehicle(request: Request) -> Response:
-    return _form(request, raw={"powertrain": "gas"}, errors={})
+def new_vehicle(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    return _form(request, conn, raw={"powertrain": "gas"}, errors={})
 
 
 @router.post("/vehicles")
 async def create_vehicle(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     raw = await _raw(request)
+    photo_id, photo_error = await _photo(conn, await request.form())
+    raw["photo"] = str(photo_id or "")
     fields, errors = _read(conn, raw)
+    if photo_error:
+        errors["photo"] = photo_error
     if errors:
-        return _form(request, raw=raw, errors=errors, status_code=422)
+        return _form(request, conn, raw=raw, errors=errors, status_code=422)
     vehicle_id = vehicles.create(conn, fields)
+    vehicles.set_photo(conn, vehicle_id, photo_id)
     return RedirectResponse(f"/vehicles/{vehicle_id}", status_code=303)
 
 
@@ -100,17 +107,23 @@ async def vin_lookup(request: Request) -> Response:
 def edit_vehicle(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     row = vehicle_or_404(conn, vehicle_id)
     raw = {key: "" if row[key] is None else str(row[key]) for key in _FIELDS}
-    return _form(request, raw=raw, errors={}, vehicle=row)
+    raw["photo"] = str(row["photo_document_id"] or "")
+    return _form(request, conn, raw=raw, errors={}, vehicle=row)
 
 
 @router.post("/vehicles/{vehicle_id}/edit")
 async def update_vehicle(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     row = vehicle_or_404(conn, vehicle_id)
     raw = await _raw(request)
+    photo_id, photo_error = await _photo(conn, await request.form())
+    raw["photo"] = str(photo_id or "")
     fields, errors = _read(conn, raw, vehicle_id=vehicle_id)
+    if photo_error:
+        errors["photo"] = photo_error
     if errors:
-        return _form(request, raw=raw, errors=errors, vehicle=row, status_code=422)
+        return _form(request, conn, raw=raw, errors=errors, vehicle=row, status_code=422)
     vehicles.update(conn, vehicle_id, fields)
+    vehicles.set_photo(conn, vehicle_id, photo_id)
     return RedirectResponse(f"/vehicles/{vehicle_id}", status_code=303)
 
 
@@ -208,7 +221,10 @@ def car_page(request: Request, conn: sqlite3.Connection, vehicle_id: int, status
     )
 
 
-def _form(request: Request, raw: dict, errors: dict, vehicle: sqlite3.Row | None = None, status_code: int = 200) -> Response:
+def _form(request: Request, conn: sqlite3.Connection, raw: dict, errors: dict, vehicle: sqlite3.Row | None = None,
+          status_code: int = 200) -> Response:
+    kept = raw.get("photo", "")
+    photo = documents.get(conn, int(kept)) if kept.isdigit() else None
     return render(
         request,
         "vehicle_form.html",
@@ -219,7 +235,32 @@ def _form(request: Request, raw: dict, errors: dict, vehicle: sqlite3.Row | None
         vehicle=vehicle,
         notice=None,
         powertrains=POWERTRAIN_LABELS,
+        photo_url=page_url(photo["id"], photo["sha256"], 1, thumb=True) if photo else None,
     )
+
+
+async def _photo(conn: sqlite3.Connection, form) -> tuple[int | None, str]:
+    """The car's photo and any error to show: one just picked, else the one the form keeps (none if removed).
+
+    A picked photo is stored even when something else on the form is wrong, so
+    it's still there when the form comes back. One that can't be taken leaves
+    the kept photo in place.
+    """
+    kept = forms.text(form.get("photo"))
+    document = documents.get(conn, int(kept)) if kept.isdigit() else None
+    photo_id = document["id"] if document is not None and document["media_type"].startswith("image/") else None
+    for upload in reversed(form.getlist("photo_file")):     # the last button used, if both were
+        if not isinstance(upload, UploadFile) or not upload.filename:
+            continue
+        name = Path(upload.filename).name
+        if Path(name).suffix.lower() not in issue_words.PHOTO_TYPES:
+            return photo_id, f"{name}: add the photo as PNG, JPG or GIF."
+        try:
+            stored, _ = documents.store(conn, await upload.read(), name)
+        except documents.UploadError as err:
+            return photo_id, str(err)
+        return stored["id"], ""
+    return photo_id, ""
 
 
 async def _raw(request: Request) -> dict[str, str]:

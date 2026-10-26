@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}Garage{% endblock %}
 
 {% block content %}
@@ -30,7 +31,10 @@
       <p class="eyebrow">
         {{ [car.year, car.make, powertrains[car.powertrain]] | select | join(" · ") }}
       </p>
-      <p class="carcard__name">{{ car.name }}</p>
+      <div class="named">
+        {{ avatar(car, "card") }}
+        <p class="carcard__name">{{ car.name }}</p>
+      </div>
       <dl class="carcard__facts">
         <div>
           <dt>Odometer</dt>

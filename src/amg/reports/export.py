@@ -19,7 +19,7 @@ Back up page's zip does that). It holds:
     warranties.csv        each car's warranties: what each covers, when it ends, and what it was used for
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use, or a car's specs, were read from
-    photos/               your issues' photos, named by date, issue and car
+    photos/               your issues' photos, named by date, issue and car, and each car's photo
 
 Receipts still waiting to be checked, and ones you discarded, aren't in it:
 they're in nobody's history yet.
@@ -82,8 +82,9 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         manuals = reports.manuals(conn)
         photos = [{**photo, "issue": issue["title"], "noticed_on": issue["noticed_on"], "car_name": issue["car_name"]}
                   for issue in noted for photo in issue["photos"]]
+        car_photos = reports.car_photos(conn)
         for folder, rows, stem in (("receipts", receipts, _receipt_name), ("manuals", manuals, _manual_name),
-                                   ("photos", photos, _photo_name)):
+                                   ("photos", photos, _photo_name), ("photos", car_photos, _car_photo_name)):
             for row in rows:
                 source = documents.path(row)
                 if not source.is_file():
@@ -91,7 +92,8 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
                     continue
                 # Scans are compressed already; storing them as-is is as small and much faster.
                 zf.write(source, _unique(f"{folder}/{stem(row)}", source.suffix, taken), compress_type=zipfile.ZIP_STORED)
-        zf.writestr("README.txt", _readme(conn, today, len(receipts), len(manuals), len(photos), missing),
+        zf.writestr("README.txt", _readme(conn, today, len(receipts), len(manuals), len(photos) + len(car_photos),
+                                          missing),
                     compress_type=zipfile.ZIP_DEFLATED)
     return missing
 
@@ -266,6 +268,10 @@ def _photo_name(row) -> str:
     return safe(f"{row['noticed_on']} {row['issue']} - {row['car_name']}") or "photo"
 
 
+def _car_photo_name(row) -> str:
+    return safe(f"{row['car_name']}, car photo") or "car photo"
+
+
 def _unique(stem: str, suffix: str, taken: set[str]) -> str:
     """The name, or the name with (2), (3) … when an earlier file has it. Case doesn't tell names apart on Windows."""
     name, n = f"{stem}{suffix}", 2
@@ -321,7 +327,8 @@ Files, as you uploaded them:
 
   receipts/             every confirmed receipt, named by date, shop and car
   manuals/              the owner's manuals schedules and specs were read from
-  photos/               your issues' photos, named by date, issue and car
+  photos/               your issues' photos, named by date, issue and car;
+                        and each car's photo, named by the car
 
 Receipts still waiting to be checked, and ones you discarded, aren't here.
 {missing_note}

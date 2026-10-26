@@ -288,6 +288,32 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
+  // A car's photo on its form: what you pick shows in the circle before you
+  // save. One file goes up: picking with one button clears the other, and
+  // Remove photo clears both and the photo already kept.
+  Alpine.data("carPhoto", (options) => ({
+    src: options.src,
+    kept: options.kept,
+    preview: null,
+
+    pick(event) {
+      const file = event.target.files[0];
+      for (const input of [this.$refs.chosen, this.$refs.shot]) {
+        if (input !== event.target) input.value = "";
+      }
+      if (!file) return;
+      if (this.preview) URL.revokeObjectURL(this.preview);
+      this.preview = URL.createObjectURL(file);
+      this.src = this.preview;
+    },
+    remove() {
+      this.$refs.chosen.value = "";
+      this.$refs.shot.value = "";
+      this.src = "";
+      this.kept = "";
+    },
+  }));
+
   // A line of text to the clipboard: a fill-up from the fuel log. If the
   // browser refuses, the line is shown selected, to copy by hand.
   Alpine.data("copyLine", (text) => ({

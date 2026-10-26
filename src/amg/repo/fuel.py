@@ -100,7 +100,8 @@ def last(conn: sqlite3.Connection, vehicle_id: int) -> sqlite3.Row | None:
 def cars_by_last_fill(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     """The cars in the garage, the one filled most recently first; cars never filled after, by name."""
     return conn.execute(
-        "SELECT v.*, max(f.filled_on) AS last_filled FROM vehicles v LEFT JOIN fuel_logs f ON f.vehicle_id = v.id"
+        "SELECT v.*, d.sha256 AS photo_sha256, max(f.filled_on) AS last_filled"
+        " FROM vehicles v LEFT JOIN fuel_logs f ON f.vehicle_id = v.id LEFT JOIN documents d ON d.id = v.photo_document_id"
         " WHERE v.archived_at IS NULL GROUP BY v.id"
         " ORDER BY last_filled IS NULL, last_filled DESC, v.name COLLATE NOCASE, v.id"
     ).fetchall()

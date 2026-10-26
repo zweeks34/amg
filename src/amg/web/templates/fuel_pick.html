@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}{{ fill_word() }}{% endblock %}
 
 {% block content %}
@@ -11,8 +12,11 @@
   {% for entry in cars %}
   <li>
     <a class="pick__car sheet" href="/vehicles/{{ entry.car.id }}/fuel/new">
-      <span class="pick__name">{{ entry.car.name }}</span>
-      <span class="muted">{% if entry.car.last_filled %}Last {{ entry.units.fill }} {{ entry.car.last_filled }}{% else %}No {{ entry.units.fill }}s yet{% endif %}</span>
+      {{ avatar(entry.car, "pick") }}
+      <span class="pick__what">
+        <span class="pick__name">{{ entry.car.name }}</span>
+        <span class="muted">{% if entry.car.last_filled %}Last {{ entry.units.fill }} {{ entry.car.last_filled }}{% else %}No {{ entry.units.fill }}s yet{% endif %}</span>
+      </span>
     </a>
   </li>
   {% endfor %}

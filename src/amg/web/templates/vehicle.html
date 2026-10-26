@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_forms.html" import input %}
 {% from "_chart.html" import interval_chart, mark, next_up as next_up_list %}
+{% from "_avatar.html" import avatar %}
 {% from "_schedule_editor.html" import legend as action_key %}
 {% from "_renewal_fields.html" import renewal_fields %}
 {% from "_issues.html" import issue_row, closed_row %}
@@ -77,7 +78,15 @@
 {% block content %}
 <header class="pagehead">
   <p class="eyebrow">{{ [car.year, car.make, powertrains[car.powertrain]] | select | join(" · ") }}</p>
-  <h1 class="display">{{ car.name }}</h1>
+  <div class="named">
+    {%- if avatar_url(car) %}
+    {{ avatar(car, "page", href=page_url(car.photo_document_id, car.photo_sha256, 1, full=True),
+              label="Open the photo of " ~ car.name ~ " full size", new_tab=True) }}
+    {%- else %}
+    {{ avatar(car, "page", href="/vehicles/%d/edit#photo" % car.id, label="Add a photo of " ~ car.name) }}
+    {%- endif %}
+    <h1 class="display">{{ car.name }}</h1>
+  </div>
   <dl class="facts">
     {% if car.model or car.trim %}<div><dt>Model</dt><dd>{{ [car.model, car.trim] | select | join(" ") }}</dd></div>{% endif %}
     {% if car.engine %}<div><dt>Engine</dt><dd>{{ car.engine }}</dd></div>{% endif %}

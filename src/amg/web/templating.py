@@ -87,6 +87,18 @@ def file_url(document_id: int, sha256: str) -> str:
     return f"/documents/{document_id}/file?v={fingerprint(sha256)}"
 
 
+def avatar_url(car) -> str | None:
+    """A car's photo, small, for its avatar; None when it has none (or the row didn't bring its hash)."""
+    if "photo_sha256" not in car.keys() or not car["photo_document_id"] or not car["photo_sha256"]:
+        return None
+    return page_url(car["photo_document_id"], car["photo_sha256"], 1, thumb=True)
+
+
+def initial(name: str) -> str:
+    """The first letter or digit of a car's name, for its avatar when it has no photo."""
+    return next((char.upper() for char in name or "" if char.isalnum()), "")
+
+
 # Where a car's schedule came from, as a sentence finishes it: "28 items, from …".
 SCHEDULE_ORIGINS = {
     "manual": "your owner's manual",
@@ -130,6 +142,8 @@ templates.env.globals["origin_words"] = SCHEDULE_ORIGINS
 templates.env.globals["page_url"] = page_url
 templates.env.globals["who"] = who
 templates.env.globals["file_url"] = file_url
+templates.env.globals["avatar_url"] = avatar_url
+templates.env.globals["initial"] = initial
 templates.env.filters["miles"] = miles
 templates.env.filters["dollars"] = dollars
 templates.env.filters["money"] = money

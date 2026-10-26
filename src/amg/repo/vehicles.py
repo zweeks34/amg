@@ -29,6 +29,9 @@ class VehicleFields:
 
 _COLUMNS = tuple(f.name for f in fields(VehicleFields))
 
+# A car with its photo's content hash, for the photo's URL: a URL that names the content can be kept for good.
+_WITH_PHOTO = "SELECT v.*, d.sha256 AS photo_sha256 FROM vehicles v LEFT JOIN documents d ON d.id = v.photo_document_id"
+
 
 def create(conn: sqlite3.Connection, vehicle: VehicleFields) -> int:
     now = now_iso()
@@ -53,7 +56,13 @@ def update(conn: sqlite3.Connection, vehicle_id: int, vehicle: VehicleFields) ->
 
 
 def get(conn: sqlite3.Connection, vehicle_id: int) -> sqlite3.Row | None:
-    return conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+    return conn.execute(f"{_WITH_PHOTO} WHERE v.id = ?", (vehicle_id,)).fetchone()
+
+
+def set_photo(conn: sqlite3.Connection, vehicle_id: int, document_id: int | None) -> None:
+    """The car's photo, one of the stored files; None takes it off. The file itself stays."""
+    conn.execute("UPDATE vehicles SET photo_document_id = ?, updated_at = ? WHERE id = ?",
+                 (document_id, now_iso(), vehicle_id))
 
 
 def fields_of(row: sqlite3.Row) -> VehicleFields:
@@ -78,7 +87,7 @@ def garage(conn: sqlite3.Connection) -> tuple[list[dict], list[dict]]:
     """(active, archived) cars, each with its latest odometer and last service."""
     active: list[dict] = []
     archived: list[dict] = []
-    for row in conn.execute("SELECT * FROM vehicles ORDER BY name COLLATE NOCASE, id").fetchall():
+    for row in conn.execute(f"{_WITH_PHOTO} ORDER BY v.name COLLATE NOCASE, v.id").fetchall():
         car = dict(row)
         car["odometer"] = latest_odometer(conn, row["id"])
         last = conn.execute(

@@ -4,13 +4,26 @@ import sqlite3
 
 import pytest
 
-from amg.repo import odometer, services, vehicles
+from amg.repo import documents, odometer, services, vehicles
 from amg.repo.services import Coverage, EventInput, LineInput
 
 
 @pytest.fixture
 def car(conn):
     return vehicles.create(conn, vehicles.VehicleFields(name="Wagon", year=2016, make="Subaru", model="Outback"))
+
+
+def test_a_cars_photo_comes_with_its_hash_and_can_be_taken_off(conn, car):
+    assert vehicles.get(conn, car)["photo_document_id"] is None and vehicles.get(conn, car)["photo_sha256"] is None
+    photo, _ = documents.store(conn, b"GIF89a" + b"\0" * 32, "wagon.gif")
+    vehicles.set_photo(conn, car, photo["id"])
+    row = vehicles.get(conn, car)
+    assert (row["photo_document_id"], row["photo_sha256"]) == (photo["id"], photo["sha256"])
+    (card,), _ = vehicles.garage(conn)
+    assert card["photo_sha256"] == photo["sha256"]
+    vehicles.set_photo(conn, car, None)
+    assert vehicles.get(conn, car)["photo_document_id"] is None
+    assert documents.get(conn, photo["id"]) is not None              # the file stays
 
 
 def _oil_change(on="2020-01-10", miles=30_000, **kw):

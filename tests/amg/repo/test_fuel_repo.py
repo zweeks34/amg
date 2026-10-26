@@ -80,6 +80,7 @@ def test_cars_by_last_fill(conn, car, ev):
     fuel.create(conn, ev, FillInput("2026-09-28", 12_000, "electric", 42.5, place="home"))
     assert [row["name"] for row in fuel.cars_by_last_fill(conn)] == ["Volt", "Wagon", "Another"]
     assert later in [row["id"] for row in fuel.cars_by_last_fill(conn)]
+    assert all("photo_sha256" in row.keys() for row in fuel.cars_by_last_fill(conn))   # for the picker's avatars
 
 
 def test_energy_follows_the_powertrain():

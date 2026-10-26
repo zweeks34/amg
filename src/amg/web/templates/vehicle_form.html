@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_forms.html" import message %}
 {% block title %}{{ "Edit " ~ vehicle.name if vehicle else "Add a car" }}{% endblock %}
 
 {% block content %}
@@ -7,8 +8,36 @@
   <h1 class="display">{{ "Edit car" if vehicle else "Add a car" }}</h1>
 </header>
 
-<form class="sheet form" method="post" action="{{ '/vehicles/%d/edit' % vehicle.id if vehicle else '/vehicles' }}">
+<form class="sheet form" method="post" action="{{ '/vehicles/%d/edit' % vehicle.id if vehicle else '/vehicles' }}"
+      enctype="multipart/form-data">
   {% include "_vehicle_fields.html" %}
+
+  {#- Outside the fields the VIN lookup swaps, so a photo you picked stays picked. -#}
+  <fieldset class="field field--wide carphoto" id="photo"
+            x-data='carPhoto({{ {"src": photo_url or "", "kept": raw.get("photo", "")} | tojson }})'>
+    <legend>Photo</legend>
+    <div class="carphoto__row">
+      <span class="avatar avatar--form" aria-hidden="true">
+        <img alt="" {% if photo_url %}src="{{ photo_url }}"{% else %}hidden{% endif %} :src="src" :hidden="!src">
+        <span {% if photo_url %}hidden{% endif %} :hidden="!!src">{{ initial(raw.get("name", "")) }}</span>
+      </span>
+      <div class="upload__pick">
+        <label class="btn btn--secondary upload__button">
+          <input type="file" name="photo_file" accept=".png,.jpg,.jpeg,.gif,image/png,image/jpeg,image/gif"
+                 x-ref="chosen" @change="pick($event)"{% if errors.get('photo') %} aria-invalid="true" aria-describedby="f-photo-error"{% endif %}>
+          Choose a photo
+        </label>
+        <label class="btn btn--secondary upload__button upload__camera">
+          <input type="file" name="photo_file" accept="image/*" capture="environment" x-ref="shot" @change="pick($event)">
+          Take a photo
+        </label>
+        <button class="btn btn--quiet" type="button" {% if not photo_url %}hidden{% endif %} :hidden="!src"
+                @click="remove()">Remove photo</button>
+      </div>
+    </div>
+    <input type="hidden" name="photo" value="{{ raw.get('photo', '') }}" :value="kept">
+    {{ message("photo", errors, "Shown beside its name in the garage. PNG, JPG or GIF.") }}
+  </fieldset>
   <div class="form__actions">
     <button class="btn btn--primary" type="submit">{{ "Save changes" if vehicle else "Add car" }}</button>
     <a class="btn btn--quiet" href="{{ '/vehicles/%d' % vehicle.id if vehicle else '/' }}">Cancel</a>

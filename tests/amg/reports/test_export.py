@@ -65,6 +65,8 @@ def test_everything_is_there(conn, tmp_path):
     specs.save(conn, outback, [SpecInput("oil_grade", "0W-20"), SpecInput("custom", "168", label="Trunk light"),
                                SpecInput("tire_size", "225/65R17", source="read", document_id=sticker["id"], page=1)])
     photo, _ = documents.store(conn, rf.image_bytes("JPEG"), "IMG_2041.jpg")
+    portrait, _ = documents.store(conn, rf.image_bytes("PNG"), "wagon.png")
+    vehicles.set_photo(conn, outback, portrait["id"])
     spot = issues.create(conn, outback, IssueInput("Oil spot: under the engine", "", "2026-08-30"), [photo["id"]])
     issues.fix(conn, spot, "2026-09-01", inspected)
     squeak = issues.create(conn, outback, IssueInput("Squeak over bumps", "Front left, cold mornings", "2026-09-01"))
@@ -79,7 +81,8 @@ def test_everything_is_there(conn, tmp_path):
     assert names == [
         "README.txt", "cars.csv", "fuel.csv", "inspections-and-registration.csv", "issues.csv",
         "manuals/2016 Outback manual.pdf", "manuals/door sticker.pdf",
-        "odometer.csv", "photos/2026-08-30 Oil spot under the engine - Outback.jpg", "prices.csv", "recalls.csv",
+        "odometer.csv", "photos/2026-08-30 Oil spot under the engine - Outback.jpg",
+        "photos/Outback, car photo.png", "prices.csv", "recalls.csv",
         "receipts/2015-11-02 Bob's - Old Tacoma.pdf",
         "receipts/2019-03-04 Midas - Outback (2).pdf",
         "receipts/2019-03-04 Midas - Outback.pdf",
@@ -132,6 +135,7 @@ def test_everything_is_there(conn, tmp_path):
          "Still there after": "2026-09-01 Corner Garage", "Photos": "0"},
     ]
     assert zf.read("photos/2026-08-30 Oil spot under the engine - Outback.jpg") == documents.path(photo).read_bytes()
+    assert zf.read("photos/Outback, car photo.png") == documents.path(portrait).read_bytes()
     blank = {"Car": "Outback", "Who honours it": "", "Miles then": "", "Months": "", "Miles": "", "Ends on": "",
              "Ends at (mi)": "", "Used on": "", "Details": ""}
     assert sheet(zf, "warranties.csv") == [
@@ -147,7 +151,8 @@ def test_everything_is_there(conn, tmp_path):
     assert (price["Job"], price["From"], price["Low"], price["High"]) == ("Oil and filter", "You", "85.00", "85.00")
 
     readme = zf.read("README.txt").decode("utf-8")
-    assert "Made October 4, 2026: 2 car(s), 4 receipt(s), 2 manual(s), 1 photo(s)." in readme
+    assert "Made October 4, 2026: 2 car(s), 4 receipt(s), 2 manual(s), 2 photo(s)." in readme   # the issue's, the car's
+    assert "and each car's photo, named by the car" in readme
     assert "can't be put back into AMG" in readme
     everything = b"".join(zf.read(name) for name in names)
     assert b"WAITING" not in everything and b"THROWN" not in everything     # not in anyone's history yet
