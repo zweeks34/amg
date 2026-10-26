@@ -1,14 +1,15 @@
-{#- A car's avatar: its photo cropped to a circle, or its initial when it has none.
+{#- A car's avatar: its photo in a circle, framed as you set it, or its initial when it has none.
 
     It sits beside the name it stands for, so the photo is decorative (empty
     alt) and, unless it's a link, hidden from screen readers. As a link it
-    says what it opens. ``size`` is card, page or pick. -#}
+    says what it opens. ``size`` is card, page or pick. The image carries the
+    car's framing (frame_style): the whole photo unless it's been zoomed or moved. -#}
 {% macro avatar(car, size, href=None, label=None, new_tab=False) -%}
 {%- set url = avatar_url(car) -%}
 {%- set tag = "a" if href else "span" -%}
 <{{ tag }} class="avatar avatar--{{ size }}{% if not url %} avatar--initial{% endif %}"
   {%- if href %} href="{{ href }}"{% if label %} aria-label="{{ label }}"{% endif %}
   {%- if new_tab %} target="_blank" rel="noopener"{% endif %}{% else %} aria-hidden="true"{% endif %}>
-  {%- if url %}<img src="{{ url }}" alt="" loading="lazy">{% else %}{{ initial(car.name) }}{% endif -%}
+  {%- if url %}<img src="{{ url }}" alt="" loading="lazy" style="{{ frame_style(car) }}">{% else %}{{ initial(car.name) }}{% endif -%}
 </{{ tag }}>
 {%- endmacro %}

@@ -87,11 +87,30 @@ def file_url(document_id: int, sha256: str) -> str:
     return f"/documents/{document_id}/file?v={fingerprint(sha256)}"
 
 
+# The thumbnail is 480px on its long edge; the largest avatar is 90px, 180 device pixels on a sharp screen. Zoomed
+# in further than this, the avatar uses the larger rendering so the photo stays sharp.
+AVATAR_THUMB_ZOOM = 2.5
+
+
 def avatar_url(car) -> str | None:
-    """A car's photo, small, for its avatar; None when it has none (or the row didn't bring its hash)."""
-    if "photo_sha256" not in car.keys() or not car["photo_document_id"] or not car["photo_sha256"]:
+    """A car's photo, for its avatar: the thumbnail, or the larger rendering once it's zoomed past
+    AVATAR_THUMB_ZOOM. None when it has none (or the row didn't bring its hash)."""
+    keys = car.keys()
+    if "photo_sha256" not in keys or not car["photo_document_id"] or not car["photo_sha256"]:
         return None
-    return page_url(car["photo_document_id"], car["photo_sha256"], 1, thumb=True)
+    sharp = "photo_zoom" in keys and car["photo_zoom"] > AVATAR_THUMB_ZOOM
+    return page_url(car["photo_document_id"], car["photo_sha256"], 1, thumb=not sharp)
+
+
+def frame_style(car) -> str:
+    """How a car's photo sits in its avatar, as the CSS its image carries: '--z: 1.5; --dx: -10%; --dy: 5%'."""
+    keys = car.keys()
+
+    def value(key: str, default: float) -> float:
+        return default if key not in keys or car[key] is None else float(car[key])
+
+    return (f"--z: {round(value('photo_zoom', 1), 2):g}; --dx: {round(value('photo_x', 0), 1):g}%;"
+            f" --dy: {round(value('photo_y', 0), 1):g}%")
 
 
 def initial(name: str) -> str:
@@ -143,6 +162,7 @@ templates.env.globals["page_url"] = page_url
 templates.env.globals["who"] = who
 templates.env.globals["file_url"] = file_url
 templates.env.globals["avatar_url"] = avatar_url
+templates.env.globals["frame_style"] = frame_style
 templates.env.globals["initial"] = initial
 templates.env.filters["miles"] = miles
 templates.env.filters["dollars"] = dollars

@@ -21,8 +21,15 @@ def test_a_cars_photo_comes_with_its_hash_and_can_be_taken_off(conn, car):
     assert (row["photo_document_id"], row["photo_sha256"]) == (photo["id"], photo["sha256"])
     (card,), _ = vehicles.garage(conn)
     assert card["photo_sha256"] == photo["sha256"]
-    vehicles.set_photo(conn, car, None)
-    assert vehicles.get(conn, car)["photo_document_id"] is None
+    assert (row["photo_zoom"], row["photo_x"], row["photo_y"]) == (1, 0, 0)       # the whole photo, centred
+    vehicles.set_photo(conn, car, photo["id"], vehicles.PhotoFrame(2.25, -30, 12.5))
+    row = vehicles.get(conn, car)
+    assert (row["photo_zoom"], row["photo_x"], row["photo_y"]) == (2.25, -30, 12.5)
+    with pytest.raises(sqlite3.IntegrityError):
+        vehicles.set_photo(conn, car, photo["id"], vehicles.PhotoFrame(5))       # past 4×
+    vehicles.set_photo(conn, car, None, vehicles.PhotoFrame(2, 10, 10))
+    row = vehicles.get(conn, car)
+    assert (row["photo_document_id"], row["photo_zoom"], row["photo_x"], row["photo_y"]) == (None, 1, 0, 0)
     assert documents.get(conn, photo["id"]) is not None              # the file stays
 
 

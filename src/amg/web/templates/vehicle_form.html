@@ -14,14 +14,37 @@
 
   {#- Outside the fields the VIN lookup swaps, so a photo you picked stays picked. -#}
   <fieldset class="field field--wide carphoto" id="photo"
-            x-data='carPhoto({{ {"src": photo_url or "", "kept": raw.get("photo", "")} | tojson }})'>
+            x-data='carPhoto({{ {"src": photo_url or "", "kept": raw.get("photo", ""), "zoom": photo_frame.zoom,
+                                 "x": photo_frame.x, "y": photo_frame.y} | tojson }})'>
     <legend>Photo</legend>
+    {#- The big circle frames the photo: drag it, or select it and use the arrow keys; + and − zoom. -#}
     <div class="carphoto__row">
-      <span class="avatar avatar--form" aria-hidden="true">
-        <img alt="" {% if photo_url %}src="{{ photo_url }}"{% else %}hidden{% endif %} :src="src" :hidden="!src">
+      <span class="avatar avatar--frame" role="group"
+            aria-label="Photo framing: drag the photo, or use the arrow keys, to move it; plus and minus zoom"
+            {% if photo_url %}tabindex="0"{% endif %} :tabindex="src ? 0 : -1"
+            @pointerdown="grab($event)" @pointermove="drag($event)" @pointerup="drop()" @pointercancel="drop()"
+            @keydown="key($event)">
+        <img alt="" draggable="false" {% if photo_url %}src="{{ photo_url }}" style="{{ frame }}"{% else %}hidden{% endif %}
+             :src="src" :hidden="!src" :style="frame">
         <span {% if photo_url %}hidden{% endif %} :hidden="!!src">{{ initial(raw.get("name", "")) }}</span>
       </span>
-      <div class="upload__pick">
+      <span class="carphoto__small" {% if not photo_url %}hidden{% endif %} :hidden="!src">
+        <span class="avatar avatar--card" aria-hidden="true">
+          <img alt="" {% if photo_url %}src="{{ photo_url }}" style="{{ frame }}"{% endif %} :src="src" :style="frame"></span>
+        As in the garage
+      </span>
+    </div>
+    <div class="carphoto__zoom" {% if not photo_url %}hidden{% endif %} :hidden="!src">
+      <label for="f-photo-zoom">Zoom</label>
+      <span class="carphoto__end" aria-hidden="true">Whole photo</span>
+      <input id="f-photo-zoom" name="photo_zoom" type="range" min="1" max="4" step="0.05"
+             value="{{ photo_frame.zoom }}" x-model.number="zoom" aria-describedby="f-photo-framing">
+      <span class="carphoto__end" aria-hidden="true">Close up</span>
+      <button class="btn btn--quiet" type="button" @click="whole()">Show the whole photo</button>
+      <p class="field__hint carphoto__how" id="f-photo-framing">Drag the photo to move it, or select it and use the arrow
+        keys; + and − zoom.</p>
+    </div>
+    <div class="upload__pick">
         <label class="btn btn--secondary upload__button">
           <input type="file" name="photo_file" accept=".png,.jpg,.jpeg,.gif,image/png,image/jpeg,image/gif"
                  x-ref="chosen" @change="pick($event)"{% if errors.get('photo') %} aria-invalid="true" aria-describedby="f-photo-error"{% endif %}>
@@ -33,9 +56,10 @@
         </label>
         <button class="btn btn--quiet" type="button" {% if not photo_url %}hidden{% endif %} :hidden="!src"
                 @click="remove()">Remove photo</button>
-      </div>
     </div>
     <input type="hidden" name="photo" value="{{ raw.get('photo', '') }}" :value="kept">
+    <input type="hidden" name="photo_x" value="{{ photo_frame.x }}" :value="x">
+    <input type="hidden" name="photo_y" value="{{ photo_frame.y }}" :value="y">
     {{ message("photo", errors, "Shown beside its name in the garage. PNG, JPG or GIF.") }}
   </fieldset>
   <div class="form__actions">

@@ -29,6 +29,15 @@ class VehicleFields:
 
 _COLUMNS = tuple(f.name for f in fields(VehicleFields))
 
+
+@dataclass(frozen=True)
+class PhotoFrame:
+    """How a car's photo sits in its avatar: zoom 1 shows the whole photo, up to 4 zooms in about its centre; x and
+    y move it, as a share of the circle's width (-100 to 100)."""
+    zoom: float = 1.0
+    x: float = 0.0
+    y: float = 0.0
+
 # A car with its photo's content hash, for the photo's URL: a URL that names the content can be kept for good.
 _WITH_PHOTO = "SELECT v.*, d.sha256 AS photo_sha256 FROM vehicles v LEFT JOIN documents d ON d.id = v.photo_document_id"
 
@@ -59,10 +68,15 @@ def get(conn: sqlite3.Connection, vehicle_id: int) -> sqlite3.Row | None:
     return conn.execute(f"{_WITH_PHOTO} WHERE v.id = ?", (vehicle_id,)).fetchone()
 
 
-def set_photo(conn: sqlite3.Connection, vehicle_id: int, document_id: int | None) -> None:
-    """The car's photo, one of the stored files; None takes it off. The file itself stays."""
-    conn.execute("UPDATE vehicles SET photo_document_id = ?, updated_at = ? WHERE id = ?",
-                 (document_id, now_iso(), vehicle_id))
+def set_photo(conn: sqlite3.Connection, vehicle_id: int, document_id: int | None,
+              frame: PhotoFrame | None = None) -> None:
+    """The car's photo, one of the stored files, and how it sits in its avatar (the whole photo unless ``frame``
+    says otherwise). None takes it off and resets the framing; the file itself stays."""
+    frame = frame if frame is not None and document_id is not None else PhotoFrame()
+    conn.execute(
+        "UPDATE vehicles SET photo_document_id = ?, photo_zoom = ?, photo_x = ?, photo_y = ?, updated_at = ? WHERE id = ?",
+        (document_id, frame.zoom, frame.x, frame.y, now_iso(), vehicle_id),
+    )
 
 
 def fields_of(row: sqlite3.Row) -> VehicleFields:

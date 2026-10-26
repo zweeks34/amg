@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import sqlite3
 from datetime import date
 from pathlib import Path
@@ -23,7 +24,7 @@ from . import running_cost
 from . import status as car_status
 from . import warranties as warranty_words
 from .deps import get_conn
-from .templating import page_url, render
+from .templating import frame_style, page_url, render
 
 router = APIRouter()
 
@@ -52,15 +53,17 @@ def new_vehicle(request: Request, conn: sqlite3.Connection = Depends(get_conn)) 
 @router.post("/vehicles")
 async def create_vehicle(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     raw = await _raw(request)
-    photo_id, photo_error = await _photo(conn, await request.form())
-    raw["photo"] = str(photo_id or "")
+    form = await request.form()
+    photo_id, photo_error = await _photo(conn, form)
+    frame = _frame(form)
+    _keep_photo(raw, photo_id, frame)
     fields, errors = _read(conn, raw)
     if photo_error:
         errors["photo"] = photo_error
     if errors:
         return _form(request, conn, raw=raw, errors=errors, status_code=422)
     vehicle_id = vehicles.create(conn, fields)
-    vehicles.set_photo(conn, vehicle_id, photo_id)
+    vehicles.set_photo(conn, vehicle_id, photo_id, frame)
     return RedirectResponse(f"/vehicles/{vehicle_id}", status_code=303)
 
 
@@ -107,7 +110,8 @@ async def vin_lookup(request: Request) -> Response:
 def edit_vehicle(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     row = vehicle_or_404(conn, vehicle_id)
     raw = {key: "" if row[key] is None else str(row[key]) for key in _FIELDS}
-    raw["photo"] = str(row["photo_document_id"] or "")
+    _keep_photo(raw, row["photo_document_id"],
+                vehicles.PhotoFrame(row["photo_zoom"], row["photo_x"], row["photo_y"]))
     return _form(request, conn, raw=raw, errors={}, vehicle=row)
 
 
@@ -115,15 +119,17 @@ def edit_vehicle(request: Request, vehicle_id: int, conn: sqlite3.Connection = D
 async def update_vehicle(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     row = vehicle_or_404(conn, vehicle_id)
     raw = await _raw(request)
-    photo_id, photo_error = await _photo(conn, await request.form())
-    raw["photo"] = str(photo_id or "")
+    form = await request.form()
+    photo_id, photo_error = await _photo(conn, form)
+    frame = _frame(form)
+    _keep_photo(raw, photo_id, frame)
     fields, errors = _read(conn, raw, vehicle_id=vehicle_id)
     if photo_error:
         errors["photo"] = photo_error
     if errors:
         return _form(request, conn, raw=raw, errors=errors, vehicle=row, status_code=422)
     vehicles.update(conn, vehicle_id, fields)
-    vehicles.set_photo(conn, vehicle_id, photo_id)
+    vehicles.set_photo(conn, vehicle_id, photo_id, frame)
     return RedirectResponse(f"/vehicles/{vehicle_id}", status_code=303)
 
 
@@ -225,6 +231,7 @@ def _form(request: Request, conn: sqlite3.Connection, raw: dict, errors: dict, v
           status_code: int = 200) -> Response:
     kept = raw.get("photo", "")
     photo = documents.get(conn, int(kept)) if kept.isdigit() else None
+    frame = _frame(raw) if photo else vehicles.PhotoFrame()
     return render(
         request,
         "vehicle_form.html",
@@ -235,8 +242,31 @@ def _form(request: Request, conn: sqlite3.Connection, raw: dict, errors: dict, v
         vehicle=vehicle,
         notice=None,
         powertrains=POWERTRAIN_LABELS,
-        photo_url=page_url(photo["id"], photo["sha256"], 1, thumb=True) if photo else None,
+        # The framing circle is big and zooms in: the larger rendering, not the thumbnail.
+        photo_url=page_url(photo["id"], photo["sha256"], 1) if photo else None,
+        photo_frame=frame,
+        frame=frame_style({"photo_zoom": frame.zoom, "photo_x": frame.x, "photo_y": frame.y}),
     )
+
+
+def _frame(form) -> vehicles.PhotoFrame:
+    """How the photo sits in its circle, from the slider and the drag (a submitted form, or ``raw``): each value kept
+    within its range, and one that can't be read is the default. Nobody types these, so there's no message."""
+    def number(key: str, low: float, high: float, default: float, places: int) -> float:
+        try:
+            value = float(forms.text(form.get(key)))
+        except ValueError:
+            return default
+        return default if math.isnan(value) else round(min(high, max(low, value)), places)
+
+    return vehicles.PhotoFrame(number("photo_zoom", 1, 4, 1.0, 2), number("photo_x", -100, 100, 0.0, 1),
+                               number("photo_y", -100, 100, 0.0, 1))
+
+
+def _keep_photo(raw: dict, photo_id: int | None, frame: vehicles.PhotoFrame) -> None:
+    """The photo and its framing in ``raw``, so a form sent back keeps them."""
+    raw.update(photo=str(photo_id or ""), photo_zoom=f"{frame.zoom:g}", photo_x=f"{frame.x:g}",
+               photo_y=f"{frame.y:g}")
 
 
 async def _photo(conn: sqlite3.Connection, form) -> tuple[int | None, str]:

@@ -728,11 +728,27 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
   font: 700 calc(var(--avatar) * 0.5)/1 var(--display);
   text-decoration: none;
 }
-.avatar img { width: 100%; height: 100%; object-fit: cover; }
-.avatar--page, .avatar--form { --avatar: 5.625rem; }
+/* The whole photo at zoom 1, whatever its shape; zoomed about its centre, then moved in circle widths. */
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: translate(var(--dx, 0%), var(--dy, 0%)) scale(var(--z, 1));
+}
+.avatar--page { --avatar: 5.625rem; }
+.avatar--frame { --avatar: 11rem; cursor: grab; touch-action: none; user-select: none; }
+.avatar--frame:active { cursor: grabbing; }
+.avatar--frame:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.avatar--frame img { pointer-events: none; }
 .avatar--pick { --avatar: 3.4375rem; }
 a.avatar:hover, a.avatar:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .carphoto__row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
+.carphoto__small { display: inline-flex; align-items: center; gap: 0.625rem; font-size: 0.875rem; color: var(--ink-2); }
+.carphoto__zoom { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0.75rem 0; }
+.carphoto__zoom label { font: 600 0.875rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
+.carphoto__zoom input[type="range"] { flex: 1 1 8rem; max-width: 18rem; min-height: 2.5rem; accent-color: var(--ink); }
+.carphoto__end { font-size: 0.8125rem; color: var(--ink-2); }
+.carphoto__how { flex-basis: 100%; margin: 0; }
 .carcard__facts { display: grid; gap: 0.5rem; margin: 0.75rem 0 0; }
 .carcard__status { display: grid; gap: 0.5rem; margin-top: 1rem; padding-top: 0.875rem; border-top: 1px solid var(--rule-soft); }
 .carcard__next { display: flex; align-items: baseline; gap: 0.625rem; }

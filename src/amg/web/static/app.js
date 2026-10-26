@@ -290,12 +290,29 @@ document.addEventListener("alpine:init", () => {
 
   // A car's photo on its form: what you pick shows in the circle before you
   // save. One file goes up: picking with one button clears the other, and
-  // Remove photo clears both and the photo already kept.
+  // Remove photo clears both and the photo already kept. The big circle
+  // frames it: drag the photo, or use the arrow keys, to move it (as a share
+  // of the circle's width); the slider, or + and −, zoom from the whole photo
+  // (1) to 4×. A new photo, or none, starts whole and centred.
+  const shift = (value) => Math.max(-100, Math.min(100, Math.round(value * 10) / 10));
+  const scale = (value) => Math.max(1, Math.min(4, Math.round(value * 100) / 100));
   Alpine.data("carPhoto", (options) => ({
     src: options.src,
     kept: options.kept,
+    zoom: options.zoom,
+    x: options.x,
+    y: options.y,
     preview: null,
+    held: null,
 
+    get frame() {
+      return `--z: ${this.zoom}; --dx: ${this.x}%; --dy: ${this.y}%`;
+    },
+    whole() {
+      this.zoom = 1;
+      this.x = 0;
+      this.y = 0;
+    },
     pick(event) {
       const file = event.target.files[0];
       for (const input of [this.$refs.chosen, this.$refs.shot]) {
@@ -305,12 +322,45 @@ document.addEventListener("alpine:init", () => {
       if (this.preview) URL.revokeObjectURL(this.preview);
       this.preview = URL.createObjectURL(file);
       this.src = this.preview;
+      this.whole();
     },
     remove() {
       this.$refs.chosen.value = "";
       this.$refs.shot.value = "";
       this.src = "";
       this.kept = "";
+      this.whole();
+    },
+    grab(event) {
+      if (!this.src) return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      this.held = { x: event.clientX, y: event.clientY, size: event.currentTarget.getBoundingClientRect().width };
+    },
+    drag(event) {
+      if (!this.held) return;
+      this.x = shift(this.x + ((event.clientX - this.held.x) / this.held.size) * 100);
+      this.y = shift(this.y + ((event.clientY - this.held.y) / this.held.size) * 100);
+      this.held.x = event.clientX;
+      this.held.y = event.clientY;
+    },
+    drop() {
+      this.held = null;
+    },
+    key(event) {
+      if (!this.src) return;
+      const step = event.shiftKey ? 10 : 2;
+      const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+      if (moves[event.key]) {
+        this.x = shift(this.x + moves[event.key][0]);
+        this.y = shift(this.y + moves[event.key][1]);
+      } else if (event.key === "+" || event.key === "=") {
+        this.zoom = scale(this.zoom + 0.1);
+      } else if (event.key === "-" || event.key === "_") {
+        this.zoom = scale(this.zoom - 0.1);
+      } else {
+        return;
+      }
+      event.preventDefault();
     },
   }));
 
