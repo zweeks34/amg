@@ -143,7 +143,7 @@ def test_a_car_with_alerts_off_brings_only_its_dates_to_the_emailed_calendar(con
     summaries = [e.summary for e in watch.events([watch.look(conn, vehicles.get(conn, car), af.JUNE_10)], BASE)]
     assert summaries == ["Registration expires · Outback"]
     every = watch.events([watch.look(conn, vehicles.get(conn, car), af.JUNE_10, maintenance=True)], BASE)
-    assert "Oil and filter · Outback" in [e.summary for e in every]     # the Alerts page's download: every job
+    assert "REPLACE Oil and filter · Outback" in [e.summary for e in every]   # the Alerts page's download: every job
 
 
 def test_a_reminder_says_what_it_cost_last_time(conn, bolt, pushes):

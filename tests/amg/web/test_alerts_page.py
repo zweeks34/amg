@@ -77,7 +77,7 @@ def test_the_calendar_downloads_and_needs_a_session(signed_in, client, conn):
     response = signed_in.get("/alerts/calendar.ics")
     assert response.headers["content-type"] == "text/calendar; charset=utf-8"
     assert 'filename="amg-maintenance.ics"' in response.headers["content-disposition"]
-    assert response.text.startswith("BEGIN:VCALENDAR\r\n") and "SUMMARY:Wiper blades · Outback" in response.text
+    assert response.text.startswith("BEGIN:VCALENDAR\r\n") and "SUMMARY:REPLACE Wiper blades · Outback" in response.text
     signed_in.cookies.clear()
     assert client.get("/alerts/calendar.ics", follow_redirects=False).status_code == 303
 

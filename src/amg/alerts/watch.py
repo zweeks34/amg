@@ -319,7 +319,7 @@ def events(watches: list[CarWatch], base_url: str) -> list[ics.Event]:
                 found.append(ics.Event(
                     uid=f"amg-{car['id']}-{codes}-{item.action}-{n}@amg",
                     day=occurrence.due_day,
-                    summary=f"{item.name} · {car['name']}",
+                    summary=f"{action_word(item.action)}{item.name} · {car['name']}",
                     description=" ".join(parts),
                     url=f"{base_url}/vehicles/{car['id']}",
                 ))

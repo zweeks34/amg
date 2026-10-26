@@ -69,10 +69,10 @@ def test_the_cars_next_twelve_months_are_events(conn, car):
     watched = watch.look(conn, vehicles.get(conn, car), af.JUNE_10)
     found = watch.events([watched], "http://amg.home.arpa")
     assert [(e.day, e.summary) for e in found] == [
-        (date(2026, 7, 1), "Oil and filter · Outback"),
-        (date(2026, 9, 1), "Wiper blades · Outback"),
-        (date(2027, 1, 1), "Oil and filter · Outback"),
-        (date(2027, 3, 1), "Wiper blades · Outback"),
+        (date(2026, 7, 1), "REPLACE Oil and filter · Outback"),     # what to do, first
+        (date(2026, 9, 1), "REPLACE Wiper blades · Outback"),
+        (date(2027, 1, 1), "REPLACE Oil and filter · Outback"),
+        (date(2027, 3, 1), "REPLACE Wiper blades · Outback"),
     ]                                                     # the cabin filter (2028) is past the 12 months
     assert parse(ics.calendar(found, STAMP))[0]["UID"] == f"amg-{car}-engine_oil+oil_filter-replace-1@amg"
 
