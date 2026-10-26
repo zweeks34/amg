@@ -35,6 +35,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-25 | [Show each next-up job's action](2026-10-25-next-up-actions.md) | Phase 5 | `08f6f5a` |
 | 2026-10-25 | [Edit, copy and delete a fill-up from the fuel log](2026-10-25-fuel-log-actions.md) | Phase 6 | `544fc00` |
 | 2026-10-25 | [The action words on the For the shop sheet](2026-10-25-shop-sheet-actions.md) | Phase 13 | `895a998` |
+| 2026-10-25 | [The action word on the garage card's Next line](2026-10-25-garage-next-action.md) | Phase 5 | `32b0981` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
