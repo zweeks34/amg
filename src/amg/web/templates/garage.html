@@ -57,7 +57,9 @@
       <div class="carcard__status">
         {% if s and s.next %}
         <p class="carcard__next"><span class="mark mark--{{ s.next.status }}" aria-hidden="true"></span>
-          <span><span class="carcard__label">Next:</span> {{ s.next.name }} <span class="muted">{{ s.next.when }}</span></span></p>
+          <span><span class="carcard__label">Next:</span>
+            {% if s.next.action %}<span class="actword">{{ action_words[s.next.action] }}</span> {% endif -%}
+            {{ s.next.name }} <span class="muted">{{ s.next.when }}</span></span></p>
         {% endif %}
         {% if car.recalls %}
         {# One line however many: a model year can have several, often for the same part. #}

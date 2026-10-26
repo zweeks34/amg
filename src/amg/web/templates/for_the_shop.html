@@ -64,7 +64,7 @@
       <li class="shopsheet__row">
         <span class="mark mark--{{ job.status }}" aria-hidden="true"></span>
         <span class="shopsheet__what">
-          {%- if job.action %}<span class="shopsheet__action">{{ action_words[job.action] }}</span> {% endif -%}
+          {%- if job.action %}<span class="actword shopsheet__action">{{ action_words[job.action] }}</span> {% endif -%}
           {{ job.name }}</span>
         <span class="shopsheet__when">{{ job.when }}</span>
         {% if job.warranty %}<span class="shopsheet__note">{{ job.warranty }}</span>{% endif %}
