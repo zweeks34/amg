@@ -66,7 +66,8 @@ def test_with_the_cars_alerts_on_they_share_its_push(conn, car, pushes):
     renewals.create(conn, car, RenewalInput("registration", "2026-06-30"))
     _run(conn, af.JUNE_10)
     assert [p.title for p in pushes] == ["Outback: 2 due soon"]
-    assert pushes[0].message.splitlines() == ["Oil and filter: by Jul 1", "Registration: expires Jun 30 · in 20 days"]
+    assert pushes[0].message.splitlines() == ["REPLACE Oil and filter: by Jul 1",
+                                              "Registration: expires Jun 30 · in 20 days"]   # no word: not a job
 
 
 def test_turning_alerts_on_takes_stock_of_jobs_only(conn, pushes):

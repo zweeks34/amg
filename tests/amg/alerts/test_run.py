@@ -29,7 +29,7 @@ def test_a_dry_run_says_what_would_go_and_records_nothing(conn, car, capsys):
     result = run.run(conn, MONDAY, dry_run=True, say=said.append)
     assert said[0] == "Pushes aren't set up (AMG_NTFY_TOPIC is empty): showing what they would say."
     assert said[1] == ("Would push: Outback: 1 overdue, 1 due soon\n"
-                       "  Oil and filter: overdue since Jul 1\n  Wiper blades: by Sep 1")
+                       "  REPLACE Oil and filter: overdue since Jul 1\n  REPLACE Wiper blades: by Sep 1")
     assert said[2].startswith("Would email (email not set up):\nAMG: 1 overdue, 1 due soon\n")
     assert result.email == "would send"
     assert conn.execute("SELECT count(*) FROM alert_log").fetchone()[0] == 0 and alerts.last_run(conn) is None

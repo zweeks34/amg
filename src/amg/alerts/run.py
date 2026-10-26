@@ -97,7 +97,7 @@ def run(conn: sqlite3.Connection, today: date, dry_run: bool = False, say: Calla
             continue
         claimed = [(job, alert_id) for job in fresh
                    if (alert_id := alerts.claim(conn, watch.CHANNEL, job.subject, job.level, job.vehicle_id,
-                                                job.line)) is not None]
+                                                job.said)) is not None]
         if not claimed:
             continue   # another run has them
         message = watch.push(car_watch, [job for job, _ in claimed], base_url)

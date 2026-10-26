@@ -41,13 +41,18 @@ from ..web import recalls as recall_words
 from ..web import renewals as renewal_words
 from ..web import status as car_status
 from ..web import warranties as warranty_words
-from ..web.templating import dollars
+from ..web.templating import ACTION_WORDS, dollars
 from . import ics
 from .ntfy import Push
 
 CHANNEL = "ntfy"
 COMING_UP = 3     # later jobs the weekly email lists for each car
 CALENDAR_MONTHS = 12
+
+
+def action_word(action: str | None) -> str:
+    """What to do to a schedule job, in capitals before its name: 'REPLACE '; nothing for anything else."""
+    return f"{ACTION_WORDS[action].upper()} " if action else ""
 
 
 @dataclass(frozen=True)
@@ -70,6 +75,11 @@ class Watched:
     @property
     def line(self) -> str:
         return f"{self.name}: {self.when}" + (f" · ~{dollars(self.cost)}" if self.cost else "")
+
+    @property
+    def said(self) -> str:
+        """Its line with what to do first, as a push, the alert log and the email say it."""
+        return action_word(self.action) + self.line
 
     @property
     def state(self) -> str:
@@ -232,7 +242,7 @@ def push(watch: CarWatch, fresh: list[Watched], base_url: str) -> Push:
             return Push(f"{name}: recall, don't drive it" if job.urgent else f"{name}: recall to check",
                         f"{job.name}: {job.when}", priority=5 if job.urgent else 4, tags=("warning",),
                         click=f"{page}#recalls")
-        title = f"{name}: {job.name} {job.state}"
+        title = f"{name}: {action_word(job.action)}{job.name} {job.state}"
         message = job.when + (f" · ~{dollars(job.cost)}" if job.cost else "")
     else:
         counts = ([f"{overdue} overdue"] * bool(overdue) + [f"{len(dated) - overdue} due soon"] * bool(len(dated) - overdue)
@@ -240,7 +250,7 @@ def push(watch: CarWatch, fresh: list[Watched], base_url: str) -> Push:
                   + [f"{len(ending)} warrant{'ies' if len(ending) != 1 else 'y'} ending"] * bool(ending)
                   + ["odometer reading wanted"] * reading)
         title = f"{name}: {', '.join(counts)}"
-        message = "\n".join(j.line for j in fresh)
+        message = "\n".join(j.said for j in fresh)
     priority = 5 if urgent else 4 if overdue or found else 3
     return Push(title, message, priority=priority, tags=("warning",) if priority > 3 else ("wrench",),
                 click=f"{page}#recalls" if found and len(found) == len(fresh) else page)
@@ -253,7 +263,7 @@ def take_stock(conn: sqlite3.Connection, car, today: date | None = None) -> int:
     """
     jobs = [job for job in look(conn, car, today, maintenance=True).jobs if job.kind == "job"]
     for job in jobs:
-        alerts.known(conn, CHANNEL, job.subject, job.level, car["id"], job.line)
+        alerts.known(conn, CHANNEL, job.subject, job.level, car["id"], job.said)
     return len(jobs)
 
 
