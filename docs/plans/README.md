@@ -41,6 +41,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-25 | [The action words in the calendar file](2026-10-25-calendar-actions.md) | Phase 8 | `5997dd8` |
 | 2026-10-25 | [A photo for each car, shown as its avatar](2026-10-25-car-photos.md) | Phase 1 | `2bf6d40`…`b31db2e` |
 | 2026-10-25 | [Frame a car's photo in its avatar](2026-10-25-car-photo-framing.md) | Phase 1 | `0dc0765` |
+| 2026-10-25 | [The car avatar as a rounded rectangle](2026-10-25-avatar-rectangle.md) | Phase 1 | `e484c30` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
