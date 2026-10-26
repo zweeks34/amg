@@ -288,12 +288,13 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
-  // A car's photo on its form: what you pick shows in the circle before you
+  // A car's photo on its form: what you pick shows in the frame before you
   // save. One file goes up: picking with one button clears the other, and
-  // Remove photo clears both and the photo already kept. The big circle
+  // Remove photo clears both and the photo already kept. The big frame
   // frames it: drag the photo, or use the arrow keys, to move it (as a share
-  // of the circle's width); the slider, or + and −, zoom from the whole photo
-  // (1) to 4×. A new photo, or none, starts whole and centred.
+  // of the frame's width, and of its height); the slider, or + and −, zoom
+  // from the whole photo (1) to 4×. A new photo, or none, starts whole and
+  // centred.
   const shift = (value) => Math.max(-100, Math.min(100, Math.round(value * 10) / 10));
   const scale = (value) => Math.max(1, Math.min(4, Math.round(value * 100) / 100));
   Alpine.data("carPhoto", (options) => ({
@@ -334,12 +335,13 @@ document.addEventListener("alpine:init", () => {
     grab(event) {
       if (!this.src) return;
       event.currentTarget.setPointerCapture(event.pointerId);
-      this.held = { x: event.clientX, y: event.clientY, size: event.currentTarget.getBoundingClientRect().width };
+      const box = event.currentTarget.getBoundingClientRect();
+      this.held = { x: event.clientX, y: event.clientY, width: box.width, height: box.height };
     },
     drag(event) {
       if (!this.held) return;
-      this.x = shift(this.x + ((event.clientX - this.held.x) / this.held.size) * 100);
-      this.y = shift(this.y + ((event.clientY - this.held.y) / this.held.size) * 100);
+      this.x = shift(this.x + ((event.clientX - this.held.x) / this.held.width) * 100);
+      this.y = shift(this.y + ((event.clientY - this.held.y) / this.held.height) * 100);
       this.held.x = event.clientX;
       this.held.y = event.clientY;
     },

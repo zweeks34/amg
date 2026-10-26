@@ -33,7 +33,7 @@ _COLUMNS = tuple(f.name for f in fields(VehicleFields))
 @dataclass(frozen=True)
 class PhotoFrame:
     """How a car's photo sits in its avatar: zoom 1 shows the whole photo, up to 4 zooms in about its centre; x and
-    y move it, as a share of the circle's width (-100 to 100)."""
+    y move it, as a share of the avatar's width and of its height (-100 to 100)."""
     zoom: float = 1.0
     x: float = 0.0
     y: float = 0.0

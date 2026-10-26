@@ -87,9 +87,9 @@ def file_url(document_id: int, sha256: str) -> str:
     return f"/documents/{document_id}/file?v={fingerprint(sha256)}"
 
 
-# The thumbnail is 480px on its long edge; the largest avatar is 90px, 180 device pixels on a sharp screen. Zoomed
+# The thumbnail is 480px on its long edge; the widest avatar is 120px, 240 device pixels on a sharp screen. Zoomed
 # in further than this, the avatar uses the larger rendering so the photo stays sharp.
-AVATAR_THUMB_ZOOM = 2.5
+AVATAR_THUMB_ZOOM = 2
 
 
 def avatar_url(car) -> str | None:

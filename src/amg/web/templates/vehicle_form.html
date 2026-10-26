@@ -17,7 +17,7 @@
             x-data='carPhoto({{ {"src": photo_url or "", "kept": raw.get("photo", ""), "zoom": photo_frame.zoom,
                                  "x": photo_frame.x, "y": photo_frame.y} | tojson }})'>
     <legend>Photo</legend>
-    {#- The big circle frames the photo: drag it, or select it and use the arrow keys; + and − zoom. -#}
+    {#- The big frame frames the photo: drag it, or select it and use the arrow keys; + and − zoom. -#}
     <div class="carphoto__row">
       <span class="avatar avatar--frame" role="group"
             aria-label="Photo framing: drag the photo, or use the arrow keys, to move it; plus and minus zoom"

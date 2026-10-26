@@ -130,7 +130,7 @@ def test_framing_is_kept_in_range(signed_in, conn):
 
 
 def test_zoomed_far_in_the_avatar_uses_the_larger_rendering(signed_in, conn):
-    car = _framed(signed_in, conn, photo_zoom="3")
+    car = _framed(signed_in, conn, photo_zoom="2.25")                 # past 2×: the widest avatar is 120px
     row = vehicles.get(conn, car)
     larger = f'/documents/{row["photo_document_id"]}/pages/1?v={row["photo_sha256"][:12]}"'
     assert f'<img src="{larger} alt=""' in page(signed_in, "/") and "size=thumb" not in page(signed_in, "/")

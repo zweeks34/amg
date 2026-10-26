@@ -242,7 +242,7 @@ def _form(request: Request, conn: sqlite3.Connection, raw: dict, errors: dict, v
         vehicle=vehicle,
         notice=None,
         powertrains=POWERTRAIN_LABELS,
-        # The framing circle is big and zooms in: the larger rendering, not the thumbnail.
+        # The framing area is big and zooms in: the larger rendering, not the thumbnail.
         photo_url=page_url(photo["id"], photo["sha256"], 1) if photo else None,
         photo_frame=frame,
         frame=frame_style({"photo_zoom": frame.zoom, "photo_x": frame.x, "photo_y": frame.y}),
@@ -250,7 +250,7 @@ def _form(request: Request, conn: sqlite3.Connection, raw: dict, errors: dict, v
 
 
 def _frame(form) -> vehicles.PhotoFrame:
-    """How the photo sits in its circle, from the slider and the drag (a submitted form, or ``raw``): each value kept
+    """How the photo sits in its avatar, from the slider and the drag (a submitted form, or ``raw``): each value kept
     within its range, and one that can't be read is the default. Nobody types these, so there's no message."""
     def number(key: str, low: float, high: float, default: float, places: int) -> float:
         try:
