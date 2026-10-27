@@ -27,6 +27,22 @@
       {{ input("filled_on", "Date", raw, errors, type="date") }}
     </div>
 
+    <div class="field field--wide">
+      <label for="f-station">Station</label>
+      {%- if recent_stations %}
+      <ul class="chips stations" aria-label="Your recent stations">
+        {% for name in recent_stations %}
+        <li><button class="chip stations__pick" type="button" @click='station = {{ name | tojson }}'
+                    :aria-pressed='station === {{ name | tojson }}'>{{ name }}</button></li>
+        {% endfor %}
+      </ul>
+      {%- endif %}
+      <input id="f-station" name="station" value="{{ raw.get('station', '') }}" x-model="station" list="f-stations"
+             autocomplete="off" placeholder="Shell, Wawa, Costco…" aria-describedby="f-station-hint">
+      <datalist id="f-stations">{% for name in stations %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+      <p class="field__hint" id="f-station-hint">If you like: its logo shows in the log.</p>
+    </div>
+
     {% if units.energy == "electric" %}
     <fieldset class="field field--wide">
       <legend>Where</legend>

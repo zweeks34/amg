@@ -263,6 +263,7 @@ document.addEventListener("alpine:init", () => {
     quantity: options.quantity,
     cost: options.cost,
     place: options.place,
+    station: options.station,
     typed: options.cost !== "",
 
     number(text) {

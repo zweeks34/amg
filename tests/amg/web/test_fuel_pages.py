@@ -127,13 +127,13 @@ def test_each_fill_copies_as_one_line_in_the_logs_words(conn, car, ev):
 
     for fill in (fuel.FillInput("2026-10-01", 45_000, "gas", 10.0, 3_400),                  # the first: no economy
                  fuel.FillInput("2026-10-10", 45_150, "gas", 4.0, full=False),               # partial, no cost
-                 fuel.FillInput("2026-10-20", 45_330, "gas", 6.2, 2_108),                    # 330 mi on 10.2 gal
+                 fuel.FillInput("2026-10-20", 45_330, "gas", 6.2, 2_108, station="Shell"),   # 330 mi on 10.2 gal
                  fuel.FillInput("2026-10-25", 45_600, "gas", 9.0, 3_000, missed_before=True, note="Costco\non Main")):
         fuel.create(conn, car, fill)
     rows = fuel_status.log_rows(fuel_status.load(conn, vehicles.get(conn, car)))
     assert [row["line"] for row in rows] == [
         "Oct 25, 2026 · 45,600 mi · 9.000 gal · $30.00 ($3.333/gal) · Full tank · After one not logged · Costco on Main",
-        "Oct 20, 2026 · 45,330 mi · 6.200 gal · $21.08 ($3.400/gal) · 32.4 mpg · Full tank",
+        "Oct 20, 2026 · Shell · 45,330 mi · 6.200 gal · $21.08 ($3.400/gal) · 32.4 mpg · Full tank",
         "Oct 10, 2026 · 45,150 mi · 4.000 gal · Partial fill",
         "Oct 1, 2026 · 45,000 mi · 10.000 gal · $34.00 ($3.400/gal) · Full tank",
     ]
@@ -147,6 +147,31 @@ def test_each_fill_copies_as_one_line_in_the_logs_words(conn, car, ev):
         "Oct 20, 2026 · 12,121 mi · 31.5 kWh · $4.41 (14.0¢/kWh) · 3.84 mi/kWh · Full charge · Home",
         "Oct 1, 2026 · 12,000 mi · 30 kWh · $4.20 (14.0¢/kWh) · Full charge · Home",
     ]
+
+
+def test_a_fill_up_says_where_and_the_form_offers_your_recent_stations(signed_in, conn, car, ev):
+    assert "Your recent stations" not in signed_in.get(f"/vehicles/{car}/fuel/new").text    # none yet
+    for day, miles, station in (("2026-09-01", "30,000", "Costco"), ("2026-09-10", "30,300", "  Wawa   on Route 9 "),
+                                ("2026-09-20", "30,600", "shell"), ("2026-09-30", "30,900", "Shell"),
+                                ("2026-10-05", "31,200", "")):
+        _log(signed_in, car, day, miles, "10", station=station)
+    _log(signed_in, ev, "2026-10-06", "5,000", "20", station="O'Neil's Chargers", place="public")
+    assert [row["station"] for row in fuel.log(conn, car)][:3] == ["", "Shell", "shell"]
+    assert fuel.get(conn, fuel.log(conn, car)[3]["id"])["station"] == "Wawa on Route 9"      # spaces tidied
+    # every car's, most recent first, each once whatever its capitals, as last typed
+    assert fuel.stations(conn) == ["O'Neil's Chargers", "Shell", "Wawa on Route 9", "Costco"]
+
+    form = signed_in.get(f"/vehicles/{car}/fuel/new").text
+    assert 'value="" x-model="station" list="f-stations"' in form                                # a new one starts blank
+    assert '<ul class="chips stations" aria-label="Your recent stations">' in form
+    assert form.count('class="chip stations__pick"') == 4
+    assert r"""@click='station = "O\u0027Neil\u0027s Chargers"'""" in form                      # safe in its quotes
+    assert '<option value="Costco"></option>' in form
+
+    shell = fuel.log(conn, car)[1]["id"]
+    assert 'value="Shell" x-model="station"' in signed_in.get(f"/fuel/{shell}/edit").text
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert '<p class="fuellog__station">At Shell</p>' in page and page.count('class="fuellog__station"') == 4
 
 
 def test_tapping_a_fill_opens_edit_copy_and_delete(signed_in, conn, car):

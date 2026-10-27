@@ -1601,6 +1601,18 @@ p.notice, div.notice { margin-bottom: 1rem; }
   .fuelform__grid > .field:first-child, .fuelform__grid > .field:last-child { grid-column: auto; }
 }
 .fuelblock .facts { margin: 0; }
+/* Your recent stations, one tap to fill the field in. Tall enough to hit with a thumb at the pump. */
+.stations { margin: 0 0 0.25rem; }
+.stations__pick {
+  min-height: 2.25rem;
+  padding: 0.25rem 0.75rem;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.stations__pick:hover { border-color: var(--ink-2); }
+.stations__pick[aria-pressed="true"] { border-color: var(--ink); background: var(--sheet); box-shadow: inset 0 0 0 1px var(--ink); }
 .fuelform__more > summary {
   cursor: pointer;
   font: 600 0.9375rem/1.2 var(--display);
@@ -1711,6 +1723,7 @@ p.notice, div.notice { margin-bottom: 1rem; }
   gap: 0.5rem;
   padding: 0 var(--gutter) 0.875rem;
 }
+.fuellog__station { flex-basis: 100%; margin: 0; font-weight: 600; }
 .fuellog__copied { display: grid; gap: 0.25rem; flex-basis: 100%; font-size: 0.875rem; }
 .fuellog__copied input { width: 100%; background: var(--sheet); }
 .fuellog__price, .fuellog__qty, .fuellog__miles { color: var(--ink-2); }

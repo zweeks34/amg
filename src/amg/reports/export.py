@@ -120,11 +120,11 @@ def _cars(conn: sqlite3.Connection) -> str:
 
 def _fuel(conn: sqlite3.Connection) -> str:
     columns = ("Car", "Date", "Odometer", "Energy", "Quantity", "Unit", "Cost", "Full", "Missed one before", "Place",
-               "Note")
+               "Station", "Note")
     rows = [[csvs.text(fill["car_name"]), fill["filled_on"], str(fill["odometer"]), fill["energy"].title(),
              csvs.number(fill["quantity"]), "kWh" if fill["energy"] == "electric" else "gal",
              csvs.amount(fill["cost_cents"]), _yes(fill["full"]), _yes(fill["missed_before"]),
-             (fill["place"] or "").title(), csvs.text(fill["note"])]
+             (fill["place"] or "").title(), csvs.text(fill["station"]), csvs.text(fill["note"])]
             for fill in reports.fills(conn)]
     return csvs.sheet(columns, rows)
 

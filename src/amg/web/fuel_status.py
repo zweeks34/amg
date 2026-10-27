@@ -105,13 +105,14 @@ _PLACES = {"home": "Home", "public": "Public"}
 
 def copy_words(row, units: Units, stretch: Stretch | None) -> str:
     """A fill on one line, for the clipboard, in the log's own words:
-    'Oct 20, 2026 · 45,210 mi · 10.200 gal · $34.67 ($3.399/gal) · 32.4 mpg · Full tank · Costco on Main'.
+    'Oct 20, 2026 · Shell · 45,210 mi · 10.200 gal · $34.67 ($3.399/gal) · 32.4 mpg · Full tank · Paid inside'.
     A part it hasn't got (a cost, economy) is left out."""
     cost = None
     if row["cost_cents"] is not None:
         cost = f"{money(row['cost_cents'])} ({price_words(row['cost_cents'] / row['quantity'], units)})"
     parts = [
         day_words(row["filled_on"]),
+        row["station"],
         f"{row['odometer']:,} mi",
         quantity_words(row["quantity"], units),
         cost,
@@ -264,5 +265,6 @@ def log_rows(state: FuelStatus) -> list[dict]:
             "unusual": row["id"] in flagged,
             "place": _PLACES.get(row["place"] or ""),
             "note": row["note"],
+            "station": row["station"],
         })
     return rows

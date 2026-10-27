@@ -22,7 +22,10 @@ from .templating import render
 
 router = APIRouter()
 
-_FIELDS = ("filled_on", "odometer", "quantity", "cost", "full", "missed_before", "place", "note")
+_FIELDS = ("filled_on", "odometer", "quantity", "cost", "full", "missed_before", "place", "note", "station")
+
+# How many of your recent stations the form offers to tap.
+RECENT_STATIONS = 5
 
 
 @router.get("/fuel/new")
@@ -88,6 +91,7 @@ def edit_fill(request: Request, fill_id: int, conn: sqlite3.Connection = Depends
         "missed_before": "1" if row["missed_before"] else "",
         "place": row["place"] or "",
         "note": row["note"],
+        "station": row["station"],
     }
     return _form(request, conn, car, status.UNITS[row["energy"]], raw, errors={}, fill=row)
 
@@ -126,6 +130,7 @@ def _form(request: Request, conn: sqlite3.Connection, car, units: status.Units, 
           fill: sqlite3.Row | None = None, status_code: int = 200) -> Response:
     fills = status.load(conn, car).fills
     rate = engine.home_rate(fills) if units.energy == "electric" else None
+    stations = fuel.stations(conn)
     return render(
         request,
         "fuel_form.html",
@@ -137,8 +142,10 @@ def _form(request: Request, conn: sqlite3.Connection, car, units: status.Units, 
         errors=errors,
         fill=fill,
         latest=vehicles.latest_odometer(conn, car["id"]),
+        stations=stations,
+        recent_stations=stations[:RECENT_STATIONS],
         options={"unit": units.quantity, "rate": rate, "quantity": raw.get("quantity", ""),
-                 "cost": raw.get("cost", ""), "place": raw.get("place", "")},
+                 "cost": raw.get("cost", ""), "place": raw.get("place", ""), "station": raw.get("station", "")},
     )
 
 
@@ -189,5 +196,6 @@ def _read(conn: sqlite3.Connection, vehicle_id: int, units: status.Units, raw: d
         missed_before=raw.get("missed_before") == "1",
         place=place,
         note=raw.get("note", ""),
+        station=" ".join(raw.get("station", "").split()),
     )
     return fill, errors

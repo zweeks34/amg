@@ -63,6 +63,7 @@
       </span>
       </summary>
       <div class="fuellog__actions" x-data='copyLine({{ row.line | tojson }})'>
+        {% if row.station %}<p class="fuellog__station">At {{ row.station }}</p>{% endif %}
         <a class="btn btn--secondary" href="/fuel/{{ row.id }}/edit" aria-label="Edit the {{ row.fill }} of {{ row.when }}">Edit</a>
         <button class="btn btn--secondary" type="button" @click="copy()" aria-label="Copy the {{ row.fill }} of {{ row.when }}"
                 x-text="copied ? 'Copied' : 'Copy'">Copy</button>

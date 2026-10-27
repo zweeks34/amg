@@ -38,6 +38,7 @@ class FillInput:
     missed_before: bool = False     # a fill since the last one logged wasn't logged
     place: str | None = None        # home or public; charges only
     note: str = ""
+    station: str = ""               # where: "Shell", "Wawa on Route 9"
 
 
 def _check(fill: FillInput) -> None:
@@ -51,7 +52,7 @@ def _check(fill: FillInput) -> None:
 
 def _values(fill: FillInput) -> tuple:
     return (fill.filled_on, fill.odometer, fill.energy, fill.quantity, fill.cost_cents, int(fill.full),
-            int(fill.missed_before), fill.place, fill.note)
+            int(fill.missed_before), fill.place, fill.note, fill.station)
 
 
 def create(conn: sqlite3.Connection, vehicle_id: int, fill: FillInput) -> int:
@@ -59,7 +60,7 @@ def create(conn: sqlite3.Connection, vehicle_id: int, fill: FillInput) -> int:
     now = now_iso()
     cursor = conn.execute(
         "INSERT INTO fuel_logs (filled_on, odometer, energy, quantity, cost_cents, full, missed_before, place, note,"
-        " vehicle_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " station, vehicle_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (*_values(fill), vehicle_id, now, now),
     )
     return cursor.lastrowid  # type: ignore[return-value]
@@ -69,7 +70,7 @@ def update(conn: sqlite3.Connection, fill_id: int, fill: FillInput) -> None:
     _check(fill)
     conn.execute(
         "UPDATE fuel_logs SET filled_on = ?, odometer = ?, energy = ?, quantity = ?, cost_cents = ?, full = ?,"
-        " missed_before = ?, place = ?, note = ?, updated_at = ? WHERE id = ?",
+        " missed_before = ?, place = ?, note = ?, station = ?, updated_at = ? WHERE id = ?",
         (*_values(fill), now_iso(), fill_id),
     )
 
@@ -95,6 +96,16 @@ def last(conn: sqlite3.Connection, vehicle_id: int) -> sqlite3.Row | None:
         "SELECT * FROM fuel_logs WHERE vehicle_id = ? ORDER BY filled_on DESC, odometer DESC, id DESC LIMIT 1",
         (vehicle_id,),
     ).fetchone()
+
+
+def stations(conn: sqlite3.Connection) -> list[str]:
+    """Every station on the log, any car's, most recently used first; each once whatever its capitals, as it was
+    last typed."""
+    return [row["station"] for row in conn.execute(
+        "SELECT station FROM (SELECT station, filled_on, id, row_number() OVER"
+        " (PARTITION BY station COLLATE NOCASE ORDER BY filled_on DESC, id DESC) AS n"
+        " FROM fuel_logs WHERE station <> '') WHERE n = 1 ORDER BY filled_on DESC, id DESC"
+    )]
 
 
 def cars_by_last_fill(conn: sqlite3.Connection) -> list[sqlite3.Row]:
