@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from ..engine.odometer import Odometer
-from ..engine.schedule import Car, Item, ItemStatus, Occurrence, Service, assess
+from ..engine.schedule import Car, Item, ItemStatus, Occurrence, Service, assess, used
 from ..repo import odometer as readings
 from ..repo import schedules, services
 from .service_icons import icon_for
@@ -152,6 +152,7 @@ def next_up(status: CarStatus, limit: int = NEXT_UP, costs: dict[int, int] | Non
             "attest_url": attest_url(status.vehicle_id, item_status.item.id) if occurrence.status == "overdue" else None,
             "cost": (costs or {}).get(item_status.item.id),
             "icon": _icon(status, item_status.item.id),
+            "used": used(occurrence, status.today, status.today_miles),
         }
         for item_status, occurrence in chosen
     ]

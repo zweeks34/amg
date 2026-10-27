@@ -80,15 +80,15 @@ SAMPLE_CHART = {
 
 SAMPLE_NEXT_UP = [
     {"name": "Tire rotation", "action": "perform", "status": "overdue", "when": "4,300 mi overdue", "cost": 2_500,
-     "icon": "rotation"},
+     "icon": "rotation", "used": 1.0},
     {"name": "Engine air filter", "action": "replace", "status": "overdue", "when": "4,300 mi overdue", "cost": 4_500,
-     "icon": "air-filter"},
+     "icon": "air-filter", "used": 1.0},
     {"name": "Oil and filter", "action": "replace", "status": "due", "when": "in 700 mi · by Nov 12", "cost": 8_999,
-     "icon": "oil-change"},
+     "icon": "oil-change", "used": 0.86},
     {"name": "Brake inspection", "action": "inspect", "status": "later", "when": "in 5,700 mi · ~Apr", "cost": 3_000,
-     "icon": "brake"},
+     "icon": "brake", "used": 0.24},
     {"name": "Cabin air filter", "action": "replace", "status": "later", "when": "in 10,700 mi · ~Jul", "cost": 3_800,
-     "icon": "cabin-filter"},
+     "icon": "cabin-filter", "used": 0.29},
 ]
 
 

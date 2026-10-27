@@ -82,6 +82,8 @@ class Occurrence:
     due_miles: int | None     # the odometer when it fell (or falls) due, where it can be told
     service: Service | None = None
     late: bool = False
+    from_day: date | None = None    # where its interval was counted from: the last time it was done, a missed due
+    from_miles: float | None = None  # point, or the start
 
 
 @dataclass
@@ -190,12 +192,13 @@ def walk(item: Item, services: Iterable[Service], odometer: Odometer, car: Car, 
         if service and (next_due_day is None or service.day < next_due_day):
             stretch = ((next_due_day or due_day) - due_day).days or (due_day - base_day).days
             late = service.day > due_day + timedelta(days=stretch * LATE_TOLERANCE)
-            status.occurrences.append(Occurrence("done", due_day, due_miles, service, late))
+            status.occurrences.append(Occurrence("done", due_day, due_miles, service, late, base_day, base_miles))
             base_day = service.day
             base_miles = service.miles if service.miles is not None else (odometer.miles_on(service.day) or base_miles)
         elif next_due_day is not None and next_due_day <= today:
             before = car.acquired_on is not None and due_day < car.acquired_on
-            status.occurrences.append(Occurrence("before" if before else "gap", due_day, due_miles))
+            status.occurrences.append(Occurrence("before" if before else "gap", due_day, due_miles,
+                                                 from_day=base_day, from_miles=base_miles))
             base_day, base_miles = due_day, (due_miles if due_miles is not None else base_miles)
         else:
             if due_day <= today:
@@ -207,7 +210,7 @@ def walk(item: Item, services: Iterable[Service], odometer: Odometer, car: Car, 
                 state = "later"
             if due_day > until and status.current is not None:
                 break   # far enough: the one to act on is already in hand
-            status.occurrences.append(Occurrence(state, due_day, due_miles))
+            status.occurrences.append(Occurrence(state, due_day, due_miles, from_day=base_day, from_miles=base_miles))
             if due_day > until:
                 break
             base_day, base_miles = due_day, (due_miles if due_miles is not None else base_miles)
@@ -215,6 +218,25 @@ def walk(item: Item, services: Iterable[Service], odometer: Odometer, car: Car, 
         if next_due_day is None:
             break   # a one-off item, or one the odometer can't place again
     return status
+
+
+def used(occurrence: Occurrence, today: date, today_miles: float | None) -> float | None:
+    """How much of the interval up to an occurrence has gone by, 0 to 1: by days, and by miles where both ends and
+    today's are known, whichever is further along (as "whichever comes first" falls due). None when it can't be
+    told."""
+    if occurrence.from_day is None:
+        return None
+    shares = []
+    days = (occurrence.due_day - occurrence.from_day).days
+    if days > 0:
+        shares.append((today - occurrence.from_day).days / days)
+    if None not in (occurrence.due_miles, occurrence.from_miles, today_miles):
+        miles = occurrence.due_miles - occurrence.from_miles
+        if miles > 0:
+            shares.append((today_miles - occurrence.from_miles) / miles)
+    if not shares:
+        return None
+    return max(0.0, min(1.0, max(shares)))
 
 
 def assess(items: Iterable[Item], services: Iterable[Service], odometer: Odometer, car: Car, today: date,

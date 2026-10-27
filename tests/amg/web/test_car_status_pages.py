@@ -121,3 +121,16 @@ def test_an_old_reading_is_asked_for_on_the_car_page(signed_in, conn, steady):
     assert 'href="#add-reading"' in page and 'id="add-reading"' in page
     signed_in.post(f"/vehicles/{car}/odometer", data={"read_on": date.today().isoformat(), "miles": "30100"})
     assert "The last odometer reading was" not in signed_in.get(f"/vehicles/{car}").text
+
+
+def test_next_up_shows_how_much_of_each_interval_has_gone(signed_in, conn, steady):
+    car, _, _ = steady
+    page = signed_in.get(f"/vehicles/{car}").text
+    assert '<span class="nextup__gauge nextup__gauge--overdue" style="--used: 100.0%" aria-hidden="true"></span>' in page
+    assert "100% of the interval gone." in page                                        # read out
+    rows = status.next_up(status.load(conn, vehicles.get(conn, car)))
+    later = [row for row in rows if row["status"] == "later"]
+    assert later and all(0 <= row["used"] < 1 for row in later)
+    first = later[0]
+    assert f'nextup__gauge--later" style="--used: {first["used"] * 100:.1f}%"' in page
+    assert f'{round(first["used"] * 100)}% of the interval gone.' in page

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from amg.engine.odometer import Odometer
-from amg.engine.schedule import Car, Item, Service, assess, meets, walk
+from amg.engine.schedule import Car, Item, Occurrence, Service, assess, meets, used, walk
 
 NEW = date(2020, 1, 1)
 
@@ -262,3 +262,39 @@ def test_only_items_for_how_the_car_is_driven_are_judged():
     severe = assess(items, [], steady(), Car(in_service=NEW, severe=True), today=day(100))
     assert [s.item.id for s in normal] == [1, 2]
     assert [s.item.id for s in severe] == [1, 3]
+
+
+# ---------- How much of an interval has gone by ----------
+
+
+def test_each_occurrence_knows_where_its_interval_was_counted_from():
+    odo = steady()                                                       # 30 mi a day
+    oil = item(miles=5000, months=12)
+    result = walk(oil, [service(150)], odo, CAR, today=day(200), until=day(400))
+    done, current = result.occurrences[0], result.current
+    assert (done.status, done.from_day, done.from_miles) == ("done", NEW, 0)          # from new
+    assert (current.from_day, current.from_miles) == (day(150), 4500)                 # from the service
+
+
+def test_used_by_miles_when_they_come_first():
+    odo = steady()                                                       # 5,000 mi in about 167 days, before 12 months
+    oil = item(miles=5000, months=12)
+    current = walk(oil, [service(150)], odo, CAR, today=day(200), until=day(400)).current
+    assert used(current, day(200), 6000) == 0.3                         # 1,500 of 5,000 mi; by days, under that
+
+
+def test_used_by_months_when_the_car_sits():
+    odo = steady(per_day=5)                                              # 1,825 mi a year: months come first
+    oil = item(miles=5000, months=12)
+    current = walk(oil, [], odo, CAR, today=day(273), until=day(800)).current
+    assert current.due_day == date(2021, 1, 1)
+    assert round(used(current, day(273), 1365), 3) == round(273 / 366, 3)   # 273 of 366 days; miles only 27%
+
+
+def test_overdue_is_all_of_it_and_untold_is_none():
+    odo = steady()
+    oil = item(miles=5000)
+    current = walk(oil, [], odo, CAR, today=day(400), until=day(800)).current
+    assert current.status == "overdue" and used(current, day(400), 12_000) == 1.0
+    assert used(Occurrence("later", day(10), None), day(5), 150) is None              # no start: can't be told
+    assert used(Occurrence("later", day(400), None, from_day=day(100)), day(250), None) == 0.5   # days alone

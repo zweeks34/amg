@@ -78,6 +78,11 @@
     <span class="nextup__name">{% if item.icon %}{{ icon(item.icon) }}{% endif %}
       {%- if item.action %}<span class="vh">{{ action_words[item.action] }}: </span>{% endif %}{{ item.name }}</span>
     <span class="nextup__when">{{ item.when }}</span>
+    {%- if item.used is defined and item.used is not none %}
+    {#- How much of its interval has gone by, like an oil-life meter, in the job's status colour. #}
+    <span class="nextup__gauge nextup__gauge--{{ item.status }}" style="--used: {{ '%.1f' % (item.used * 100) }}%" aria-hidden="true"></span>
+    <span class="vh">{{ (item.used * 100) | round | int }}% of the interval gone.</span>
+    {%- endif %}
     <span class="nextup__side">
       {%- if item.cost is defined and item.cost is not none %}
       <span class="nextup__cost" aria-label="Estimated cost {{ item.cost | dollars }}">~{{ item.cost | dollars }}</span>
