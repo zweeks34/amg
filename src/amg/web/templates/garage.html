@@ -2,6 +2,7 @@
 {% from "_avatar.html" import avatar %}
 {% from "_logo.html" import logo, named %}
 {% from "_icons.html" import icon %}
+{% from "_odometer.html" import odometer %}
 {% block title %}Garage{% endblock %}
 
 {% block content %}
@@ -40,7 +41,7 @@
       <dl class="carcard__facts">
         <div>
           <dt>Odometer</dt>
-          <dd class="mono">{% if car.odometer %}{{ car.odometer.miles | miles }} <span class="muted">on {{ car.odometer.read_on }}</span>{% else %}<span class="muted">No readings yet</span>{% endif %}</dd>
+          <dd class="mono">{% if car.odometer %}{{ odometer(car.odometer.miles) }} <span class="muted">on {{ car.odometer.read_on }}</span>{% else %}<span class="muted">No readings yet</span>{% endif %}</dd>
         </div>
         <div>
           <dt>Last service</dt>

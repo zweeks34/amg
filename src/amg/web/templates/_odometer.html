@@ -1,0 +1,13 @@
+{#- An odometer reading drawn as the car's dial: a drum for each digit, each a strip of 0 to 9 (twice over) turned
+    to its digit. On load they roll up from zero, the two right-hand drums a whole turn more, as a real dial's do;
+    with motion turned down, they're simply there. Screen readers read the figure. -#}
+{% macro odometer(miles) -%}
+{%- set digits = "{:,}".format(miles) -%}
+<span class="odo"><span class="vh">{{ miles | miles }}</span><span class="odo__dial" aria-hidden="true">
+  {%- for ch in digits -%}
+  {%- if ch == "," %}<span class="odo__sep">,</span>
+  {%- else %}<span class="odo__drum" style="--d: {{ ch | int + (10 if loop.revindex <= 2 else 0) }}; --i: {{ loop.index }}"><span class="odo__strip">01234567890123456789</span></span>
+  {%- endif -%}
+  {%- endfor -%}
+</span><span class="odo__unit" aria-hidden="true">mi</span></span>
+{%- endmacro %}

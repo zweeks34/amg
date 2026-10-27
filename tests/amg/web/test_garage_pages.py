@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -223,3 +224,16 @@ def test_service_types_page_and_custom_type(signed_in, conn):
 def test_custom_type_needs_a_known_category(signed_in):
     response = signed_in.post("/service-types", data={"name": "X", "category": "Nope"})
     assert response.status_code == 422
+
+
+def test_the_odometer_is_drawn_as_its_dial(signed_in, conn, car):
+    from amg.repo import odometer
+
+    odometer.add(conn, car, "2026-10-01", 112_345)
+    for page in (signed_in.get("/").text, signed_in.get(f"/vehicles/{car}").text):
+        dial = page.split('<span class="odo">', 1)[1].split('<span class="odo__unit"', 1)[0]
+        assert dial.startswith('<span class="vh">112,345 mi</span><span class="odo__dial" aria-hidden="true">')
+        # a drum a digit, each turned to it; the two right-hand ones a whole turn more
+        drums = [int(d) for d in re.findall(r'--d: (\d+);', dial)]
+        assert drums == [1, 1, 2, 3, 14, 15] and dial.count('<span class="odo__sep">,</span>') == 1
+        assert dial.count('<span class="odo__strip">01234567890123456789</span>') == 6

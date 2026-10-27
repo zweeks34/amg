@@ -4,6 +4,7 @@
 {% from "_avatar.html" import avatar %}
 {% from "_logo.html" import logo, named %}
 {% from "_icons.html" import icon %}
+{% from "_odometer.html" import odometer %}
 {% from "_schedule_editor.html" import legend as action_key %}
 {% from "_renewal_fields.html" import renewal_fields %}
 {% from "_issues.html" import issue_row, closed_row %}
@@ -96,7 +97,7 @@
     {% if car.plate %}<div><dt>Plate</dt><dd class="mono">{{ car.plate }}</dd></div>{% endif %}
     <div>
       <dt>Odometer</dt>
-      <dd class="mono">{% if latest %}{{ latest.miles | miles }} <span class="muted">on {{ latest.read_on }}</span>{% else %}<span class="muted">No readings yet</span>{% endif %}</dd>
+      <dd class="mono">{% if latest %}{{ odometer(latest.miles) }} <span class="muted">on {{ latest.read_on }}</span>{% else %}<span class="muted">No readings yet</span>{% endif %}</dd>
     </div>
     {% if state.today_miles is not none and latest and latest.read_on != state.today.isoformat() %}
     <div><dt>Today, estimated</dt><dd class="mono">~{{ state.today_miles | miles }}</dd></div>
