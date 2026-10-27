@@ -711,7 +711,7 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
    comma and "mi" in plain ink beside them. Each drum shows one line of its 0–9 strip (twice over): the strip
    stands at its digit, and rolls up to it from zero on load. Reduced motion stops the roll (Motion, below). */
 .odo { display: inline-flex; align-items: center; gap: 0.3em; vertical-align: middle; }
-.odo__dial { display: inline-flex; align-items: flex-end; gap: 1px; }
+.odo__dial { display: inline-flex; align-items: flex-end; gap: 2px; font-size: 1.25em; }
 .odo__drum {
   --lh: 1.4em;
   position: relative;
@@ -719,7 +719,7 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
   height: var(--lh);
   overflow: hidden;
   padding: 0 0.12em;
-  border-radius: 2px;
+  border-radius: 3px;
   background: var(--ink);
   color: var(--on-ink);
   font: 500 1em/var(--lh) var(--mono);
