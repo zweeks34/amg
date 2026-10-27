@@ -28,7 +28,8 @@ def test_the_car_page_shows_next_up_missed_and_the_chart(signed_in, steady):
     car, _, visits = steady
     page = signed_in.get(f"/vehicles/{car}").text
     assert "Next up" in page and "Cabin air filter" in page and "mi overdue" in page
-    assert "1 missed in the past" in page and "Today, estimated" in page and "~30,000 mi" in page
+    assert "1 missed in the past" in page and "Today, estimated" in page
+    assert '~<span class="odo"><span class="vh">30,000 mi</span>' in page       # today's guess, on the drums too
     assert 'class="ichart"' in page and f'href="/services/{visits[190]}"' in page
     assert "Mark as done" in page
 

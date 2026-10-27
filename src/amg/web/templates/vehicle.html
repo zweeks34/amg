@@ -100,7 +100,7 @@
       <dd class="mono">{% if latest %}{{ odometer(latest.miles) }} <span class="muted">on {{ latest.read_on }}</span>{% else %}<span class="muted">No readings yet</span>{% endif %}</dd>
     </div>
     {% if state.today_miles is not none and latest and latest.read_on != state.today.isoformat() %}
-    <div><dt>Today, estimated</dt><dd class="mono">~{{ state.today_miles | miles }}</dd></div>
+    <div><dt>Today, estimated</dt><dd class="mono">~{{ odometer(state.today_miles) }}</dd></div>
     {% endif %}
   </dl>
   <div class="pagehead__actions">
