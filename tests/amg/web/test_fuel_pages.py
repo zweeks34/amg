@@ -285,3 +285,26 @@ def test_the_readings_list_folds_after_six(signed_in, conn, car):
     page = signed_in.get(f"/vehicles/{car}").text
     assert "<summary>1 older</summary>" in page
     assert page.index("31,510 mi") < page.index("<summary>1 older</summary>") < page.index("30,000 mi")
+
+
+def test_the_garage_card_draws_the_last_tanks_as_a_line(signed_in, conn, car):
+    from amg.web import fuel_status
+
+    for day, miles, gallons in (("2026-09-01", 45_000, 10.0), ("2026-09-08", 45_300, 10.0),     # 30 mpg
+                                ("2026-09-15", 45_640, 10.0)):                                 # 34 mpg
+        fuel.create(conn, car, fuel.FillInput(day, miles, "gas", gallons))
+    assert fuel_status.sparkline(fuel_status.load(conn, vehicles.get(conn, car))) is None      # two tanks: not yet
+    assert "spark__line" not in signed_in.get("/").text
+    fuel.create(conn, car, fuel.FillInput("2026-09-22", 45_960, "gas", 10.0))                  # 32 mpg
+    line = fuel_status.sparkline(fuel_status.load(conn, vehicles.get(conn, car)))
+    # 30, 34 and 32 mpg, evenly spaced; the average 32.0 (960 mi on 30 gal); 0.6 mpg kept off each edge
+    assert [(p["x"], p["y"]) for p in line["points"]] == [(0, 88.46), (50, 11.54), (100, 50.0)]
+    assert line["average"] == 50.0 and (line["value"], line["unit"]) == ("32.0", "mpg")
+    assert line["words"] == "MPG, last 3 tanks: from 30.0 mpg to 32.0 mpg, average 32.0 mpg"
+    page = signed_in.get("/").text
+    assert '<dt>Economy</dt>' in page and 'aria-label="MPG, last 3 tanks: from 30.0 mpg to 32.0 mpg' in page
+    assert '<polyline points="0.0,88.46 50.0,11.54 100.0,50.0 "/>' in page and 'd="M100.0,50.0h0"' in page
+
+    for n in range(4, 16):                                                                     # only the last 12
+        fuel.create(conn, car, fuel.FillInput(f"2026-10-{n:02d}", 45_960 + n * 300, "gas", 10.0))
+    assert len(fuel_status.sparkline(fuel_status.load(conn, vehicles.get(conn, car)))["points"]) == 12

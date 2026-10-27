@@ -807,6 +807,21 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
 .withlogo__text { min-width: 0; }
 .followup__when .withlogo, .carcard__facts .withlogo { gap: 0.375rem; vertical-align: middle; }
 
+/* A car's recent economy on its card: a line in ink, the newest tank a dot, the average dashed in steel. Drawn in a
+   0–100 box stretched to 72 x 20; strokes keep their width whatever the stretch. */
+.spark { display: flex; align-items: center; gap: 0.625rem; }
+.spark__line { width: 4.5rem; height: 1.25rem; overflow: visible; }
+.spark__line polyline {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.spark__avg { stroke: var(--steel); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.spark__dot { stroke: var(--ink); stroke-width: 6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+
 /* Stations and shops */
 .places { margin: 0; padding: 0; list-style: none; }
 .place {

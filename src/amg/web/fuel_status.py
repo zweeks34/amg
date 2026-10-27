@@ -198,6 +198,38 @@ def trend(state: FuelStatus) -> dict | None:
     return chart(points, engine.economy(found, since=since), span, state.units, per)  # type: ignore[arg-type]
 
 
+SPARK_TANKS = 12       # the garage card's line: this many recent tanks (or charges)
+
+
+def sparkline(state: FuelStatus, tanks: int = SPARK_TANKS) -> dict | None:
+    """A car's recent economy for its garage card: its last few measured tanks, oldest first, evenly spaced, as
+    0–100 points for the SVG, with their average (miles over quantity) as a line. None with fewer than three."""
+    found = state.stretches[-tanks:]
+    if len(found) < 3:
+        return None
+    units = state.units
+    values = [stretch.economy for stretch in found]
+    average = engine.economy(found)
+    low, high = min(values + [average]), max(values + [average])
+    pad = (high - low) * 0.15 or 1.0        # off the edges; a steady car's line flat in the middle
+
+    def y(value: float) -> float:
+        return round(100 - (value - (low - pad)) / ((high + pad) - (low - pad)) * 100, 2)
+
+    points = [{"x": round(i / (len(found) - 1) * 100, 2), "y": y(value)} for i, value in enumerate(values)]
+    last = economy_words(values[-1], units)
+    per = "tanks" if units.quantity == "gal" else "charges"
+    return {
+        "points": points,
+        "last": points[-1],
+        "average": y(average),
+        "value": last.split(" ", 1)[0],
+        "unit": last.split(" ", 1)[1],
+        "words": f"{units.economy_name}, last {len(found)} {per}: from {economy_words(values[0], units)} to {last}, "
+                 f"average {economy_words(average, units)}",
+    }
+
+
 def chart(points: list[tuple[date, float, str, bool]], average: float, span: str, units: Units, per: str) -> dict:
     """An economy trend for the SVG, from (day, economy, label, unusual) points oldest first: positions as 0–100,
     gridlines at round numbers, and the average as a line. ``per`` is what each dot is: a tank, a charge, a month."""

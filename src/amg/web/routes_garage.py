@@ -10,6 +10,7 @@ from starlette.responses import Response
 from ..repo import issues, recalls, schedules, vehicles
 from . import budget
 from . import follow_ups as follow_up_words
+from . import fuel_status
 from . import recalls as recall_words
 from . import renewals as renewal_words
 from . import running_cost
@@ -34,6 +35,7 @@ def garage(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Re
         car["warranties"] = len(warranty_words.load(conn, car).ending)
         car["recalls"] = [recall_words.component(row["component"]) for row in recalls.open_for(conn, car["id"])]
         car["running"] = running_cost.figure(running_cost.load(conn, car))
+        car["economy"] = fuel_status.sparkline(fuel_status.load(conn, car))
     return render(
         request,
         "garage.html",

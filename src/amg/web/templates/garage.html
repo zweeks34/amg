@@ -58,6 +58,20 @@
           <dd class="mono">{{ car.running.value }} <span class="muted">{{ car.running.unit }}</span></dd>
         </div>
         {% endif %}
+        {% if car.economy %}
+        {#- The last tank's figure, and the last few as a line: the newest a dot, their average dashed. -#}
+        {% set e = car.economy %}
+        <div>
+          <dt>Economy</dt>
+          <dd class="spark"><span class="mono">{{ e.value }} <span class="muted">{{ e.unit }}</span></span>
+            <svg class="spark__line" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="{{ e.words }}">
+              <title>{{ e.words }}</title>
+              <line class="spark__avg" x1="0" x2="100" y1="{{ e.average }}" y2="{{ e.average }}"/>
+              <polyline points="{% for p in e.points %}{{ p.x }},{{ p.y }} {% endfor %}"/>
+              <path class="spark__dot" d="M{{ e.last.x }},{{ e.last.y }}h0"/>
+            </svg></dd>
+        </div>
+        {% endif %}
       </dl>
       {% set s = car.schedule %}
       {% if s or car.renewals or car.recommended or car.recalls or car.issues or car.warranties %}
