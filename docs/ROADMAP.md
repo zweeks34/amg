@@ -978,6 +978,70 @@ expect: the year of a big repair stands out. *That's yours.*
 
 ---
 
+## Phase 16 — Logos, icons and gauges
+
+**For:** a little eye candy that also says something: whose pump or shop it
+was, what kind of job is next, how close it is, and how the car's been
+running, at a glance. (Added 2026-10-26.)
+
+- [x] A **station** on each fill-up or charge: the form offers your five most recent as one-tap chips with their logos (pumps for a fill-up, chargers for a charge), and every one you've used as typing suggestions. The copied line names it; `fuel.csv` has a Station column
+- [x] **Logos** for stations and shops: over 100 brands recognised by name (fuel, charging, shop chains, and car makes for dealers), each one's icon from its own website, or DuckDuckGo's icon service when the site turns scripts away. Shown in the fuel log and the chips, service history, a service's heading, the receipts, the History report and the garage card's Last service; your own work gets a wrench. A letter until the icon loads, or where there's none
+- [x] **Stations and shops** (footer): each one, its visits, and where its logo comes from; give it its own website, show its letter instead, or fetch its icon again. `places.csv` in Download your data
+- [x] **Service icons** (`static/icons.svg`, 30, drawn in the text's ink): an oil change is a drop and a filter, spark plugs a spark plug; the dashboard's warning-light shapes where there is one. Before each job's name in Next up, the interval chart, the schedule page, the garage card, the shop sheet, and on the service history's chips and a service's lines
+- [x] **Interval gauges** in Next up: how much of each job's interval has gone by, by miles or months, whichever is further along; steel, then safety yellow when due soon, signal red and full when overdue
+- [x] The **odometer as drums** on the garage card and the car page, rolling up to the reading on load; still with motion turned down
+- [x] An **economy sparkline** on each garage card with three or more measured tanks: the last tank's figure and a line of the last 12, the average dashed
+
+**Decisions:**
+
+- **AMG's own paint doesn't change.** Green, yellow and red still mean
+  status only, so the icons are drawn in ink and the gauges are coloured by
+  status. Brand colours appear only inside a brand's own icon, on white in
+  both themes, since brands draw their icons for white.
+- **Icons are fetched, not shipped.** No brand's logo is in the code: the
+  server fetches each site's own icon once and keeps a 96px copy, which
+  isn't your data and isn't in Download your data. Only HTTPS, never an
+  address on the home network, and only a picture is kept. The icon
+  service is told the website's name and nothing else.
+- **Pages never wait on the internet.** A logo is its name's letter with
+  the icon over it from `/logos/<site>.png`, which fetches a site the first
+  time it's asked for and only for a recognised brand or a website you gave.
+  A site with no icon is asked again after 30 days.
+- **A wrong match is yours to put right**, on Stations and shops. Words
+  that are also places or everyday words ("Gulf", "Irving") count only as
+  the whole name, so "Gulf Coast Auto Repair" isn't Gulf.
+- **The estimate stays in words.** The drums show the last reading, as a
+  dial does; today's estimate isn't a reading.
+
+**Data owned:** `fuel_logs.station` (migration 0022); `places`, what you've
+said about a station or shop by name, and `site_icons`, each website's icon
+as fetched (0023).
+
+**Can go wrong:** a site changes its icon → the kept one stays until Fetch
+again. A site blocks scripts and the icon service has nothing → its letter
+(BP and Pep Boys, today). A brand recognised in the wrong name → Show the
+letter instead. A logo's background clashing in dark mode → it sits on white,
+by design. A made-up or mistyped tank → the sparkline shows it as the fuel
+page does, and the log flags it unusual.
+
+**Tests pin:** brand matching on whole words, chains before makes, and
+whole-name words; the fetch with a pretend internet (the home page's icons
+ranked, a "200" web page refused, a refusal falling back to the service, a
+dead site tried with www, the time budget, an icon written into the page,
+ICO and SVG made 96px squares, home-network and plain-HTTP addresses
+refused); the logo route (fetched once, kept, "not changed" answers, a miss
+retried after 30 days, only known sites, behind the login); Stations and
+shops; every catalogue type and category mapped to a symbol `icons.svg`
+draws; the gauges' share worked by hand (miles first, months first, overdue,
+untold); the drums' digits; the sparkline's points for three hand-worked
+tanks; and the station on the form, the log, the copied line and `fuel.csv`.
+
+**Done when:** on the server, your next fill-up names its station and the
+log shows its logo, and Stations and shops shows your shops' logos (with your
+local garage given its website). *That's yours.*
+
+---
+
 ## Parked
 
 - Mathpix as a third reader for the worst scans — credentials are in `.env`, but
