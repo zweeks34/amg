@@ -987,6 +987,7 @@ running, at a glance. (Added 2026-10-26.)
 - [x] A **station** on each fill-up or charge: the form offers your five most recent as one-tap chips with their logos (pumps for a fill-up, chargers for a charge), and every one you've used as typing suggestions. The copied line names it; `fuel.csv` has a Station column
 - [x] **Logos** for stations and shops: over 100 brands recognised by name (fuel, charging, shop chains, and car makes for dealers), each one's icon from its own website, or DuckDuckGo's icon service when the site turns scripts away. Shown in the fuel log and the chips, service history, a service's heading, the receipts, the History report and the garage card's Last service; your own work gets a wrench. A letter until the icon loads, or where there's none
 - [x] **Stations and shops** (footer): each one, its visits, and where its logo comes from; give it its own website, show its letter instead, or fetch its icon again. `places.csv` in Download your data
+- [x] **Your own logos** (added after the phase shipped, 2026-10-26): on Stations and shops, upload a logo (PNG, JPG or GIF) for a station or shop, kept like a car's photo. On a name AMG recognises it's the brand's, used for every station or shop of that brand; on any other name, or one you gave its own website, it's that name's. **Add a station or shop** sets one up with its logo or website before your first visit, listed under Not visited yet until you've been. In backups, and in Download your data's `logos/`
 - [x] **Service icons** (`static/icons.svg`, 30, drawn in the text's ink): an oil change is a drop and a filter, spark plugs a spark plug; the dashboard's warning-light shapes where there is one. Before each job's name in Next up, the interval chart, the schedule page, the garage card, the shop sheet, and on the service history's chips and a service's lines
 - [x] **Interval gauges** in Next up: how much of each job's interval has gone by, by miles or months, whichever is further along; steel, then safety yellow when due soon, signal red and full when overdue
 - [x] The **odometer as drums** on the garage card and the car page, rolling up to the reading on load; still with motion turned down
@@ -1015,7 +1016,9 @@ running, at a glance. (Added 2026-10-26.)
 
 **Data owned:** `fuel_logs.station` (migration 0022); `places`, what you've
 said about a station or shop by name, and `site_icons`, each website's icon
-as fetched (0023).
+as fetched (0023); your logos, `places.logo_document_id` for a name and
+`brand_logos` for a brand, and `places.added` for one set up before a visit
+(0024).
 
 **Can go wrong:** a site changes its icon → the kept one stays until Fetch
 again. A site blocks scripts and the icon service has nothing → its letter

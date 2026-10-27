@@ -43,6 +43,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-25 | [Frame a car's photo in its avatar](2026-10-25-car-photo-framing.md) | Phase 1 | `0dc0765` |
 | 2026-10-25 | [The car avatar as a rounded rectangle](2026-10-25-avatar-rectangle.md) | Phase 1 | `e484c30` |
 | 2026-10-26 | [Logos, service icons, gauges, a rolling odometer and economy sparklines](2026-10-26-logos-icons-gauges.md) | Phase 16 | `447039a`…`83a58f0` |
+| 2026-10-26 | [Upload your own logos for stations and shops](2026-10-26-uploaded-logos.md) | Phase 16 | `fffdca7` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
