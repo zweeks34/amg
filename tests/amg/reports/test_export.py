@@ -11,7 +11,8 @@ import receipt_fixtures as fx  # tests/ is on pytest's path
 import report_fixtures as rf
 
 from amg.reports import csvs, export
-from amg.repo import documents, fuel, issues, odometer, prices, receipts, renewals, schedules, specs, vehicles, warranties
+from amg.repo import (documents, fuel, issues, logos, odometer, prices, receipts, renewals, schedules, specs, vehicles,
+                      warranties)
 from amg.repo.issues import IssueInput
 from amg.repo.renewals import RenewalInput
 from amg.repo.schedules import ItemInput
@@ -75,6 +76,9 @@ def test_everything_is_there(conn, tmp_path):
                                                    whole_car=True))
     warranties.create(conn, outback, WarrantyInput("Lifetime alignment", "2026-09-01", codes=["wheel_alignment"],
                                                    event_id=inspected, details="Card in the glovebox"))
+    logos.set_place(conn, "Bob's", "bobsgarage.com")
+    logos.set_place(conn, "Midas", letter_only=True)
+    logos.keep(conn, "bobsgarage.com", rf.image_bytes("PNG"), "https://bobsgarage.com/favicon.ico")   # not yours
 
     zf, missing = build(conn, tmp_path)
     names = sorted(zf.namelist())
@@ -82,7 +86,7 @@ def test_everything_is_there(conn, tmp_path):
         "README.txt", "cars.csv", "fuel.csv", "inspections-and-registration.csv", "issues.csv",
         "manuals/2016 Outback manual.pdf", "manuals/door sticker.pdf",
         "odometer.csv", "photos/2026-08-30 Oil spot under the engine - Outback.jpg",
-        "photos/Outback, car photo.png", "prices.csv", "recalls.csv",
+        "photos/Outback, car photo.png", "places.csv", "prices.csv", "recalls.csv",
         "receipts/2015-11-02 Bob's - Old Tacoma.pdf",
         "receipts/2019-03-04 Midas - Outback (2).pdf",
         "receipts/2019-03-04 Midas - Outback.pdf",
@@ -98,6 +102,8 @@ def test_everything_is_there(conn, tmp_path):
     assert cars[0]["VIN"] == "4S4BSANC5G3200001" and cars[0]["Year"] == "2016" and cars[0]["Powertrain"] == "Gas"
     history = sheet(zf, "service-history.csv")
     assert {row["Date"] for row in history} == {"2015-11-02", "2019-03-04", "2020-05-06", "2021-06-01", "2026-09-01"}
+    assert sheet(zf, "places.csv") == [{"Name": "Bob's", "Website": "bobsgarage.com", "Letter instead": "No"},
+                                       {"Name": "Midas", "Website": "", "Letter instead": "Yes"}]
     assert sheet(zf, "fuel.csv")[0] == {
         "Car": "Outback", "Date": "2026-09-01", "Odometer": "92000", "Energy": "Gas", "Quantity": "12.5",
         "Unit": "gal", "Cost": "43.75", "Full": "Yes", "Missed one before": "No", "Place": "",

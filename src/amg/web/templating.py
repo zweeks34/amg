@@ -10,6 +10,7 @@ from starlette.responses import Response
 
 from ..backup import size_label
 from ..repo.documents import fingerprint
+from . import logos
 
 HERE = Path(__file__).parent
 STATIC_DIR = HERE / "static"
@@ -164,6 +165,7 @@ templates.env.globals["file_url"] = file_url
 templates.env.globals["avatar_url"] = avatar_url
 templates.env.globals["frame_style"] = frame_style
 templates.env.globals["initial"] = initial
+templates.env.globals["logo_for"] = logos.logo_for
 templates.env.filters["miles"] = miles
 templates.env.filters["dollars"] = dollars
 templates.env.filters["money"] = money
@@ -171,4 +173,5 @@ templates.env.filters["filesize"] = size_label
 
 
 def render(request: Request, name: str, status_code: int = 200, **context) -> Response:
-    return templates.TemplateResponse(request, name, context, status_code=status_code)
+    with logos.page():          # what you've said about stations and shops, read once for every logo on the page
+        return templates.TemplateResponse(request, name, context, status_code=status_code)

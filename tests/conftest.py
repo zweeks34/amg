@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from amg import auth, db
-from amg.ingest import recalls
+from amg.ingest import recalls, site_icons
 
 PASSWORD = "correct horse battery"
 
@@ -22,11 +22,17 @@ def data_dir(tmp_path, monkeypatch):
         monkeypatch.delenv(name, raising=False)
     # Nor does any reach NHTSA: a test that wants recalls fakes the answer.
     monkeypatch.setattr(recalls, "_get", _offline)
+    # Nor any website for a logo: a test that wants an icon fakes the site.
+    monkeypatch.setattr(site_icons, "_get", _no_sites)
     return path
 
 
 def _offline(url):
     raise recalls.RecallLookupError("Tests don't reach NHTSA.")
+
+
+def _no_sites(url):
+    raise OSError("Tests don't reach websites.")
 
 
 @pytest.fixture

@@ -158,14 +158,16 @@ def test_a_fill_up_says_where_and_the_form_offers_your_recent_stations(signed_in
     _log(signed_in, ev, "2026-10-06", "5,000", "20", station="O'Neil's Chargers", place="public")
     assert [row["station"] for row in fuel.log(conn, car)][:3] == ["", "Shell", "shell"]
     assert fuel.get(conn, fuel.log(conn, car)[3]["id"])["station"] == "Wawa on Route 9"      # spaces tidied
-    # every car's, most recent first, each once whatever its capitals, as last typed
-    assert fuel.stations(conn) == ["O'Neil's Chargers", "Shell", "Wawa on Route 9", "Costco"]
+    # every car's, most recent first, each once whatever its capitals, as last typed; pumps or chargers
+    assert fuel.stations(conn, "gas") == ["Shell", "Wawa on Route 9", "Costco"]
+    assert fuel.stations(conn, "electric") == ["O'Neil's Chargers"]
 
     form = signed_in.get(f"/vehicles/{car}/fuel/new").text
     assert 'value="" x-model="station" list="f-stations"' in form                                # a new one starts blank
     assert '<ul class="chips stations" aria-label="Your recent stations">' in form
-    assert form.count('class="chip stations__pick"') == 4
-    assert r"""@click='station = "O\u0027Neil\u0027s Chargers"'""" in form                      # safe in its quotes
+    assert form.count('class="chip stations__pick"') == 3 and "Chargers" not in form            # no chargers
+    charge = signed_in.get(f"/vehicles/{ev}/fuel/new").text
+    assert r"""@click='station = "O\u0027Neil\u0027s Chargers"'""" in charge                    # safe in its quotes
     assert '<option value="Costco"></option>' in form
 
     shell = fuel.log(conn, car)[1]["id"]

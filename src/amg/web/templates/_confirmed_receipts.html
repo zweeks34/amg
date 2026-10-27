@@ -3,6 +3,7 @@
     The form asks for the page again as you type, and swaps in only the list
     and the count beside it — the form itself stays put, so the box keeps its
     focus and what you've typed. -#}
+{% from "_logo.html" import logo, named %}
 {% if groups.confirmed %}
 <section class="block" aria-labelledby="confirmed-heading">
   <h2 class="h3" id="confirmed-heading">Confirmed ({{ groups.confirmed | length }})</h2>
@@ -57,7 +58,7 @@
         <li>
           <a class="ledger__row ledger__row--receipt" href="/receipts/{{ r.id }}">
             <span class="ledger__date mono">{{ r.performed_on }}</span>
-            <span class="ledger__who">{{ r.shop }}</span>
+            <span class="ledger__who">{{ named(r.shop) }}</span>
             <span class="ledger__what muted">{{ r.vehicle_name or "" }}</span>
             <span class="ledger__total mono">{{ r.total_cents | money if r.total_cents is not none else "" }}</span>
             {% if r.found %}

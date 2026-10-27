@@ -1,12 +1,20 @@
 {% extends "base.html" %}
 {% from "_issues.html" import ask %}
+{% from "_logo.html" import logo, named %}
 {% from "_warranties.html" import heading as warranty_heading, ask as warranty_ask, undo as warranty_undo %}
 {% block title %}Service on {{ event.performed_on }} · {{ car.name }}{% endblock %}
 
 {% block content %}
 <header class="pagehead">
   <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a> · {{ sources[event.source] }}</p>
+  {%- if event.shop %}
+  <div class="named">
+    {{ logo(event.shop, "page") }}
+    <h1 class="display">{{ who(event) }}</h1>
+  </div>
+  {%- else %}
   <h1 class="display">{{ who(event) }}</h1>
+  {%- endif %}
   <dl class="facts">
     <div><dt>Date</dt><dd class="mono">{{ event.performed_on }}</dd></div>
     <div><dt>Odometer</dt><dd class="mono">{{ event.odometer | miles }}</dd></div>

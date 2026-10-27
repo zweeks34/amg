@@ -17,6 +17,7 @@ Back up page's zip does that). It holds:
     specs.csv             each car's specs card
     issues.csv            what you noticed wrong with each car, and what became of it
     warranties.csv        each car's warranties: what each covers, when it ends, and what it was used for
+    places.csv            the websites you gave stations and shops for their logos, or their letter instead
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use, or a car's specs, were read from
     photos/               your issues' photos, named by date, issue and car, and each car's photo
@@ -36,7 +37,7 @@ from pathlib import Path
 from ..engine import specs as spec_catalogue
 from ..engine.renewals import KINDS
 from ..ingest.recalls import campaign_words
-from ..repo import documents, issues, recalls, renewals, reports, schedules, services, specs, warranties
+from ..repo import documents, issues, logos, recalls, renewals, reports, schedules, services, specs, warranties
 from ..web import follow_ups as follow_up_words
 from ..web import warranties as warranty_words
 from . import csvs, history
@@ -72,6 +73,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         "specs.csv": _specs(conn),
         "issues.csv": _issues(noted),
         "warranties.csv": _warranties(conn, today),
+        "places.csv": _places(conn),
     }
     missing: list[str] = []
     taken: set[str] = set()
@@ -115,6 +117,13 @@ def _cars(conn: sqlite3.Connection) -> str:
              csvs.number(car["acquired_miles"]), _yes(car["severe_service"]), _yes(car["alerts"]),
              (car["archived_at"] or "")[:10], csvs.text(car["notes"])]
             for car in reports.cars(conn)]
+    return csvs.sheet(columns, rows)
+
+
+def _places(conn: sqlite3.Connection) -> str:
+    columns = ("Name", "Website", "Letter instead")
+    rows = [[csvs.text(place["name"]), place["website"], _yes(place["letter_only"])]
+            for place in logos.places(conn).values()]
     return csvs.sheet(columns, rows)
 
 
@@ -322,6 +331,8 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
                         what each covers, when it ends (by date and by
                         miles), whether it's in force, and the visits done
                         under it
+  places.csv            the websites you gave stations and shops for their
+                        logos, or that one shows its letter instead
 
 Files, as you uploaded them:
 

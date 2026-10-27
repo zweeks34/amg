@@ -3,6 +3,7 @@
     itself again every two seconds and swaps itself in. Confirmed receipts are
     in _confirmed_receipts.html, out of its reach: nothing there changes while
     reading, and a swap would wipe the search box mid-word. -#}
+{% from "_logo.html" import logo, named %}
 {% set busy = groups.reading | rejectattr("stalled") | list %}
 {% set kinds = {"estimate": "Estimate", "deposit": "Deposit", "inspection_report": "Inspection", "other": "Not an invoice"} %}
 <div id="receipt-lists" class="rlists"
@@ -43,7 +44,7 @@
           <span class="eyebrow">
             {{ r.performed_on or "No date" }}{% if r.document_kind != "invoice" %} · {{ kinds.get(r.document_kind, "") }}{% endif %}
           </span>
-          <span class="rcard__shop">{{ r.shop or "Shop not read" }}</span>
+          <span class="rcard__shop">{% if r.shop %}{{ named(r.shop, size="card") }}{% else %}Shop not read{% endif %}</span>
           <span class="rcard__total mono">{{ r.total_cents | money if r.total_cents is not none else "No total" }}</span>
           <span class="rcard__car">{{ r.vehicle_name or "Choose a car" }}</span>
           {% if r.warning_count %}<span class="rcard__flag">{{ r.warning_count }} thing{{ "s" if r.warning_count != 1 }} to look at</span>{% endif %}

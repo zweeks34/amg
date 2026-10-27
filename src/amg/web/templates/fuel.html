@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_fuel_chart.html" import trend_chart %}
+{% from "_logo.html" import logo, named %}
 {% block title %}{{ units.title }} · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -44,6 +45,7 @@
       <details class="fuellog__item" name="fuellog">
       <summary>
       <span class="fuellog__row">
+        <span class="fuellog__logo">{{ logo(row.station) }}{% if row.station %}<span class="vh">{{ row.station }}</span>{% endif %}</span>
         <span class="fuellog__date mono">{{ row.day }}</span>
         <span class="fuellog__miles mono">{{ row.odometer | miles }}</span>
         <span class="fuellog__qty mono">{{ row.quantity }}</span>

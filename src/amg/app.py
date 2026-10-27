@@ -19,7 +19,7 @@ from starlette.responses import PlainTextResponse, RedirectResponse, Response
 
 from . import db
 from .web import (guard, routes_alerts, routes_auth, routes_backup, routes_budget, routes_design, routes_follow_ups,
-                  routes_fuel, routes_garage, routes_issues, routes_recalls, routes_receipts, routes_renewals,
+                  routes_fuel, routes_garage, routes_issues, routes_logos, routes_recalls, routes_receipts, routes_renewals,
                   routes_reports, routes_schedules, routes_services, routes_specs, routes_vehicles, routes_warranties)
 from .web.templating import STATIC_DIR, asset, render
 
@@ -49,6 +49,7 @@ app.include_router(routes_warranties.router)
 app.include_router(routes_schedules.router)
 app.include_router(routes_specs.router)
 app.include_router(routes_fuel.router)
+app.include_router(routes_logos.router)
 app.include_router(routes_renewals.router)
 app.include_router(routes_budget.router)
 app.include_router(routes_alerts.router)

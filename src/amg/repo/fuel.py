@@ -98,13 +98,14 @@ def last(conn: sqlite3.Connection, vehicle_id: int) -> sqlite3.Row | None:
     ).fetchone()
 
 
-def stations(conn: sqlite3.Connection) -> list[str]:
-    """Every station on the log, any car's, most recently used first; each once whatever its capitals, as it was
-    last typed."""
+def stations(conn: sqlite3.Connection, energy: str) -> list[str]:
+    """Every station any car has filled (or charged) at, most recently used first; each once whatever its capitals,
+    as it was last typed. Pumps for a fill-up, chargers for a charge."""
     return [row["station"] for row in conn.execute(
         "SELECT station FROM (SELECT station, filled_on, id, row_number() OVER"
         " (PARTITION BY station COLLATE NOCASE ORDER BY filled_on DESC, id DESC) AS n"
-        " FROM fuel_logs WHERE station <> '') WHERE n = 1 ORDER BY filled_on DESC, id DESC"
+        " FROM fuel_logs WHERE station <> '' AND energy = ?) WHERE n = 1 ORDER BY filled_on DESC, id DESC",
+        (energy,),
     )]
 
 

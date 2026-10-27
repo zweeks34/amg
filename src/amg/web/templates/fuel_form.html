@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_forms.html" import input, textarea, described, message %}
+{% from "_logo.html" import logo, named %}
 {% set verb = "Edit" if fill else "Log" %}
 {% block title %}{{ verb }} a {{ units.fill }} · {{ car.name }}{% endblock %}
 
@@ -33,7 +34,7 @@
       <ul class="chips stations" aria-label="Your recent stations">
         {% for name in recent_stations %}
         <li><button class="chip stations__pick" type="button" @click='station = {{ name | tojson }}'
-                    :aria-pressed='station === {{ name | tojson }}'>{{ name }}</button></li>
+                    :aria-pressed='station === {{ name | tojson }}'>{{ logo(name, "chip") }}{{ name }}</button></li>
         {% endfor %}
       </ul>
       {%- endif %}

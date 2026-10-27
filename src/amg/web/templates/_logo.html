@@ -1,0 +1,15 @@
+{#- A station's or shop's logo: its website's icon over its letter, which shows when there's no icon. It sits
+    beside the name, which says the same, so screen readers skip it. Sizes: row (24px), chip, page. -#}
+{% macro logo(name, size="row") -%}
+{%- set l = logo_for(name) -%}
+{%- if l -%}
+<span class="logo logo--{{ size }}" aria-hidden="true">{{ initial(l.name) }}
+  {%- if l.site %}<img src="/logos/{{ l.site }}.png" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% endif -%}
+</span>
+{%- endif -%}
+{%- endmacro %}
+
+{#- A name with its logo before it; ``text`` when the words differ from the name ("Your own work"). -#}
+{% macro named(name, text=none, size="row") -%}
+<span class="withlogo">{{ logo(name, size) }}<span class="withlogo__text">{{ text if text is not none else name }}</span></span>
+{%- endmacro %}

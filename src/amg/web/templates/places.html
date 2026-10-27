@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "_logo.html" import logo %}
+{% block title %}Stations and shops{% endblock %}
+
+{% macro place_rows(rows) %}
+<ul class="places sheet sheet--flush">
+  {% for row in rows %}
+  {%- set id = row.kind ~ "-" ~ loop.index %}
+  <li class="place" id="{{ id }}" x-data="{ open: {{ 'true' if errors.get(row.key) else 'false' }} }">
+    {{ logo(row.name, "big") }}
+    <div class="place__about">
+      <p class="place__name">{{ row.name }}</p>
+      <p class="place__said">{{ row.visits }}, the last on <span class="mono">{{ row.last }}</span>. {{ row.said }}</p>
+    </div>
+    <button class="btn btn--quiet place__toggle" type="button" @click="open = !open" :aria-expanded="open"
+            aria-expanded="{{ 'true' if errors.get(row.key) else 'false' }}" aria-controls="c-{{ id }}"
+            aria-label="Change the logo of {{ row.name }}">Change</button>
+    <div class="place__change" id="c-{{ id }}" {% if not errors.get(row.key) %}hidden{% endif %} :hidden="!open">
+      <form class="place__form" method="post" action="/places">
+        <input type="hidden" name="name" value="{{ row.name }}">
+        <div class="field">
+          <label for="w-{{ id }}">Website</label>
+          <input id="w-{{ id }}" name="website" value="{{ typed.get(row.key, row.website) }}" inputmode="url"
+                 autocomplete="off" spellcheck="false"
+                 placeholder="{{ row.logo.site if row.logo.site and not row.website else 'joesgarage.com' }}"
+                 {%- if errors.get(row.key) %} aria-invalid="true" aria-describedby="w-{{ id }}-error"{% endif %}>
+          {% if errors.get(row.key) %}<p class="field__error" id="w-{{ id }}-error">{{ errors[row.key] }}</p>{% endif %}
+        </div>
+        <label class="check"><input type="checkbox" name="letter_only" value="1" {% if row.letter_only %}checked{% endif %}>
+          Show the letter instead</label>
+        <p class="field__hint">Leave both empty to go back to {{ "the brand AMG recognised" if row.logo.brand else "its letter" }}.</p>
+        <div class="place__acts">
+          <button class="btn btn--secondary" type="submit">Save</button>
+        </div>
+      </form>
+      {% if row.logo.site %}
+      <form class="place__fetch" method="post" action="/places/fetch">
+        <input type="hidden" name="site" value="{{ row.logo.site }}">
+        <button class="btn btn--quiet" type="submit">Fetch {{ row.logo.site }}'s icon again</button>
+      </form>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+
+{% block content %}
+<header class="pagehead">
+  <h1 class="display">Stations and shops</h1>
+  <p class="pagehead__lede">Where each logo comes from. AMG recognises over 100 brands by name (fuel, charging,
+    shop chains, and car makes for dealers) and shows each one's icon from its website. Put one right here: give a
+    shop its own website, or show its letter instead.</p>
+</header>
+
+{% if saved %}<p class="notice notice--done" role="status">Saved {{ saved }}.</p>{% endif %}
+{% if fetched %}<p class="notice{% if fetched_found %} notice--done{% endif %}" role="status">
+  {%- if fetched_found %}Fetched {{ fetched }}'s icon again.{% else %}No icon found at {{ fetched }}; its letter shows.{% endif -%}
+</p>{% endif %}
+
+{% if stations %}
+<section class="block" aria-labelledby="stations-heading">
+  <h2 class="h3" id="stations-heading">Stations</h2>
+  {{ place_rows(stations) }}
+</section>
+{% endif %}
+
+{% if shops %}
+<section class="block" aria-labelledby="shops-heading">
+  <h2 class="h3" id="shops-heading">Shops</h2>
+  {{ place_rows(shops) }}
+</section>
+{% endif %}
+
+{% if not stations and not shops %}
+<div class="sheet empty">
+  <p>No stations or shops yet. A station shows here once a fill-up names one, and a shop once a confirmed service
+    does.</p>
+</div>
+{% endif %}
+
+<p class="aside">Icons come from each brand's own website. When a site turns AMG away, DuckDuckGo's icon service is
+  asked instead; all it's told is the website's name. AMG keeps a copy of each icon, so a page never waits on the
+  internet.</p>
+{% endblock %}

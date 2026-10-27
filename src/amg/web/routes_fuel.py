@@ -130,7 +130,7 @@ def _form(request: Request, conn: sqlite3.Connection, car, units: status.Units, 
           fill: sqlite3.Row | None = None, status_code: int = 200) -> Response:
     fills = status.load(conn, car).fills
     rate = engine.home_rate(fills) if units.energy == "electric" else None
-    stations = fuel.stations(conn)
+    stations = fuel.stations(conn, units.energy)
     return render(
         request,
         "fuel_form.html",
