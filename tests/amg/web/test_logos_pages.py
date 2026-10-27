@@ -121,7 +121,7 @@ def test_stations_and_shops_lists_each_once_and_says_where_its_logo_comes_from(s
     assert "Recognised as Wawa. Logo from wawa.com." in text
     assert "Recognised as BP. No icon found for bp.com on " in text and "tried again after 30 days" in text
     assert "Recognised as Jiffy Lube. Its logo comes from jiffylube.com, fetched the first time it's shown." in text
-    assert "Not recognised. Give its website to show its logo." in text
+    assert "Not recognised. Give it a logo or its website." in text
     assert 'placeholder="wawa.com"' in text
 
 
@@ -176,3 +176,112 @@ def test_what_you_said_and_what_was_fetched_are_kept(conn, car):
     assert logos.due(logos.icon(conn, "costco.com"), datetime.now(timezone.utc) + timedelta(days=400)) is False
     logos.forget(conn, "costco.com")
     assert logos.due(logos.icon(conn, "costco.com")) is True
+
+
+# ---------- Logos you upload ----------
+
+
+def _upload(client, name, colour="green", filename="logo.png", **data):
+    return client.post("/places", data={"name": name, "website": "", **data},
+                       files=[("logo_file", (filename, png(colour), "image/png"))], follow_redirects=False)
+
+
+def _shown(conn, document_id):
+    from amg.repo import documents
+
+    sha = documents.get(conn, document_id)["sha256"]
+    return f'<img src="/documents/{document_id}/pages/1?v={sha[:12]}&size=thumb"'
+
+
+def test_a_logo_uploaded_for_a_brand_covers_every_station_of_it(signed_in, conn, car, fetched):
+    fuel.create(conn, car, fuel.FillInput("2026-09-02", 30_100, "gas", 10.0, station="BP #4"))
+    fuel.create(conn, car, fuel.FillInput("2026-09-09", 30_400, "gas", 10.0, station="BP Route 9"))
+    assert "For every BP station or shop. PNG, JPG or GIF." in page(signed_in, "/places")
+    response = _upload(signed_in, "BP #4")
+    assert response.status_code == 303 and "Saved BP #4." in page(signed_in, response.headers["location"])
+    mine = logos.brand_logos(conn)["BP"]["document_id"]
+    log = page(signed_in, f"/vehicles/{car}/fuel")
+    assert log.count(_shown(conn, mine)) == 2 and "/logos/bp.com.png" not in log      # both, and nothing fetched
+    text = page(signed_in, "/places")
+    assert text.count("Recognised as BP. Your logo, for every BP.") == 2
+    assert "Remove your logo for every BP" in text and fetched == []
+    assert logos.places(conn) == {}                                                   # nothing about "BP #4" itself
+
+
+def test_a_logo_for_a_name_amg_doesnt_know_is_for_that_name(signed_in, conn, car, fetched):
+    fuel.create(conn, car, fuel.FillInput("2026-09-02", 30_100, "gas", 10.0, station="Joe's Gas"))
+    fuel.create(conn, car, fuel.FillInput("2026-09-09", 30_400, "gas", 10.0, station="Joe's Garage"))
+    assert "For Joe's Gas. PNG, JPG or GIF." in page(signed_in, "/places")
+    _upload(signed_in, "Joe's Gas")
+    mine = logos.places(conn)["joe's gas"]["logo_document_id"]
+    log = page(signed_in, f"/vehicles/{car}/fuel")
+    assert log.count(_shown(conn, mine)) == 1 and "Your logo." in page(signed_in, "/places")
+    assert '<span class="logo logo--row" aria-hidden="true">J</span>' in log            # Joe's Garage: its letter
+
+
+def test_which_logo_wins(signed_in, conn, car, fetched):
+    from amg.repo import documents
+
+    for n, station in enumerate(("Shell", "Shell Route 9", "Shell on Main")):
+        fuel.create(conn, car, fuel.FillInput(f"2026-09-0{n + 1}", 30_000 + n * 300, "gas", 10.0, station=station))
+    _upload(signed_in, "Shell", "green")                                              # every Shell
+    brand = logos.brand_logos(conn)["Shell"]["document_id"]
+    own, _ = documents.store(conn, png("blue"), "corner.png")
+    logos.set_logo(conn, "Shell Route 9", own["id"])                                  # this one's own
+    signed_in.post("/places", data={"name": "Shell on Main", "website": "", "letter_only": "1"})
+    log = page(signed_in, f"/vehicles/{car}/fuel")
+    assert log.count(_shown(conn, brand)) == 1 and log.count(_shown(conn, own["id"])) == 1
+    assert '<span class="logo logo--row" aria-hidden="true">S</span>' in log           # its letter, as asked
+    assert "/logos/shell.com.png" not in log                                          # your logo beats the fetched one
+
+    # A name you gave its own website is a place of its own: a logo picked there is for it alone.
+    signed_in.post("/places", data={"name": "Shell on Main", "website": "shellonmain.com"})
+    _upload(signed_in, "Shell on Main", "red", website="shellonmain.com")
+    assert logos.places(conn)["shell on main"]["logo_document_id"] is not None
+    assert logos.brand_logos(conn)["Shell"]["document_id"] == brand
+
+    # Picking a logo while "Show the letter instead" is ticked: the logo is what you meant.
+    _upload(signed_in, "Shell Route 9", "yellow", letter_only="1")
+    assert logos.places(conn)["shell route 9"]["letter_only"] == 0
+
+
+def test_removing_your_logo_goes_back_to_the_fetched_icon(signed_in, conn, car, fetched):
+    fuel.create(conn, car, fuel.FillInput("2026-09-02", 30_100, "gas", 10.0, station="BP #4"))
+    _upload(signed_in, "BP #4")
+    signed_in.post("/places", data={"name": "BP #4", "website": "", "remove_logo": "1"})
+    assert logos.brand_logos(conn) == {}
+    assert '<img src="/logos/bp.com.png"' in page(signed_in, f"/vehicles/{car}/fuel")
+
+
+def test_only_a_picture_is_taken(signed_in, conn, car, fetched):
+    fuel.create(conn, car, fuel.FillInput("2026-09-02", 30_100, "gas", 10.0, station="Joe's Gas"))
+    response = signed_in.post("/places", data={"name": "Joe's Gas", "website": ""},
+                              files=[("logo_file", ("brochure.pdf", b"%PDF-1.4", "application/pdf"))])
+    assert response.status_code == 422
+    text = html.unescape(response.text)
+    assert "brochure.pdf: add the logo as PNG, JPG or GIF." in text and 'aria-expanded="true"' in text
+    assert logos.places(conn) == {} and logos.uploads(conn) == []
+
+
+def test_add_a_station_or_shop_before_your_first_visit(signed_in, conn, car, fetched):
+    assert "Add a station or shop" in page(signed_in, "/places")
+    nothing = signed_in.post("/places/add", data={"name": "Joe's Garage", "website": ""})
+    assert nothing.status_code == 422 and "Give it a logo, or its website." in html.unescape(nothing.text)
+    unnamed = signed_in.post("/places/add", data={"name": " ", "website": "joesgarage.com"})
+    assert "Name the station or shop" in html.unescape(unnamed.text)
+
+    response = signed_in.post("/places/add", data={"name": "Joe's Garage", "website": ""},
+                              files=[("logo_file", ("joes.png", png("navy"), "image/png"))], follow_redirects=False)
+    assert response.status_code == 303
+    text = page(signed_in, response.headers["location"])
+    assert "Added Joe's Garage." in text and "Not visited yet" in text and "Your logo." in text
+    signed_in.post("/places/add", data={"name": "Pep Boys", "website": ""},
+                   files=[("logo_file", ("pep.png", png("red"), "image/png"))])
+    assert "Pep Boys" in logos.brand_logos(conn)                                      # a brand: every Pep Boys
+    assert page(signed_in, "/places").count('<li class="place" id="new-') == 2
+
+    _service(conn, car, "Joe's Garage")                                               # the first visit
+    text = page(signed_in, "/places")
+    assert text.count('<li class="place" id="new-') == 1 and '<li class="place" id="shop-1"' in text
+    mine = logos.places(conn)["joe's garage"]["logo_document_id"]
+    assert _shown(conn, mine) in page(signed_in, f"/vehicles/{car}")                  # in its service history

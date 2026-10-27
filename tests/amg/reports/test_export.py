@@ -79,11 +79,16 @@ def test_everything_is_there(conn, tmp_path):
     logos.set_place(conn, "Bob's", "bobsgarage.com")
     logos.set_place(conn, "Midas", letter_only=True)
     logos.keep(conn, "bobsgarage.com", rf.image_bytes("PNG"), "https://bobsgarage.com/favicon.ico")   # not yours
+    bobs_logo, _ = documents.store(conn, rf.image_bytes("PNG"), "bobs sign.png")
+    logos.set_logo(conn, "Bob's", bobs_logo["id"])
+    jiffy_logo, _ = documents.store(conn, rf.image_bytes("GIF"), "jiffy.gif")
+    logos.set_brand_logo(conn, "Jiffy Lube", jiffy_logo["id"])
 
     zf, missing = build(conn, tmp_path)
     names = sorted(zf.namelist())
     assert names == [
         "README.txt", "cars.csv", "fuel.csv", "inspections-and-registration.csv", "issues.csv",
+        "logos/Bob's.png", "logos/Jiffy Lube.gif",                 # yours, named for what they're for
         "manuals/2016 Outback manual.pdf", "manuals/door sticker.pdf",
         "odometer.csv", "photos/2026-08-30 Oil spot under the engine - Outback.jpg",
         "photos/Outback, car photo.png", "places.csv", "prices.csv", "recalls.csv",
@@ -102,8 +107,13 @@ def test_everything_is_there(conn, tmp_path):
     assert cars[0]["VIN"] == "4S4BSANC5G3200001" and cars[0]["Year"] == "2016" and cars[0]["Powertrain"] == "Gas"
     history = sheet(zf, "service-history.csv")
     assert {row["Date"] for row in history} == {"2015-11-02", "2019-03-04", "2020-05-06", "2021-06-01", "2026-09-01"}
-    assert sheet(zf, "places.csv") == [{"Name": "Bob's", "Website": "bobsgarage.com", "Letter instead": "No"},
-                                       {"Name": "Midas", "Website": "", "Letter instead": "Yes"}]
+    assert sheet(zf, "places.csv") == [
+        {"Name": "Bob's", "For": "This station or shop", "Website": "bobsgarage.com", "Letter instead": "No",
+         "Logo": "logos/Bob's.png"},
+        {"Name": "Midas", "For": "This station or shop", "Website": "", "Letter instead": "Yes", "Logo": ""},
+        {"Name": "Jiffy Lube", "For": "Every Jiffy Lube", "Website": "", "Letter instead": "No",
+         "Logo": "logos/Jiffy Lube.gif"}]
+    assert zf.read("logos/Jiffy Lube.gif") == documents.path(jiffy_logo).read_bytes()
     assert sheet(zf, "fuel.csv")[0] == {
         "Car": "Outback", "Date": "2026-09-01", "Odometer": "92000", "Energy": "Gas", "Quantity": "12.5",
         "Unit": "gal", "Cost": "43.75", "Full": "Yes", "Missed one before": "No", "Place": "",

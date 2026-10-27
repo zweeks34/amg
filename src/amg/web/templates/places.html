@@ -6,29 +6,42 @@
 <ul class="places sheet sheet--flush">
   {% for row in rows %}
   {%- set id = row.kind ~ "-" ~ loop.index %}
-  <li class="place" id="{{ id }}" x-data="{ open: {{ 'true' if errors.get(row.key) else 'false' }} }">
+  {%- set problem = errors.get(row.key) %}
+  <li class="place" id="{{ id }}" x-data="{ open: {{ 'true' if problem else 'false' }} }">
     {{ logo(row.name, "big") }}
     <div class="place__about">
       <p class="place__name">{{ row.name }}</p>
-      <p class="place__said">{{ row.visits }}, the last on <span class="mono">{{ row.last }}</span>. {{ row.said }}</p>
+      <p class="place__said">
+        {%- if row.last %}{{ row.visits }}, the last on <span class="mono">{{ row.last }}</span>. {% endif -%}
+        {{ row.said }}</p>
     </div>
     <button class="btn btn--quiet place__toggle" type="button" @click="open = !open" :aria-expanded="open"
-            aria-expanded="{{ 'true' if errors.get(row.key) else 'false' }}" aria-controls="c-{{ id }}"
+            aria-expanded="{{ 'true' if problem else 'false' }}" aria-controls="c-{{ id }}"
             aria-label="Change the logo of {{ row.name }}">Change</button>
-    <div class="place__change" id="c-{{ id }}" {% if not errors.get(row.key) %}hidden{% endif %} :hidden="!open">
-      <form class="place__form" method="post" action="/places">
+    <div class="place__change" id="c-{{ id }}" {% if not problem %}hidden{% endif %} :hidden="!open">
+      <form class="place__form" method="post" action="/places" enctype="multipart/form-data">
         <input type="hidden" name="name" value="{{ row.name }}">
+        {% if problem %}<p class="field__error" id="e-{{ id }}" role="alert">{{ problem }}</p>{% endif %}
+        <div class="field">
+          <label for="l-{{ id }}">Upload a logo</label>
+          <input id="l-{{ id }}" name="logo_file" type="file" accept="image/png,image/jpeg,image/gif"
+                 aria-describedby="l-{{ id }}-hint">
+          <p class="field__hint" id="l-{{ id }}-hint">{{ row.upload_hint }}. PNG, JPG or GIF.</p>
+        </div>
+        {% if row.logo.upload %}
+        <label class="check"><input type="checkbox" name="remove_logo" value="1">
+          Remove your logo{% if row.logo.upload_for == "brand" %} for every {{ row.logo.brand }}{% endif %}</label>
+        {% endif %}
         <div class="field">
           <label for="w-{{ id }}">Website</label>
           <input id="w-{{ id }}" name="website" value="{{ typed.get(row.key, row.website) }}" inputmode="url"
                  autocomplete="off" spellcheck="false"
                  placeholder="{{ row.logo.site if row.logo.site and not row.website else 'joesgarage.com' }}"
-                 {%- if errors.get(row.key) %} aria-invalid="true" aria-describedby="w-{{ id }}-error"{% endif %}>
-          {% if errors.get(row.key) %}<p class="field__error" id="w-{{ id }}-error">{{ errors[row.key] }}</p>{% endif %}
+                 {%- if problem %} aria-describedby="e-{{ id }}"{% endif %}>
         </div>
         <label class="check"><input type="checkbox" name="letter_only" value="1" {% if row.letter_only %}checked{% endif %}>
           Show the letter instead</label>
-        <p class="field__hint">Leave both empty to go back to {{ "the brand AMG recognised" if row.logo.brand else "its letter" }}.</p>
+        <p class="field__hint">Leave them empty to go back to {{ "the brand AMG recognised" if row.logo.brand else "its letter" }}.</p>
         <div class="place__acts">
           <button class="btn btn--secondary" type="submit">Save</button>
         </div>
@@ -49,11 +62,12 @@
 <header class="pagehead">
   <h1 class="display">Stations and shops</h1>
   <p class="pagehead__lede">Where each logo comes from. AMG recognises over 100 brands by name (fuel, charging,
-    shop chains, and car makes for dealers) and shows each one's icon from its website. Put one right here: give a
-    shop its own website, or show its letter instead.</p>
+    shop chains, and car makes for dealers) and shows each one's icon from its website. Put one right here: upload
+    its logo, give a shop its own website, or show its letter instead.</p>
 </header>
 
 {% if saved %}<p class="notice notice--done" role="status">Saved {{ saved }}.</p>{% endif %}
+{% if added %}<p class="notice notice--done" role="status">Added {{ added }}.</p>{% endif %}
 {% if fetched %}<p class="notice{% if fetched_found %} notice--done{% endif %}" role="status">
   {%- if fetched_found %}Fetched {{ fetched }}'s icon again.{% else %}No icon found at {{ fetched }}; its letter shows.{% endif -%}
 </p>{% endif %}
@@ -72,14 +86,56 @@
 </section>
 {% endif %}
 
-{% if not stations and not shops %}
+{% if not_visited %}
+<section class="block" aria-labelledby="new-heading">
+  <h2 class="h3" id="new-heading">Not visited yet</h2>
+  {{ place_rows(not_visited) }}
+</section>
+{% endif %}
+
+{% if not stations and not shops and not not_visited %}
 <div class="sheet empty">
   <p>No stations or shops yet. A station shows here once a fill-up names one, and a shop once a confirmed service
-    does.</p>
+    does. Or add one below, with its logo, before your first visit.</p>
 </div>
 {% endif %}
 
+{%- set problem = errors.get("add") %}
+{%- set raw = typed.get("add", {}) %}
+<section class="block" id="add" aria-labelledby="add-heading">
+  <h2 class="h3" id="add-heading">Add a station or shop</h2>
+  <form class="sheet form" method="post" action="/places/add#add" enctype="multipart/form-data">
+    <div class="form__body">
+      <p class="field__hint">Set one up before your first fill-up or visit, so its logo is ready. Write its name as
+        you'll write it on a fill-up or receipt.</p>
+      {% if problem %}<p class="field__error" id="add-error" role="alert">{{ problem }}</p>{% endif %}
+      <div class="fieldgrid">
+        <div class="field">
+          <label for="add-name">Name</label>
+          <input id="add-name" name="name" value="{{ raw.get('name', '') }}" autocomplete="off"
+                 placeholder="Joe's Garage"{% if problem %} aria-describedby="add-error"{% endif %}>
+        </div>
+        <div class="field">
+          <label for="add-logo">Logo</label>
+          <input id="add-logo" name="logo_file" type="file" accept="image/png,image/jpeg,image/gif"
+                 aria-describedby="add-logo-hint">
+          <p class="field__hint" id="add-logo-hint">PNG, JPG or GIF. For a brand AMG recognises, it's used for every one.</p>
+        </div>
+        <div class="field">
+          <label for="add-website">Website</label>
+          <input id="add-website" name="website" value="{{ raw.get('website', '') }}" inputmode="url"
+                 autocomplete="off" spellcheck="false" placeholder="joesgarage.com" aria-describedby="add-website-hint">
+          <p class="field__hint" id="add-website-hint">Or instead of a logo: AMG shows the icon from its website.</p>
+        </div>
+      </div>
+    </div>
+    <div class="form__actions">
+      <button class="btn btn--primary" type="submit">Add station or shop</button>
+    </div>
+  </form>
+</section>
+
 <p class="aside">Icons come from each brand's own website. When a site turns AMG away, DuckDuckGo's icon service is
   asked instead; all it's told is the website's name. AMG keeps a copy of each icon, so a page never waits on the
-  internet.</p>
+  internet. Logos you upload are kept with your receipts and photos: in your backups and in Download your data.</p>
 {% endblock %}

@@ -1,10 +1,17 @@
 """Which logo a station or shop gets, and fetching it the first time it's shown.
 
-A name's logo comes from, in order: what you said on Stations and shops (its
-own website, or its letter instead), else the brand recognised in it
-(``brands.py``), else its letter. A page never waits on the internet for one:
-it draws the letter, with the icon from ``/logos/<site>.png`` over it, and
-that route fetches a site's icon the first time it's asked for.
+A name's logo comes from, the first that applies:
+
+1. its letter, if you said so on Stations and shops;
+2. the logo you uploaded for it;
+3. the website you gave it;
+4. the brand recognised in it (``brands.py``): the logo you uploaded for the
+   brand, else the brand's website;
+5. its letter.
+
+A page never waits on the internet for one: it draws the letter, with the
+picture over it (your upload, or the icon from ``/logos/<site>.png``, which
+fetches a site's icon the first time it's asked for).
 """
 
 from __future__ import annotations
@@ -25,42 +32,69 @@ from . import brands
 @dataclass(frozen=True)
 class Logo:
     name: str
-    site: str | None            # where its icon comes from; None: its letter
+    site: str | None            # where its icon comes from; None: its letter, or your upload
     brand: str | None           # the brand recognised in its name
-    yours: bool                 # its website, or the letter, is what you said
+    yours: bool                 # what you said about this name decides it: its website, its letter, its logo
+    upload: tuple[int, str] | None = None    # your logo: its document's id and sha256
+    upload_for: str | None = None            # "name": this one; "brand": every station or shop of its brand
+    own_site: bool = False      # the website is one you gave this name
+
+    @property
+    def uploads_to(self) -> str:
+        """Where a logo uploaded from this name goes: to its brand, unless you've made it a place of its own by
+        giving it a website."""
+        return "brand" if self.brand and not self.own_site else "name"
 
 
 class Book:
-    """The logos on one page: what you've said about places, read once, when the first logo is asked for."""
+    """The logos on one page: what you've said about places and brands, read once, when the first logo is asked
+    for."""
 
     def __init__(self, conn: sqlite3.Connection | None = None) -> None:
         self._conn = conn
         self._places: dict[str, sqlite3.Row] | None = None
+        self._brands: dict[str, sqlite3.Row] = {}
+
+    def _load(self, conn: sqlite3.Connection) -> None:
+        self._places, self._brands = repo.places(conn), repo.brand_logos(conn)
 
     @property
     def places(self) -> dict[str, sqlite3.Row]:
         if self._places is None:
             if self._conn is not None:
-                self._places = repo.places(self._conn)
+                self._load(self._conn)
             else:
                 conn = db.connect()
                 try:
-                    self._places = repo.places(conn)
+                    self._load(conn)
                 finally:
                     conn.close()
-        return self._places
+        return self._places  # type: ignore[return-value]
+
+    @property
+    def brands(self) -> dict[str, sqlite3.Row]:
+        """Your logo for each brand you gave one."""
+        self.places  # noqa: B018 -- read with the places
+        return self._brands
 
     def __call__(self, name: str | None) -> Logo | None:
         name = " ".join((name or "").split())
         if not name:
             return None
         brand = brands.recognise(name)
+        known = brand.name if brand else None
         place = self.places.get(name.lower())
         if place is not None and place["letter_only"]:
-            return Logo(name, None, brand.name if brand else None, yours=True)
+            return Logo(name, None, known, yours=True)
+        if place is not None and place["logo_document_id"] and place["logo_sha256"]:
+            return Logo(name, None, known, yours=True, upload=(place["logo_document_id"], place["logo_sha256"]),
+                        upload_for="name", own_site=bool(place["website"]))
         if place is not None and place["website"]:
-            return Logo(name, place["website"], brand.name if brand else None, yours=True)
-        return Logo(name, brand.site if brand else None, brand.name if brand else None, yours=False)
+            return Logo(name, place["website"], known, yours=True, own_site=True)
+        if brand and (mine := self.brands.get(brand.name)):
+            return Logo(name, None, known, yours=False, upload=(mine["document_id"], mine["logo_sha256"]),
+                        upload_for="brand")
+        return Logo(name, brand.site if brand else None, known, yours=False)
 
 
 _page: ContextVar[Book | None] = ContextVar("logos", default=None)

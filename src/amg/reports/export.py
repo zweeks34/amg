@@ -17,10 +17,11 @@ Back up page's zip does that). It holds:
     specs.csv             each car's specs card
     issues.csv            what you noticed wrong with each car, and what became of it
     warranties.csv        each car's warranties: what each covers, when it ends, and what it was used for
-    places.csv            the websites you gave stations and shops for their logos, or their letter instead
+    places.csv            the websites and logos you gave stations, shops and brands, or their letter instead
     receipts/             every confirmed receipt as uploaded, named by date, shop and car
     manuals/              the files a schedule in use, or a car's specs, were read from
     photos/               your issues' photos, named by date, issue and car, and each car's photo
+    logos/                the logos you uploaded for stations, shops and brands, named for what they're for
 
 Receipts still waiting to be checked, and ones you discarded, aren't in it:
 they're in nobody's history yet.
@@ -60,6 +61,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
     today = today or date.today()
     names = {row["code"]: row["name"] for row in services.list_types(conn)}
     noted = issues.everything(conn)
+    logo_files = _logo_files(conn)
     sheets = {
         "cars.csv": _cars(conn),
         "service-history.csv": csvs.history_csv(history.load(conn, Filters()), Filters()),
@@ -73,7 +75,7 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
         "specs.csv": _specs(conn),
         "issues.csv": _issues(noted),
         "warranties.csv": _warranties(conn, today),
-        "places.csv": _places(conn),
+        "places.csv": _places(conn, logo_files),
     }
     missing: list[str] = []
     taken: set[str] = set()
@@ -94,6 +96,12 @@ def write(conn: sqlite3.Connection, path: Path, today: date | None = None) -> li
                     continue
                 # Scans are compressed already; storing them as-is is as small and much faster.
                 zf.write(source, _unique(f"{folder}/{stem(row)}", source.suffix, taken), compress_type=zipfile.ZIP_STORED)
+        for row, name in logo_files:
+            source = documents.path(row)
+            if not source.is_file():
+                missing.append(row["filename"])
+                continue
+            zf.write(source, name, compress_type=zipfile.ZIP_STORED)
         zf.writestr("README.txt", _readme(conn, today, len(receipts), len(manuals), len(photos) + len(car_photos),
                                           missing),
                     compress_type=zipfile.ZIP_DEFLATED)
@@ -120,10 +128,21 @@ def _cars(conn: sqlite3.Connection) -> str:
     return csvs.sheet(columns, rows)
 
 
-def _places(conn: sqlite3.Connection) -> str:
-    columns = ("Name", "Website", "Letter instead")
-    rows = [[csvs.text(place["name"]), place["website"], _yes(place["letter_only"])]
+def _logo_files(conn: sqlite3.Connection) -> list[tuple[sqlite3.Row, str]]:
+    """Each logo you uploaded and its name in the zip: logos/ and what it's for, "logos/BP.png"."""
+    taken: set[str] = set()
+    return [(row, _unique(f"logos/{safe(row['owner']) or 'logo'}", documents.path(row).suffix, taken))
+            for row in logos.uploads(conn)]
+
+
+def _places(conn: sqlite3.Connection, logo_files: list[tuple[sqlite3.Row, str]]) -> str:
+    columns = ("Name", "For", "Website", "Letter instead", "Logo")
+    own = {row["owner"].lower(): name for row, name in logo_files if row["kind"] == "name"}
+    rows = [[csvs.text(place["name"]), "This station or shop", place["website"], _yes(place["letter_only"]),
+             own.get(place["name"].lower(), "")]
             for place in logos.places(conn).values()]
+    rows += [[csvs.text(row["owner"]), f"Every {csvs.text(row['owner'])}", "", "No", name]
+             for row, name in logo_files if row["kind"] == "brand"]
     return csvs.sheet(columns, rows)
 
 
@@ -331,8 +350,8 @@ Spreadsheets (CSV, UTF-8; amounts in dollars, dates as YYYY-MM-DD):
                         what each covers, when it ends (by date and by
                         miles), whether it's in force, and the visits done
                         under it
-  places.csv            the websites you gave stations and shops for their
-                        logos, or that one shows its letter instead
+  places.csv            the websites and logos you gave stations, shops and
+                        brands, or that one shows its letter instead
 
 Files, as you uploaded them:
 
@@ -340,6 +359,8 @@ Files, as you uploaded them:
   manuals/              the owner's manuals schedules and specs were read from
   photos/               your issues' photos, named by date, issue and car;
                         and each car's photo, named by the car
+  logos/                the logos you uploaded for stations, shops and
+                        brands, named for what they're for
 
 Receipts still waiting to be checked, and ones you discarded, aren't here.
 {missing_note}
