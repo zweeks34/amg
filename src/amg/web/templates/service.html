@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_issues.html" import ask %}
 {% from "_logo.html" import logo, named %}
+{% from "_icons.html" import icon %}
 {% from "_warranties.html" import heading as warranty_heading, ask as warranty_ask, undo as warranty_undo %}
 {% block title %}Service on {{ event.performed_on }} · {{ car.name }}{% endblock %}
 
@@ -33,7 +34,7 @@
           {% if line.covers %}
           <ul class="chips">
             {% for cover in line.covers %}
-            <li class="chip{% if cover.action == 'inspect' %} chip--inspect{% endif %}">{{ cover.name }}
+            <li class="chip{% if cover.action == 'inspect' %} chip--inspect{% endif %}">{{ icon(service_icon([cover.code], cover.category), "small") }}{{ cover.name }}
               {% if cover.action == "inspect" %}<span class="chip__note">inspected</span>{% endif %}</li>
             {% endfor %}
           </ul>

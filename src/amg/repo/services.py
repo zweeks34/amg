@@ -174,7 +174,7 @@ def history(conn: sqlite3.Connection, vehicle_id: int) -> list[dict]:
     )]
     covered: dict[int, list[dict]] = {}
     for row in conn.execute(
-        "SELECT li.service_event_id AS event_id, st.code, st.name, st.sort,"
+        "SELECT li.service_event_id AS event_id, st.code, st.name, st.category, st.sort,"
         "       group_concat(DISTINCT lis.action) AS actions"
         "  FROM line_items li"
         "  JOIN line_item_services lis ON lis.line_item_id = li.id"
@@ -188,7 +188,8 @@ def history(conn: sqlite3.Connection, vehicle_id: int) -> list[dict]:
         actions = set(row["actions"].split(","))
         covered.setdefault(row["event_id"], []).append(
             # "inspected" only when nothing on the visit did more than look at it
-            {"code": row["code"], "name": row["name"], "inspected_only": actions == {"inspect"}}
+            {"code": row["code"], "name": row["name"], "category": row["category"],
+             "inspected_only": actions == {"inspect"}}
         )
     for event in events:
         event["covered"] = covered.get(event["id"], [])
@@ -223,13 +224,13 @@ def _covers_for(conn: sqlite3.Connection, line_ids: list[int]) -> dict[int, list
     marks = ", ".join("?" * len(line_ids))
     result: dict[int, list[dict]] = {}
     for row in conn.execute(
-        "SELECT lis.line_item_id, lis.action, st.code, st.name"
+        "SELECT lis.line_item_id, lis.action, st.code, st.name, st.category"
         "  FROM line_item_services lis JOIN service_types st ON st.id = lis.service_type_id"
         f" WHERE lis.line_item_id IN ({marks}) ORDER BY st.sort",
         line_ids,
     ):
         result.setdefault(row["line_item_id"], []).append(
-            {"code": row["code"], "name": row["name"], "action": row["action"]}
+            {"code": row["code"], "name": row["name"], "category": row["category"], "action": row["action"]}
         )
     return result
 

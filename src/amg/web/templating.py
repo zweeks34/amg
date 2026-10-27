@@ -11,6 +11,7 @@ from starlette.responses import Response
 from ..backup import size_label
 from ..repo.documents import fingerprint
 from . import logos
+from .service_icons import icon_for
 
 HERE = Path(__file__).parent
 STATIC_DIR = HERE / "static"
@@ -166,6 +167,7 @@ templates.env.globals["avatar_url"] = avatar_url
 templates.env.globals["frame_style"] = frame_style
 templates.env.globals["initial"] = initial
 templates.env.globals["logo_for"] = logos.logo_for
+templates.env.globals["service_icon"] = icon_for
 templates.env.filters["miles"] = miles
 templates.env.filters["dollars"] = dollars
 templates.env.filters["money"] = money

@@ -693,6 +693,22 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
 }
 .chip__remove:hover { color: var(--gap); }
 
+/* ---------- Service icons ---------- */
+
+/* A service's icon (static/icons.svg) before its name: drawn in the text's colour, never a status colour, and
+   sized to the text. */
+.sicon {
+  display: inline-block;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.35em;
+  vertical-align: -0.2em;
+  color: var(--ink-2);
+}
+.sicon--small { width: 1.05em; height: 1.05em; margin-right: 0.25em; vertical-align: -0.18em; }
+.chip .sicon { margin-right: 0.1em; }
+
 /* ---------- Logos ---------- */
 
 /* A station's or shop's logo: its brand's icon on white, or its letter on a tint while there's none (the icon
@@ -731,6 +747,7 @@ a.mark:hover, a.mark:focus-visible { outline: 2px solid var(--ink); outline-offs
   pointer-events: none;
 }
 .logo--inline { --logo: 1.125rem; }
+.logo--diy .sicon { width: 72%; height: 72%; margin: 0; vertical-align: 0; color: var(--ink-2); }
 .logo--chip { --logo: 1.25rem; }
 .logo--card { --logo: 1.75rem; }
 .logo--big { --logo: 2.5rem; }

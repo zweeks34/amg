@@ -3,6 +3,7 @@
 {% from "_chart.html" import interval_chart, mark, next_up as next_up_list %}
 {% from "_avatar.html" import avatar %}
 {% from "_logo.html" import logo, named %}
+{% from "_icons.html" import icon %}
 {% from "_schedule_editor.html" import legend as action_key %}
 {% from "_renewal_fields.html" import renewal_fields %}
 {% from "_issues.html" import issue_row, closed_row %}
@@ -513,9 +514,9 @@
       <a class="ledger__row" href="/services/{{ event.id }}">
         <span class="ledger__date mono">{{ event.performed_on }}</span>
         <span class="ledger__miles mono">{{ event.odometer | miles if event.odometer is not none else "" }}</span>
-        <span class="ledger__who">{{ named(event.shop, who(event)) }}</span>
+        <span class="ledger__who">{{ named(event.shop, who(event), diy=event.source == "diy") }}</span>
         <span class="ledger__what">
-          {% for item in event.covered %}<span class="chip{% if item.inspected_only %} chip--inspect{% endif %}">{{ item.name }}{% if item.inspected_only %} <span class="chip__note">inspected</span>{% endif %}</span>{% endfor %}
+          {% for item in event.covered %}<span class="chip{% if item.inspected_only %} chip--inspect{% endif %}">{{ icon(service_icon([item.code], item.category), "small") }}{{ item.name }}{% if item.inspected_only %} <span class="chip__note">inspected</span>{% endif %}</span>{% endfor %}
         </span>
         <span class="ledger__total mono">{{ event.total_cents | money if event.total_cents is not none else "" }}</span>
       </a>

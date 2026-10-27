@@ -5,6 +5,7 @@
     sweeps in from zero on load and the marks appear as it passes them.
     On narrow screens the chart scrolls sideways under a sticky item column;
     the next-up list is the phone-first summary of the same data. -#}
+{% from "_icons.html" import icon %}
 
 {% macro mark(status, label, position=None, href=None) -%}
 {%- if href -%}
@@ -45,7 +46,7 @@
       {% for row in group.rows %}
       <div class="ichart__row">
         <div class="ichart__name">
-          <span class="ichart__item">{{ row.name }}</span>
+          <span class="ichart__item">{% if row.icon %}{{ icon(row.icon, "small") }}{% endif %}{{ row.name }}</span>
           <span class="ichart__every">every {{ row.every }}</span>
         </div>
         <div class="ichart__track">
@@ -74,7 +75,8 @@
     {%- if item.action %}
     <span class="stamp stamp--small stamp--{{ item.action }}" aria-hidden="true">{{ action_words[item.action][0] }}</span>
     {%- endif %}
-    <span class="nextup__name">{% if item.action %}<span class="vh">{{ action_words[item.action] }}: </span>{% endif %}{{ item.name }}</span>
+    <span class="nextup__name">{% if item.icon %}{{ icon(item.icon) }}{% endif %}
+      {%- if item.action %}<span class="vh">{{ action_words[item.action] }}: </span>{% endif %}{{ item.name }}</span>
     <span class="nextup__when">{{ item.when }}</span>
     <span class="nextup__side">
       {%- if item.cost is defined and item.cost is not none %}

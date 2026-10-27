@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_avatar.html" import avatar %}
 {% from "_logo.html" import logo, named %}
+{% from "_icons.html" import icon %}
 {% block title %}Garage{% endblock %}
 
 {% block content %}
@@ -44,7 +45,7 @@
         <div>
           <dt>Last service</dt>
           <dd>{% if car.last_service %}<span class="mono">{{ car.last_service.performed_on }}</span>
-            {{ named(car.last_service.shop, who(car.last_service), size="inline") }}{% else %}<span class="muted">None logged</span>{% endif %}</dd>
+            {{ named(car.last_service.shop, who(car.last_service), size="inline", diy=car.last_service.source == "diy") }}{% else %}<span class="muted">None logged</span>{% endif %}</dd>
         </div>
         <div>
           <dt>Services</dt>
@@ -64,7 +65,7 @@
         <p class="carcard__next"><span class="mark mark--{{ s.next.status }}" aria-hidden="true"></span>
           <span><span class="carcard__label">Next:</span>
             {% if s.next.action %}<span class="actword">{{ action_words[s.next.action] }}</span> {% endif -%}
-            {{ s.next.name }} <span class="muted">{{ s.next.when }}</span></span></p>
+            {% if s.next.icon %}{{ icon(s.next.icon) }}{% endif %}{{ s.next.name }} <span class="muted">{{ s.next.when }}</span></span></p>
         {% endif %}
         {% if car.recalls %}
         {# One line however many: a model year can have several, often for the same part. #}

@@ -16,6 +16,7 @@ from ..engine.odometer import Odometer
 from ..engine.schedule import Car, Item, ItemStatus, Occurrence, Service, assess
 from ..repo import odometer as readings
 from ..repo import schedules, services
+from .service_icons import icon_for
 
 NEXT_UP = 6                 # rows in the next-up list, besides every overdue and due-soon one
 READING_DAYS = 60           # a reading older than this is asked for, on a car with jobs due by mileage
@@ -127,6 +128,11 @@ def attest_url(vehicle_id: int, item_id: int, occurrence: Occurrence | None = No
     return f"{url}?due={occurrence.due_day.isoformat()}" if occurrence is not None and occurrence.status == "gap" else url
 
 
+def _icon(status: CarStatus, item_id: int) -> str:
+    row = status.items[item_id]
+    return icon_for(row["codes"], row["category"])
+
+
 def next_up(status: CarStatus, limit: int = NEXT_UP, costs: dict[int, int] | None = None) -> list[dict]:
     """Overdue first (longest overdue at the top), then due soon, then the next few later; each with its cost if known."""
     rank = {"overdue": 0, "due": 1, "later": 2}
@@ -145,6 +151,7 @@ def next_up(status: CarStatus, limit: int = NEXT_UP, costs: dict[int, int] | Non
             "when": when(occurrence, status),
             "attest_url": attest_url(status.vehicle_id, item_status.item.id) if occurrence.status == "overdue" else None,
             "cost": (costs or {}).get(item_status.item.id),
+            "icon": _icon(status, item_status.item.id),
         }
         for item_status, occurrence in chosen
     ]
@@ -270,7 +277,8 @@ def chart(status: CarStatus, vehicle_name: str) -> dict | None:
                           "day": day.isoformat()})
         if not groups or groups[-1]["label"] != row["category"]:
             groups.append({"label": row["category"], "rows": []})
-        groups[-1]["rows"].append({"name": row["name"], "every": every(row), "marks": marks})
+        groups[-1]["rows"].append({"name": row["name"], "every": every(row), "marks": marks,
+                                   "icon": _icon(status, item_status.item.id)})
     return {
         "vehicle": vehicle_name,
         "here": here,

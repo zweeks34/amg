@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_issues.html" import photo_list %}
+{% from "_icons.html" import icon %}
 {% block title %}For the shop · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -65,7 +66,7 @@
         <span class="mark mark--{{ job.status }}" aria-hidden="true"></span>
         <span class="shopsheet__what">
           {%- if job.action %}<span class="actword shopsheet__action">{{ action_words[job.action] }}</span> {% endif -%}
-          {{ job.name }}</span>
+          {% if job.icon %}{{ icon(job.icon) }}{% endif %}{{ job.name }}</span>
         <span class="shopsheet__when">{{ job.when }}</span>
         {% if job.warranty %}<span class="shopsheet__note">{{ job.warranty }}</span>{% endif %}
       </li>

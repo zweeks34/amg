@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 {#- A station's or shop's logo: its website's icon over its letter, which shows when there's no icon. It sits
     beside the name, which says the same, so screen readers skip it. Sizes: row (24px), chip, page. -#}
 {% macro logo(name, size="row") -%}
@@ -9,7 +10,11 @@
 {%- endif -%}
 {%- endmacro %}
 
-{#- A name with its logo before it; ``text`` when the words differ from the name ("Your own work"). -#}
-{% macro named(name, text=none, size="row") -%}
-<span class="withlogo">{{ logo(name, size) }}<span class="withlogo__text">{{ text if text is not none else name }}</span></span>
+{#- A name with its logo before it; ``text`` when the words differ from the name ("Your own work"), and a wrench
+    for work you did yourself. -#}
+{% macro named(name, text=none, size="row", diy=false) -%}
+<span class="withlogo">
+  {%- if diy and not name %}<span class="logo logo--{{ size }} logo--diy" aria-hidden="true">{{ icon("wrench") }}</span>
+  {%- else %}{{ logo(name, size) }}{% endif -%}
+  <span class="withlogo__text">{{ text if text is not none else name }}</span></span>
 {%- endmacro %}

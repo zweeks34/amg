@@ -46,7 +46,8 @@ def test_next_up_stamps_each_jobs_action(signed_in, steady):
 def test_the_garage_counts_whats_overdue_and_missed(signed_in, steady):
     page = signed_in.get("/").text
     assert "2 overdue" in page and "1 missed" in page and "Next:" in page
-    assert '<span class="actword">Replace</span> Cabin air filter' in page          # and what to do to it
+    assert '<span class="actword">Replace</span> <svg class="sicon"' in page        # and what to do to it
+    assert '#cabin-filter"></use></svg>Cabin air filter' in page                     # and its icon
 
 
 def test_a_car_with_nothing_wrong_says_so(signed_in, conn):
@@ -77,7 +78,8 @@ def test_mark_a_missed_item_as_done(signed_in, conn, steady):
     (attested,) = [e for e in services.history(conn, car) if e["source"] == "attested"]
     event = services.get_event(conn, attested["id"])
     assert event["notes"] == "Rotated at home" and event["odometer"] is None
-    assert event["lines"][0]["covers"] == [{"code": "tire_rotation", "name": "Tire rotation", "action": "perform"}]
+    assert event["lines"][0]["covers"] == [{"code": "tire_rotation", "name": "Tire rotation",
+                                            "category": "Tires and wheels", "action": "perform"}]
 
 
 def test_mark_an_overdue_item_as_done_today(signed_in, conn, steady):

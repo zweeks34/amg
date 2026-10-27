@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_forms.html" import message %}
 {% from "_schedule_editor.html" import legend %}
+{% from "_icons.html" import icon %}
 {% block title %}Schedule · {{ car.name }}{% endblock %}
 
 {% block content %}
@@ -66,7 +67,7 @@
       <li class="sched__row{% if not item.in_effect %} sched__row--off{% endif %}">
         <span class="stamp stamp--{{ item.action }}" aria-hidden="true">{{ item.letter }}</span>
         <div class="sched__what">
-          <p class="sched__name"><span class="vh">{{ actions[item.action] }}: </span>{{ item.name }}</p>
+          <p class="sched__name">{{ icon(service_icon(item.codes, item.category)) }}<span class="vh">{{ actions[item.action] }}: </span>{{ item.name }}</p>
           {% if item.type_names and item.type_names | join(", ") != item.name %}<p class="sched__types">{{ item.type_names | join(" · ") }}</p>{% endif %}
           {% if item.note %}<p class="sched__note">{{ item.note }}</p>{% endif %}
         </div>

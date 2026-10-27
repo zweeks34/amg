@@ -28,7 +28,7 @@
     <a class="visit__head" href="/services/{{ v.id }}">
       <span class="visit__date mono">{{ v.performed_on }}</span>
       <span class="visit__miles mono">{{ v.odometer | miles if v.odometer is not none else "" }}</span>
-      <span class="visit__who">{{ named(v.shop, v.who) }}{% if not filters.car %} <span class="visit__car">{{ v.car_name }}</span>{% endif %}</span>
+      <span class="visit__who">{{ named(v.shop, v.who, diy=v.source == "diy") }}{% if not filters.car %} <span class="visit__car">{{ v.car_name }}</span>{% endif %}</span>
       <span class="visit__total mono">{{ v.paid | money if v.paid is not none else "" }}</span>
     </a>
     {% if v.shown or v.others %}

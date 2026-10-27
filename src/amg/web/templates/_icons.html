@@ -1,0 +1,5 @@
+{#- A service's icon from icons.svg, in the text's colour. Its words are always beside it, so screen readers skip
+    it. Sizes: the text's (20px in a list), "small" (16px, in a chip or the chart's names). -#}
+{% macro icon(name, size="") -%}
+<svg class="sicon{% if size %} sicon--{{ size }}{% endif %}" aria-hidden="true" focusable="false"><use href="{{ asset('icons.svg') }}#{{ name }}"></use></svg>
+{%- endmacro %}
