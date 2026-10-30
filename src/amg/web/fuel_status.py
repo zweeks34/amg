@@ -235,7 +235,8 @@ _STEPS = {"gal": (1, 2, 5, 10, 20), "kWh": (0.1, 0.2, 0.5, 1, 2)}
 
 
 def trend(state: FuelStatus) -> dict | None:
-    """Economy for each stretch over time, with the average as a line: positions as 0–100 for the SVG."""
+    """Economy for each stretch over time, with the average as a line and Tank to tank's mean ± 1 std deviation
+    shaded over the months it covers: positions as 0–100 for the SVG."""
     found = state.stretches
     if len(found) < 2:
         return None
@@ -243,7 +244,15 @@ def trend(state: FuelStatus) -> dict | None:
     flagged = engine.unusual(found)
     points = [(s.end.day, s.economy, s.end.day.isoformat(), s.end.id in flagged) for s in found]
     per = "tank" if state.units.quantity == "gal" else "charge"
-    return chart(points, engine.economy(found, since=since), span, state.units, per)  # type: ignore[arg-type]
+    band = None
+    spread, spread_since, spread_span = _spread(state)
+    if spread is not None:
+        low, high = spread.mean - spread.stdev, spread.mean + spread.stdev
+        low_words, high_words = economy_words(low, state.units), economy_words(high, state.units)
+        if _number(low_words) != _number(high_words):        # every tank alike: no band to draw
+            band = (low, high, spread_since,
+                    f"Usual, {spread_span}: {_number(low_words)}–{high_words}, mean ± 1 std deviation")
+    return chart(points, engine.economy(found, since=since), span, state.units, per, band)  # type: ignore[arg-type]
 
 
 SPARK_TANKS = 12       # the garage card's line: this many recent tanks (or charges)
@@ -278,12 +287,25 @@ def sparkline(state: FuelStatus, tanks: int = SPARK_TANKS) -> dict | None:
     }
 
 
-def chart(points: list[tuple[date, float, str, bool]], average: float, span: str, units: Units, per: str) -> dict:
+Band = tuple[float, float, date | None, str]    # a range shaded from a day on (None: from the start), and its words
+
+
+def chart(points: list[tuple[date, float, str, bool]], average: float, span: str, units: Units, per: str,
+          band: Band | None = None) -> dict:
     """An economy trend for the SVG, from (day, economy, label, unusual) points oldest first: positions as 0–100,
-    gridlines at round numbers, and the average as a line. ``per`` is what each dot is: a tank, a charge, a month."""
-    values = [value for _, value, _, _ in points] + [average]
+    gridlines at round numbers, the average as a line, and ``band`` shaded. ``per`` is what each dot is: a tank, a
+    charge, a month."""
+    decimals = 0 if units.quantity == "gal" else 1
+    return _chart(points, average, span, units.economy, per, lambda value: economy_words(value, units),
+                  _STEPS[units.quantity], lambda value: f"{value:.{decimals}f}", band)
+
+
+def _chart(points: list[tuple[date, float, str, bool]], average: float, span: str, unit: str, per: str,
+           words, steps: tuple, tick, band: Band | None = None) -> dict:
+    """Any trend for the SVG: ``words`` puts a value in words, ``steps`` are the gridline spacings to choose from,
+    and ``tick`` labels a gridline."""
+    values = [value for _, value, _, _ in points] + [average] + ([band[0], band[1]] if band else [])
     low, high = min(values), max(values)
-    steps = _STEPS[units.quantity]
     step = next((s for s in steps if (high - low) / s <= 4), steps[-1])
     bottom = math.floor(low / step) * step
     top = max(math.ceil(high / step) * step, bottom + step)
@@ -293,19 +315,27 @@ def chart(points: list[tuple[date, float, str, bool]], average: float, span: str
 
     first, last = points[0][0], points[-1][0]
     days = max(1, (last - first).days)
+
+    def x(day: date) -> float:
+        return round((day - first).days / days * 100, 3)
+
     count = round((top - bottom) / step)
-    decimals = 0 if units.quantity == "gal" else 1
-    return {
-        "unit": units.economy,
+    shown = {
+        "unit": unit,
         "per": per,
-        "points": [{"x": round((day - first).days / days * 100, 3), "y": y(value),
-                    "label": f"{label}: {economy_words(value, units)}", "unusual": unusual}
+        "points": [{"x": x(day), "y": y(value), "label": f"{label}: {words(value)}", "unusual": unusual}
                    for day, value, label, unusual in points],
-        "ticks": [{"y": y(bottom + i * step), "label": f"{bottom + i * step:.{decimals}f}"} for i in range(count + 1)],
-        "average": {"y": y(average), "label": f"{economy_words(average, units)} average, {span}"},
+        "ticks": [{"y": y(bottom + i * step), "label": tick(bottom + i * step)} for i in range(count + 1)],
+        "average": {"y": y(average), "label": f"{words(average)} average, {span}"},
+        "band": None,
         "first": f"{first:%b %Y}",
         "last": f"{last:%b %Y}",
     }
+    if band is not None:
+        start = 0.0 if band[2] is None or band[2] <= first else x(band[2])
+        shown["band"] = {"x": start, "width": round(100 - start, 3), "y": y(band[1]),
+                         "height": round(y(band[0]) - y(band[1]), 3), "label": band[3]}
+    return shown
 
 
 def saved(state: FuelStatus, fill_id: int) -> str | None:

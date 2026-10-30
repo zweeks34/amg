@@ -313,6 +313,43 @@ def test_the_trend_scale(conn, car):
     assert chart["average"] == {"y": 75.0, "label": "30.0 mpg average, last 12 months"}
 
 
+def test_the_trend_shades_the_usual_range(signed_in, conn, car):
+    # 25, 30, 35, 26 mpg: mean 29.0, std deviation 4.546, so 24.454 to 33.546 on a 20-35 scale (steps of 5)
+    for days_ago, miles in ((50, 10_000), (40, 10_250), (30, 10_550), (20, 10_900), (10, 11_160)):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", 10.0, 3_500))
+    from amg.web import fuel_status
+
+    chart = fuel_status.trend(fuel_status.load(conn, vehicles.get(conn, car)))
+    band = chart["band"]
+    assert (band["x"], band["width"]) == (0.0, 100.0)
+    assert band["y"] == pytest.approx(100 - 13.546 / 15 * 100, abs=0.01)
+    assert band["height"] == pytest.approx(9.092 / 15 * 100, abs=0.01)
+    assert band["label"] == "Usual, last 12 months: 24.5–33.5 mpg, mean ± 1 std deviation"
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert '<rect class="trend__band" x="0.0"' in page and "trend__key--band" in page
+
+
+def test_the_band_covers_only_the_months_it_describes(conn, car):
+    # One tank two years ago, then 25, 26, 25 in the last month: the band starts 12 months back
+    for on, miles in (("2024-01-01", 1_000), ("2024-02-01", 1_250), (_days_ago(30), 1_500), (_days_ago(20), 1_760),
+                      (_days_ago(10), 2_010)):
+        fuel.create(conn, car, fuel.FillInput(on, miles, "gas", 10.0, 3_500))
+    from amg.web import fuel_status
+
+    state = fuel_status.load(conn, vehicles.get(conn, car))
+    band = fuel_status.trend(state)["band"]
+    first, last = date(2024, 2, 1), date.today() - timedelta(days=10)
+    assert band["x"] == round((state.year_ago - first).days / (last - first).days * 100, 3)
+    assert band["width"] == round(100 - band["x"], 3) and band["label"].startswith("Usual, last 12 months: 24.8–25.9")
+
+
+def test_no_band_when_every_usual_tank_is_alike(conn, car):
+    _steady(conn, car)       # 25, 25, 25, and the unusual 45 left out
+    from amg.web import fuel_status
+
+    assert fuel_status.trend(fuel_status.load(conn, vehicles.get(conn, car)))["band"] is None
+
+
 def test_one_stretch_has_no_trend_yet(signed_in, conn, car):
     fuel.create(conn, car, fuel.FillInput(_days_ago(10), 30_000, "gas", 10.0))
     fuel.create(conn, car, fuel.FillInput(_days_ago(1), 30_300, "gas", 10.0))

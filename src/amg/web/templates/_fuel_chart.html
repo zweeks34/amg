@@ -1,8 +1,9 @@
 {#- Economy over time: one dot a tank (or charge), joined, with the average as
     a dashed line. The SVG draws in a 0–100 box stretched to fit; strokes and
     dots keep their size whatever the stretch (non-scaling strokes, and each
-    dot a zero-length round-capped line). Labels are HTML, so they stay
-    readable at any width. The log below lists the same figures. -#}
+    dot a zero-length round-capped line). The usual range, where there is one,
+    is shaded behind them over the months it covers. Labels are HTML, so they
+    stay readable at any width. The log below lists the same figures. -#}
 
 {% macro trend_chart(t) -%}
 <figure class="trend">
@@ -12,7 +13,8 @@
     </div>
     <div class="trend__plot">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img"
-           aria-label="{{ t.unit }} for each {{ t.per }}, {{ t.first }} to {{ t.last }}; {{ t.average.label }}">
+           aria-label="{{ t.unit }} for each {{ t.per }}, {{ t.first }} to {{ t.last }}; {{ t.average.label }}{% if t.band %}; {{ t.band.label }}{% endif %}">
+        {% if t.band %}<rect class="trend__band" x="{{ t.band.x }}" y="{{ t.band.y }}" width="{{ t.band.width }}" height="{{ t.band.height }}"/>{% endif %}
         {% for tick in t.ticks %}<line class="trend__grid" x1="0" x2="100" y1="{{ tick.y }}" y2="{{ tick.y }}"/>{% endfor %}
         <line class="trend__avg" x1="0" x2="100" y1="{{ t.average.y }}" y2="{{ t.average.y }}"/>
         <polyline class="trend__line" points="{% for p in t.points %}{{ p.x }},{{ p.y }} {% endfor %}"/>
@@ -27,6 +29,7 @@
   <figcaption class="trend__caption">
     <span class="trend__legend"><span class="trend__key" aria-hidden="true"></span>{{ t.unit }} each {{ t.per }}</span>
     <span class="trend__legend"><span class="trend__key trend__key--avg" aria-hidden="true"></span>{{ t.average.label }}</span>
+    {% if t.band %}<span class="trend__legend"><span class="trend__key trend__key--band" aria-hidden="true"></span>{{ t.band.label }}</span>{% endif %}
   </figcaption>
 </figure>
 {%- endmacro %}
