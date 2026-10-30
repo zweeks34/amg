@@ -252,6 +252,56 @@ def test_the_fuel_page_shows_the_figures_the_trend_and_the_odd_one_out(signed_in
     assert 'class="trend"' in page and "Unusual, check it" in page and "trend__dot--unusual" in page
 
 
+def test_tank_to_tank_counts_each_tank_alike_and_leaves_the_unusual_out(signed_in, conn, car):
+    _steady(conn, car)
+    from amg.web import fuel_status
+
+    shown = fuel_status.tank_to_tank(fuel_status.load(conn, vehicles.get(conn, car)))
+    assert shown["heading"] == "Tank to tank"
+    assert shown["line"] == ("Each tank's own MPG, last 12 months. 1 unusual tank left out. The mean counts every "
+                             "tank alike; the Last 12 months figure above weighs each by its miles.")
+    assert [(f["label"], f["value"], f["unit"], f["note"]) for f in shown["figures"]] == [
+        ("Lowest", "25.0", "mpg", _days_ago(10)),          # three tanks the same: the latest
+        ("Highest", "25.0", "mpg", _days_ago(10)),
+        ("Mean", "25.0", "mpg", "of 3 tanks"),
+        ("Std deviation", "±0.0", "mpg", "all 3 tanks at 25.0"),
+    ]
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert '<h2 class="h3" id="spread-heading">Tank to tank</h2>' in page and "<dt>Std deviation</dt>" in page
+    assert '<dl class="figures figures--four sheet">' in page
+
+
+def test_tank_to_tank_names_the_station_and_counts_those_within(conn, car):
+    # 25, 30, 35, 26 mpg; the last two at Wawa: mean 29.0, std deviation 4.546 (24.45 to 33.55 holds three)
+    for days_ago, miles, station in ((50, 10_000, ""), (40, 10_250, "Sunoco"), (30, 10_550, ""),
+                                     (20, 10_900, "Wawa"), (10, 11_160, "Wawa")):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", 10.0, 3_500, station=station))
+    from amg.web import fuel_status
+
+    shown = fuel_status.tank_to_tank(fuel_status.load(conn, vehicles.get(conn, car)))
+    assert "left out" not in shown["line"]
+    assert [(f["value"], f["note"]) for f in shown["figures"]] == [
+        ("25.0", f"{_days_ago(40)} at Sunoco"), ("35.0", f"{_days_ago(20)} at Wawa"),
+        ("29.0", "of 4 tanks"), ("±4.5", "3 of 4 tanks within 24.5–33.5")]
+
+
+def test_tank_to_tank_takes_all_time_when_the_last_year_is_thin_and_needs_three(conn, car, ev):
+    from amg.web import fuel_status
+
+    for on, miles in (("2024-03-01", 1_000), ("2024-04-01", 1_250), ("2024-05-01", 1_500), ("2024-06-01", 1_760)):
+        fuel.create(conn, car, fuel.FillInput(on, miles, "gas", 10.0, 3_500))
+    fuel.create(conn, car, fuel.FillInput(_days_ago(5), 2_020, "gas", 10.0, 3_500))
+    shown = fuel_status.tank_to_tank(fuel_status.load(conn, vehicles.get(conn, car)))
+    assert shown["line"].startswith("Each tank's own MPG, all time. The mean") and "the All time figure above" in shown["line"]
+    for on, miles in ((_days_ago(30), 5_000), (_days_ago(20), 5_130), (_days_ago(10), 5_260)):
+        fuel.create(conn, ev, fuel.FillInput(on, miles, "electric", 40.0, 600, place="home"))
+    assert fuel_status.tank_to_tank(fuel_status.load(conn, vehicles.get(conn, ev))) is None    # two charges
+    fuel.create(conn, ev, fuel.FillInput(_days_ago(1), 5_400, "electric", 40.0, 600, place="home"))
+    charges = fuel_status.tank_to_tank(fuel_status.load(conn, vehicles.get(conn, ev)))
+    assert charges["heading"] == "Charge to charge" and charges["figures"][2]["value"] == "3.33"
+    assert charges["figures"][3]["unit"] == "mi/kWh" and charges["figures"][2]["note"] == "of 3 charges"
+
+
 def test_the_trend_scale(conn, car):
     _steady(conn, car)
     from amg.web import fuel_status

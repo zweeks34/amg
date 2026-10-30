@@ -182,6 +182,54 @@ def figures(state: FuelStatus) -> list[dict]:
     return shown
 
 
+def _spread(state: FuelStatus) -> tuple[engine.Spread | None, date | None, str]:
+    """The spread of the last 12 months' usual tanks when there are three, else of all time's: (it, since, words)."""
+    flagged = engine.unusual(state.stretches)
+    if (found := engine.spread(state.stretches, flagged, since=state.year_ago)) is not None:
+        return found, state.year_ago, "last 12 months"
+    return engine.spread(state.stretches, flagged), None, "all time"
+
+
+def _number(words: str) -> str:
+    return words.split(" ", 1)[0]
+
+
+def tank_to_tank(state: FuelStatus) -> dict | None:
+    """The fuel page's Tank to tank: the lowest, highest and mean of each tank's own figure, and how far apart they
+    run; with the line that says which tanks, and how the mean differs from the figures above."""
+    found, _, span = _spread(state)
+    if found is None:
+        return None
+    units = state.units
+    tank = "tank" if units.quantity == "gal" else "charge"
+    rows = {row["id"]: row for row in state.rows}
+
+    def words(value: float) -> str:
+        return economy_words(value, units)  # type: ignore[return-value]
+
+    def when(stretch: Stretch) -> str:
+        station = rows[stretch.end.id]["station"] if stretch.end.id in rows else ""
+        return stretch.end.day.isoformat() + (f" at {station}" if station else "")
+
+    low, high = _number(words(found.mean - found.stdev)), _number(words(found.mean + found.stdev))
+    if low == high:
+        within = f"all {found.count} {tank}s at {_number(words(found.mean))}"
+    else:
+        within = f"{found.within} of {found.count} {tank}s within {low}–{high}"
+    left_out = f" {found.left_out} unusual {tank}{'s' if found.left_out != 1 else ''} left out." if found.left_out else ""
+    return {
+        "heading": f"{tank.capitalize()} to {tank}",
+        "line": f"Each {tank}'s own {units.economy_name}, {span}.{left_out} The mean counts every {tank} alike; "
+                f"the {span.capitalize()} figure above weighs each by its miles.",
+        "figures": [
+            _figure("Lowest", words(found.lowest.economy), when(found.lowest)),
+            _figure("Highest", words(found.highest.economy), when(found.highest)),
+            _figure("Mean", words(found.mean), f"of {found.count} {tank}s"),
+            _figure("Std deviation", "±" + words(found.stdev), within),
+        ],
+    }
+
+
 # Gridline steps for the trend chart: mpg in whole numbers, mi/kWh in tenths.
 _STEPS = {"gal": (1, 2, 5, 10, 20), "kWh": (0.1, 0.2, 0.5, 1, 2)}
 

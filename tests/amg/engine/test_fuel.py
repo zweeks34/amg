@@ -23,6 +23,10 @@ Cost a mile, C left out: 24,600¢ / 1,950 mi = 12.615¢; last 12 months 21,100¢
 Spent in the last 12 months, f4 to f13: $323.00 (f6's cost unknown); all time $420.00.
 Price in the last 12 months: $323.00 / 84.5 gal = 382.249¢ a gallon.
 Unusual: the median of 25, 25, 25, 28, 30, 45 is 26.5; E is 70% over it, D only 13%.
+The spread leaves E out. Last 12 months, B C D F: 25, 28, 30, 25; mean 27.0;
+squares off it 4 + 1 + 9 + 4 = 18, over 3 = 6, so the sample std deviation is
+√6 = 2.449; 24.55 to 29.45 holds B, C and F. All time, A B C D F: mean 26.6,
+squares 2.56 × 3 + 1.96 + 11.56 = 21.2, over 4 = 5.3, √5.3 = 2.302.
 """
 
 from __future__ import annotations
@@ -32,7 +36,8 @@ from statistics import mean
 
 import pytest
 
-from amg.engine.fuel import Fill, cost_per_mile, economy, home_rate, spent, stretches, unit_price, unusual
+from amg.engine.fuel import (Fill, cost_per_mile, economy, home_rate, spent, spread, stretches, unit_price,
+                              unusual)
 
 D = date.fromisoformat
 YEAR_AGO = D("2025-10-01")
@@ -96,6 +101,24 @@ def test_spent_and_the_price(found):
 
 def test_an_unusual_stretch_is_flagged(found):
     assert unusual(found) == {12}
+
+
+def test_the_spread_counts_each_tank_alike_and_leaves_the_unusual_out(found):
+    year = spread(found, unusual(found), since=YEAR_AGO)
+    assert (year.count, year.left_out, year.within) == (4, 1, 3)
+    assert year.lowest.end.id == 13 and year.highest.end.id == 11      # B and F tie at 25: the later, F
+    assert year.mean == pytest.approx(27.0) and year.stdev == pytest.approx(6 ** 0.5)
+    ever = spread(found, unusual(found))
+    assert (ever.count, ever.left_out, ever.within) == (5, 1, 4)        # 24.30 to 28.90: all but D
+    assert ever.mean == pytest.approx(26.6) and ever.stdev == pytest.approx(5.3 ** 0.5)
+    assert spread(found).highest.end.id == 12 and spread(found).count == 6      # nothing flagged: E counts
+
+
+def test_fewer_than_three_usual_tanks_have_no_spread(found):
+    assert spread(found[:2]) is None
+    assert spread(found[-3:], unusual(found)) is None                  # D, E, F with E left out
+    same = spread(found[:2] + found[-1:])                              # 25, 25, 25
+    assert (same.stdev, same.within) == (0.0, 3)
 
 
 def test_without_the_missed_flags_the_unlogged_fill_shows_as_unusual():

@@ -1855,6 +1855,7 @@ p.notice, div.notice { margin-bottom: 1rem; }
 /* The log: date, odometer, quantity, price, total, economy; two lines on a phone.
    A fill opens in place to Edit, Copy and Delete, one at a time. */
 .fuellog__hint { margin: -0.25rem 0 0.5rem; font-size: 0.875rem; }
+.block__hint { margin: -0.25rem 0 0; max-width: var(--measure); font-size: 0.875rem; }
 .fuellog { margin: 0; padding: 0; list-style: none; }
 .fuellog li + li { border-top: 1px solid var(--rule-soft); }
 .fuellog__item > summary { display: block; list-style: none; cursor: pointer; }
@@ -1975,6 +1976,9 @@ p.notice, div.notice { margin-bottom: 1rem; }
 }
 
 .budgetline { font-size: 0.9375rem; color: var(--ink-2); }
+@media (min-width: 40rem) {
+  .figures--four { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* two by two, not three and one */
+}
 @media (min-width: 48rem) {
   .figures--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }

@@ -8,8 +8,10 @@ one before" breaks the count, since fuel went in that nobody wrote down: no
 stretch crosses it, and a full one starts the count again.
 
 Every average here is miles over quantity, summed — never an average of
-averages — so a short tank weighs less than a long one. Gallons and kWh are
-handled alike; nothing here knows which it is.
+averages — so a short tank weighs less than a long one. The one exception is
+the spread, which is about each tank's own figure: its mean counts every tank
+alike, and says so where it's shown. Gallons and kWh are handled alike;
+nothing here knows which it is.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from datetime import date
 
 UNUSUAL = 0.40          # a stretch further than this from the median is flagged
 MIN_FOR_UNUSUAL = 3     # with fewer stretches there's no median worth the name
+MIN_FOR_SPREAD = 3      # with fewer usual stretches, lowest and highest are all there is
 
 
 @dataclass(frozen=True)
@@ -111,6 +114,39 @@ def unusual(found: Iterable[Stretch]) -> set[int]:
         return set()
     median = statistics.median(s.economy for s in found)
     return {s.end.id for s in found if abs(s.economy - median) > UNUSUAL * median}
+
+
+@dataclass(frozen=True)
+class Spread:
+    """How far apart the stretches run, each one's own figure counted alike; unusual ones left out."""
+    count: int                  # the stretches counted
+    left_out: int               # unusual ones not counted
+    lowest: Stretch             # the later one, on a tie
+    highest: Stretch
+    mean: float                 # a plain mean of the stretches' figures, not miles over quantity
+    stdev: float                # the sample standard deviation
+    within: int                 # how many lie within mean ± stdev, counted rather than assumed
+
+
+def spread(found: Iterable[Stretch], flagged: set[int] = frozenset(), since: date | None = None) -> Spread | None:
+    """The spread of the stretches that ended on or after ``since``, leaving out those ending at a ``flagged`` fill;
+    None with fewer than three."""
+    chosen = _since(found, since)
+    usual = [s for s in chosen if s.end.id not in flagged]
+    if len(usual) < MIN_FOR_SPREAD:
+        return None
+    values = [s.economy for s in usual]
+    mean, stdev = statistics.fmean(values), statistics.stdev(values)
+    latest_first = usual[::-1]                  # min and max keep the first they meet
+    return Spread(
+        count=len(usual),
+        left_out=len(chosen) - len(usual),
+        lowest=min(latest_first, key=lambda s: s.economy),
+        highest=max(latest_first, key=lambda s: s.economy),
+        mean=mean,
+        stdev=stdev,
+        within=sum(1 for value in values if abs(value - mean) <= stdev + 1e-9),
+    )
 
 
 def home_rate(fills: Iterable[Fill]) -> float | None:

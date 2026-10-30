@@ -3,6 +3,18 @@
 {% from "_logo.html" import logo, named %}
 {% block title %}{{ units.title }} · {{ car.name }}{% endblock %}
 
+{% macro figure_sheet(figures, modifier="") %}
+<dl class="figures {{ modifier }} sheet">
+  {% for f in figures %}
+  <div class="figure">
+    <dt>{{ f.label }}</dt>
+    <dd class="figure__value mono">{{ f.value }}{% if f.unit %}<span class="figure__unit">{{ " " if f.unit[0] != "/" }}{{ f.unit }}</span>{% endif %}</dd>
+    {% if f.note %}<dd class="figure__note">{{ f.note }}</dd>{% endif %}
+  </div>
+  {% endfor %}
+</dl>
+{% endmacro %}
+
 {% block content %}
 <header class="pagehead">
   <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
@@ -15,16 +27,14 @@
 {% if saved %}<p class="notice notice--done" role="status">{{ saved }}</p>{% endif %}
 {% if deleted %}<p class="notice notice--done" role="status">{{ units.fill | capitalize }} deleted.</p>{% endif %}
 
-{% if figures %}
-<dl class="figures sheet">
-  {% for f in figures %}
-  <div class="figure">
-    <dt>{{ f.label }}</dt>
-    <dd class="figure__value mono">{{ f.value }}{% if f.unit %}<span class="figure__unit">{{ " " if f.unit[0] != "/" }}{{ f.unit }}</span>{% endif %}</dd>
-    {% if f.note %}<dd class="figure__note">{{ f.note }}</dd>{% endif %}
-  </div>
-  {% endfor %}
-</dl>
+{% if figures %}{{ figure_sheet(figures) }}{% endif %}
+
+{% if tank_to_tank %}
+<section class="block" aria-labelledby="spread-heading">
+  <h2 class="h3" id="spread-heading">{{ tank_to_tank.heading }}</h2>
+  <p class="muted block__hint">{{ tank_to_tank.line }}</p>
+  {{ figure_sheet(tank_to_tank.figures, "figures--four") }}
+</section>
 {% endif %}
 
 {% if trend %}
