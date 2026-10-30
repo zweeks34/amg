@@ -350,6 +350,38 @@ def test_no_band_when_every_usual_tank_is_alike(conn, car):
     assert fuel_status.trend(fuel_status.load(conn, vehicles.get(conn, car)))["band"] is None
 
 
+def test_the_price_paid_over_time(signed_in, conn, car):
+    # $3.299, $3.359 and $3.419 a gallon, a partial at $3.400 counted too, and one with no cost left out
+    for days_ago, miles, gallons, cents, full in ((40, 10_000, 10.0, 3_299, True), (30, 10_300, 10.0, 3_359, True),
+                                                  (25, 10_400, 4.0, 1_360, False), (20, 10_600, 10.0, None, True),
+                                                  (10, 10_900, 10.0, 3_419, True)):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", gallons, cents, full=full))
+    from amg.web import fuel_status
+
+    chart = fuel_status.price_trend(fuel_status.load(conn, vehicles.get(conn, car)))
+    assert [t["label"] for t in chart["ticks"]] == ["$3.20", "$3.30", "$3.40", "$3.50"]
+    assert [(p["y"], p["label"]) for p in chart["points"]] == [
+        (67.0, f"{_days_ago(40)}: $3.299/gal"), (47.0, f"{_days_ago(30)}: $3.359/gal"),
+        (33.333, f"{_days_ago(25)}: $3.400/gal"), (27.0, f"{_days_ago(10)}: $3.419/gal")]
+    assert chart["average"]["label"] == "$3.364/gal average, last 12 months"      # $114.37 over 34 gallons
+    assert (chart["unit"], chart["per"]) == ("$/gal", "fill-up")
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert '<p class="trend__title">Economy</p>' in page and '<p class="trend__title">Price paid</p>' in page
+
+
+def test_a_charges_price_says_home_or_public_and_needs_two(conn, ev):
+    from amg.web import fuel_status
+
+    fuel.create(conn, ev, fuel.FillInput(_days_ago(20), 5_000, "electric", 40.0, 600, place="home"))
+    assert fuel_status.price_trend(fuel_status.load(conn, vehicles.get(conn, ev))) is None
+    fuel.create(conn, ev, fuel.FillInput(_days_ago(10), 5_130, "electric", 39.0, 1_300, place="public"))
+    chart = fuel_status.price_trend(fuel_status.load(conn, vehicles.get(conn, ev)))
+    assert [t["label"] for t in chart["ticks"]] == ["15¢", "20¢", "25¢", "30¢", "35¢"]
+    assert [p["label"] for p in chart["points"]] == [f"{_days_ago(20)}, Home: 15.0¢/kWh",
+                                                    f"{_days_ago(10)}, Public: 33.3¢/kWh"]
+    assert (chart["unit"], chart["per"]) == ("¢/kWh", "charge")
+
+
 def test_one_stretch_has_no_trend_yet(signed_in, conn, car):
     fuel.create(conn, car, fuel.FillInput(_days_ago(10), 30_000, "gas", 10.0))
     fuel.create(conn, car, fuel.FillInput(_days_ago(1), 30_300, "gas", 10.0))

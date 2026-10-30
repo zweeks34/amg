@@ -37,10 +37,11 @@
 </section>
 {% endif %}
 
-{% if trend %}
+{% if trend or price_trend %}
 <section class="block" aria-labelledby="trend-heading">
   <h2 class="h3" id="trend-heading">Over time</h2>
-  <div class="sheet">{{ trend_chart(trend) }}</div>
+  {% if trend %}<div class="sheet">{{ trend_chart(trend, "Economy") }}</div>{% endif %}
+  {% if price_trend %}<div class="sheet">{{ trend_chart(price_trend, "Price paid") }}</div>{% endif %}
 </section>
 {% endif %}
 

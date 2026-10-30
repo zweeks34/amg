@@ -255,6 +255,27 @@ def trend(state: FuelStatus) -> dict | None:
     return chart(points, engine.economy(found, since=since), span, state.units, per, band)  # type: ignore[arg-type]
 
 
+# Gridline steps for the price chart, in cents: a gallon by dimes and quarters, a kWh by cents.
+_PRICE_STEPS = {"gal": (10, 20, 25, 50, 100), "kWh": (1, 2, 5, 10, 20, 50)}
+
+
+def price_trend(state: FuelStatus) -> dict | None:
+    """What each fill with a cost came to a gallon (or kWh), partial ones included, over time; the average paid over
+    the last 12 months (else all time) as a line, as Price paid has it. A charge says whether it was at home."""
+    units = state.units
+    gal = units.quantity == "gal"
+    priced = sorted((f for f in state.fills if f.cost_cents is not None), key=lambda f: (f.day, f.odometer, f.id))
+    if len(priced) < 2:
+        return None
+    since = state.year_ago if any(f.day >= state.year_ago for f in priced) else None
+    points = [(f.day, f.cost_cents / f.quantity,  # type: ignore[operator]
+               ", ".join(part for part in (f.day.isoformat(), None if gal else _PLACES.get(f.place or "")) if part),
+               False) for f in priced]
+    return _chart(points, engine.unit_price(priced, since=since), "last 12 months" if since else "all time",  # type: ignore[arg-type]
+                  "$/gal" if gal else "¢/kWh", units.fill, lambda cents: price_words(cents, units),
+                  _PRICE_STEPS[units.quantity], (lambda cents: f"${cents / 100:.2f}") if gal else (lambda cents: f"{cents:.0f}¢"))
+
+
 SPARK_TANKS = 12       # the garage card's line: this many recent tanks (or charges)
 
 

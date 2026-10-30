@@ -3,10 +3,12 @@
     dots keep their size whatever the stretch (non-scaling strokes, and each
     dot a zero-length round-capped line). The usual range, where there is one,
     is shaded behind them over the months it covers. Labels are HTML, so they
-    stay readable at any width. The log below lists the same figures. -#}
+    stay readable at any width. The log below lists the same figures. The
+    price paid at each fill-up is drawn the same way. -#}
 
-{% macro trend_chart(t) -%}
+{% macro trend_chart(t, title=None) -%}
 <figure class="trend">
+  {% if title %}<p class="trend__title">{{ title }}</p>{% endif %}
   <div class="trend__frame">
     <div class="trend__axis" aria-hidden="true">
       {% for tick in t.ticks %}<span style="--y: {{ tick.y }}">{{ tick.label }}</span>{% endfor %}

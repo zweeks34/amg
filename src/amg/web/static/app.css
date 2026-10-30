@@ -1814,6 +1814,13 @@ p.notice, div.notice { margin-bottom: 1rem; }
 
 /* Economy over time. The SVG is a 0–100 box stretched to the plot; labels are HTML. */
 .trend { display: grid; gap: 0.375rem; margin: 0; }
+.trend__title {
+  margin-bottom: 0.5rem;
+  font: 600 0.75rem/1.2 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
 .trend__frame { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: 0.625rem; }
 .trend__axis { position: relative; }
 .trend__axis span {
