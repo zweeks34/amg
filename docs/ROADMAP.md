@@ -358,9 +358,13 @@ Outback's chart against your full history on the server is yours.*
 **For:** fuel economy, running cost, and better mileage estimates.
 
 - [x] Phone form, one tap from the masthead (**Fill-up**; **Charge** when every car is electric; a choice of car when there are several): odometer, gallons or kWh, total cost with the price a gallon shown as you type, **Filled the tank** / **Charged to your usual limit**, home or public for a charge — a home charge is priced at your last home rate until you type a cost. Under **More**: "I didn't log the one before this" and a note. Past dates are fine, for back-filling
-- [x] Economy from one full fill to the next (`engine/fuel.py`): partial fills in between add up, a partial before the first full fill is left out, "didn't log the one before" breaks the count, a top-off at no new miles measures nothing. Every average is miles over quantity, never a mean of each tank's figure. Cost a mile (stretches with a cost missing left out), spend, average price, and a stretch more than 40% from the median flagged *unusual, check it*
+- [x] Economy from one full fill to the next (`engine/fuel.py`): partial fills in between add up, a partial before the first full fill is left out, "didn't log the one before" breaks the count, a top-off at no new miles measures nothing. Every average is miles over quantity, never a mean of each tank's figure (Tank to tank's Mean, below, is the one exception, and says so). Cost a mile (stretches with a cost missing left out), spend, average price, and a stretch more than 40% from the median flagged *unusual, check it*
 - [x] The fuel page: last tank, last 12 months, all time, cost a mile, spend, price paid; economy over time (server-drawn SVG, the average as a dashed line); the log, every fill editable and deletable. The car page gets a Fuel (Charging) block
 - [x] Edit, copy and delete from the log (added after the phase shipped, 2026-10-25): tapping a fill-up opens it in place, one at a time, with **Edit**, **Copy** and **Delete**. Copy puts it on the clipboard as one line in the log's words ("Oct 20, 2026 · 45,210 mi · 10.200 gal · $34.67 ($3.399/gal) · 32.4 mpg · Full tank"); it works over plain HTTP, and if the browser refuses, the line is shown selected to copy by hand. Delete confirms in place, and the log says when one was deleted
+- [x] **Tank to tank** (added after the phase shipped, 2026-10-29; **Charge to charge** for an EV): under the figures, each tank's own economy: the lowest and highest with their date and station, the mean, and the sample std deviation with how many tanks lie within one of the mean, counted rather than assumed. Over the last 12 months, or all time when the last year has fewer than three; tanks flagged unusual are left out, and the line under the heading says how many and how the mean differs from the miles-over-gallons figures above
+- [x] **The usual band** (added 2026-10-29): Over time shades mean ± 1 std deviation behind the dots, over the months it describes
+- [x] **Price over time** (added 2026-10-29): a second chart under the economy one, the price paid at each fill-up with a cost, partial ones included, and the last 12 months' average dashed; a charge's dot says Home or Public
+- [x] **Where you fill up** (added 2026-10-29; **Where you charge** for an EV): each station named in the last 12 months with its logo, its fill-ups, what they came to and its average price paid, most visits first. The cheapest by the price as shown is marked (each, on a tie; none when all show the same). A home charge that names no station counts as Home
 - [x] Every fill-up is an odometer reading feeding Phase 5's model (the `odometer_points` view), checked like any other; the car page's readings list folds after six
 
 **Decisions:** no plug-in hybrids (your call) — gas and hybrid cars fill up in
@@ -382,7 +386,11 @@ between two full fills, a missed fill on a full and on a partial, a top-off,
 the miles-weighted average beating a plain mean, cost a mile with a cost
 missing, the 12-month window and the unusual flag's edge; an odometer lower
 than an earlier one is rejected; EV and gas cars side by side; a fill-up moving
-today's estimated odometer.
+today's estimated odometer. Added 2026-10-29: the spread of the same log worked
+by hand (the unusual tank left out, a tie for lowest going to the later tank,
+√6 over the last 12 months and √5.3 all time), the band's place on the chart,
+the price chart's scale, and stations grouped across case and spacing with
+ties for cheapest.
 
 **Done when:** the engine matches the hand-worked log *(it does, 2026-10-03)*,
 and you log a real fill-up from your phone at the pump and it shows on the car
@@ -990,7 +998,7 @@ running, at a glance. (Added 2026-10-26.)
 - [x] **Your own logos** (added after the phase shipped, 2026-10-26): on Stations and shops, upload a logo (PNG, JPG or GIF) for a station or shop, kept like a car's photo. On a name AMG recognises it's the brand's, used for every station or shop of that brand; on any other name, or one you gave its own website, it's that name's. **Add a station or shop** sets one up with its logo or website before your first visit, listed under Not visited yet until you've been. In backups, and in Download your data's `logos/`
 - [x] **Service icons** (`static/icons.svg`, 30, drawn in the text's ink): an oil change is a drop and a filter, spark plugs a spark plug; the dashboard's warning-light shapes where there is one. Before each job's name in Next up, the interval chart, the schedule page, the garage card, the shop sheet, and on the service history's chips and a service's lines
 - [x] **Interval gauges** in Next up: how much of each job's interval has gone by, by miles or months, whichever is further along; steel, then safety yellow when due soon, signal red and full when overdue
-- [x] The **odometer as drums** on the garage card and the car page, rolling up to the reading on load; still with motion turned down
+- [x] The **odometer as drums** on the garage card and the car page, rolling up to the reading on load; still with motion turned down. Today's estimate on the car page has them too (2026-10-27)
 - [x] An **economy sparkline** on each garage card with three or more measured tanks: the last tank's figure and a line of the last 12, the average dashed
 
 **Decisions:**
@@ -1011,8 +1019,9 @@ running, at a glance. (Added 2026-10-26.)
 - **A wrong match is yours to put right**, on Stations and shops. Words
   that are also places or everyday words ("Gulf", "Irving") count only as
   the whole name, so "Gulf Coast Auto Repair" isn't Gulf.
-- **The estimate stays in words.** The drums show the last reading, as a
-  dial does; today's estimate isn't a reading.
+- **Today's estimate has drums too** (your call, 2026-10-27): on the car
+  page, after its "~". The garage card's drums show the last reading, as a
+  dial does.
 
 **Data owned:** `fuel_logs.station` (migration 0022); `places`, what you've
 said about a station or shop by name, and `site_icons`, each website's icon
