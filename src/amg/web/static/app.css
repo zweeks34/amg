@@ -1865,6 +1865,29 @@ p.notice, div.notice { margin-bottom: 1rem; }
    A fill opens in place to Edit, Copy and Delete, one at a time. */
 .fuellog__hint { margin: -0.25rem 0 0.5rem; font-size: 0.875rem; }
 .block__hint { margin: -0.25rem 0 0; max-width: var(--measure); font-size: 0.875rem; }
+
+/* Where you fill up: a station a row, its logo, its visits, and its average price paid at the end. */
+.fuelsum { margin: 0; padding: 0; list-style: none; }
+.fuelsum__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem var(--gutter);
+}
+.fuelsum__row + .fuelsum__row { border-top: 1px solid var(--rule-soft); }
+.fuelsum__about { display: grid; min-width: 0; }
+.fuelsum__name { font: 600 1.0625rem/1.2 var(--display); overflow-wrap: anywhere; }
+.fuelsum__visits { font-size: 0.8125rem; color: var(--steel); }
+.fuelsum__price { display: grid; justify-items: end; gap: 0.25rem; white-space: nowrap; }
+.fuelsum__cheapest {
+  padding: 0.125rem 0.375rem;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-sm);
+  font: 600 0.6875rem/1.2 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .fuellog { margin: 0; padding: 0; list-style: none; }
 .fuellog li + li { border-top: 1px solid var(--rule-soft); }
 .fuellog__item > summary { display: block; list-style: none; cursor: pointer; }

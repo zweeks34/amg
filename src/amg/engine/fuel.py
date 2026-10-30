@@ -36,6 +36,7 @@ class Fill:
     full: bool = True
     missed_before: bool = False
     place: str | None = None      # home or public, for charges
+    station: str = ""             # where, as written; "" when not
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,32 @@ def spread(found: Iterable[Stretch], flagged: set[int] = frozenset(), since: dat
         stdev=stdev,
         within=sum(1 for value in values if abs(value - mean) <= stdev + 1e-9),
     )
+
+
+@dataclass(frozen=True)
+class StationSum:
+    """One station's fills: how many, what they came to, and the average paid."""
+    name: str                   # as last written
+    fills: int
+    spent: int                  # cents
+    unit_price: float | None    # cents a gallon (or kWh), over the fills with a cost
+
+
+def stations(fills: Iterable[Fill], since: date | None = None) -> tuple[list[StationSum], int]:
+    """Each station's fills on or after ``since``, most first, then by name, a name being the same whatever its case
+    or spacing; and how many fills named no station."""
+    named: dict[str, list[Fill]] = {}
+    unnamed = 0
+    for fill in _order(fills):
+        if since is not None and fill.day < since:
+            continue
+        if not (key := " ".join(fill.station.split()).lower()):
+            unnamed += 1
+            continue
+        named.setdefault(key, []).append(fill)
+    found = [StationSum(" ".join(group[-1].station.split()), len(group), spent(group), unit_price(group))
+             for group in named.values()]
+    return sorted(found, key=lambda s: (-s.fills, s.name.lower())), unnamed
 
 
 def home_rate(fills: Iterable[Fill]) -> float | None:

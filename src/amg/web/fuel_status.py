@@ -62,8 +62,10 @@ class FuelStatus:
 
 
 def _fill(row) -> Fill:
+    """A row for the arithmetic; a charge at home that names no station is at Home."""
+    station = row["station"] or ("Home" if row["place"] == "home" else "")
     return Fill(row["id"], date.fromisoformat(row["filled_on"]), row["odometer"], row["quantity"], row["cost_cents"],
-                bool(row["full"]), bool(row["missed_before"]), row["place"])
+                bool(row["full"]), bool(row["missed_before"]), row["place"], station)
 
 
 def load(conn: sqlite3.Connection, car, today: date | None = None) -> FuelStatus:
@@ -253,6 +255,36 @@ def trend(state: FuelStatus) -> dict | None:
             band = (low, high, spread_since,
                     f"Usual, {spread_span}: {_number(low_words)}–{high_words}, mean ± 1 std deviation")
     return chart(points, engine.economy(found, since=since), span, state.units, per, band)  # type: ignore[arg-type]
+
+
+def where_you_fill(state: FuelStatus) -> dict | None:
+    """Where you fill up (or charge): each station's fills over the last 12 months (else all time), most first, with
+    what they came to and the average paid. The cheapest are marked, by the price as shown ($3.299, 42.0¢), so a tie
+    marks each; when every station with a price shows the same, none is."""
+    units = state.units
+    since = state.year_ago if any(f.day >= state.year_ago for f in state.fills) else None
+    found, unnamed = engine.stations(state.fills, since=since)
+    if not found:
+        return None
+    priced = [s for s in found if s.unit_price is not None]
+    shown = {s.name: price_words(s.unit_price, units) for s in priced}
+    lowest = shown[min(priced, key=lambda s: s.unit_price).name] if priced else None  # type: ignore[arg-type,return-value]
+    cheapest = {name for name, words in shown.items() if words == lowest} if len(set(shown.values())) > 1 else set()
+
+    def count(n: int) -> str:
+        return f"{n} {units.fill}{'s' if n != 1 else ''}"
+
+    line = ("Last 12 months" if since else "All time") + ", most visits first."
+    if unnamed:
+        line += f" {count(unnamed)} {'doesn' if unnamed == 1 else 'don'}'t name a station."
+    return {
+        "heading": "Where you fill up" if units.quantity == "gal" else "Where you charge",
+        "line": line,
+        "rows": [{"name": s.name,
+                  "visits": count(s.fills) + (f" · {money(s.spent)}" if s.spent else ""),
+                  "price": price_words(s.unit_price, units),
+                  "cheapest": s.name in cheapest} for s in found],
+    }
 
 
 # Gridline steps for the price chart, in cents: a gallon by dimes and quarters, a kWh by cents.

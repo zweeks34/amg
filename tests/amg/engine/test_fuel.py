@@ -36,8 +36,8 @@ from statistics import mean
 
 import pytest
 
-from amg.engine.fuel import (Fill, cost_per_mile, economy, home_rate, spent, spread, stretches, unit_price,
-                              unusual)
+from amg.engine.fuel import (Fill, StationSum, cost_per_mile, economy, home_rate, spent, spread, stations,
+                              stretches, unit_price, unusual)
 
 D = date.fromisoformat
 YEAR_AGO = D("2025-10-01")
@@ -150,6 +150,22 @@ def test_until_a_second_full_fill_there_is_nothing_to_measure():
     assert unit_price([]) is None and spent([]) == 0
     partial_after = _fills([LOG[1], LOG[3]])
     assert stretches(partial_after) == []
+
+
+def test_stations_go_by_name_whatever_its_case_and_spacing():
+    fills = [
+        Fill(1, D("2026-01-05"), 1_000, 10.0, 3_300, station="shell  #4"),
+        Fill(2, D("2026-02-05"), 1_300, 10.0, 3_400, station="Wawa"),
+        Fill(3, D("2026-03-05"), 1_600, 10.0, 3_500, station="Shell #4"),
+        Fill(4, D("2026-04-05"), 1_900, 5.0, None, station=" Shell #4"),     # counted; no cost, so not in the price
+        Fill(5, D("2026-05-05"), 2_200, 10.0, 3_200),                       # no station
+        Fill(6, D("2025-01-05"), 700, 10.0, 3_000, station="Sunoco"),         # before the year
+    ]
+    assert stations(fills, since=YEAR_AGO) == (
+        [StationSum("Shell #4", 3, 6_800, 340.0), StationSum("Wawa", 1, 3_400, 340.0)], 1)
+    found, _ = stations(reversed(fills))
+    assert [s.name for s in found] == ["Shell #4", "Sunoco", "Wawa"]           # one each: by name
+    assert stations([]) == ([], 0)
 
 
 def test_charges_work_alike_and_give_the_home_rate():

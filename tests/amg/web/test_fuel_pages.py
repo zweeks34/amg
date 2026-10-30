@@ -382,6 +382,65 @@ def test_a_charges_price_says_home_or_public_and_needs_two(conn, ev):
     assert (chart["unit"], chart["per"]) == ("¢/kWh", "charge")
 
 
+def test_where_you_fill_up_compares_the_stations(signed_in, conn, car):
+    for days_ago, miles, gallons, cents, station in ((40, 10_000, 10.0, 3_299, "Wawa"), (30, 10_300, 10.0, 3_399, "BP #4"),
+                                                     (20, 10_600, 10.0, 3_319, "wawa"), (15, 10_800, 5.0, 1_700, ""),
+                                                     (10, 10_900, 10.0, None, "Sunoco")):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", gallons, cents, station=station))
+    from amg.web import fuel_status
+
+    shown = fuel_status.where_you_fill(fuel_status.load(conn, vehicles.get(conn, car)))
+    assert shown["heading"] == "Where you fill up"
+    assert shown["line"] == "Last 12 months, most visits first. 1 fill-up doesn't name a station."
+    assert [(r["name"], r["visits"], r["price"], r["cheapest"]) for r in shown["rows"]] == [
+        ("wawa", "2 fill-ups · $66.18", "$3.309/gal", True),
+        ("BP #4", "1 fill-up · $33.99", "$3.399/gal", False),
+        ("Sunoco", "1 fill-up", None, False),
+    ]
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert '<h2 class="h3" id="stations-heading">Where you fill up</h2>' in page
+    assert '<span class="fuelsum__cheapest">Cheapest</span><span class="mono">$3.309/gal</span>' in page
+
+
+def test_a_tie_for_cheapest_marks_each_and_all_alike_marks_none(conn, car):
+    # $3.299 shown for both, though the first is $3.2985; $3.359 at the third
+    for days_ago, miles, gallons, cents, station in ((40, 10_000, 10.0, 3_299, "Wawa"), (30, 10_300, 20.0, 6_597, "Sunoco"),
+                                                     (20, 10_600, 10.0, 3_359, "Shell")):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", gallons, cents, station=station))
+    from amg.web import fuel_status
+
+    rows = fuel_status.where_you_fill(fuel_status.load(conn, vehicles.get(conn, car)))["rows"]
+    assert {r["name"]: (r["price"], r["cheapest"]) for r in rows} == {
+        "Sunoco": ("$3.299/gal", True), "Wawa": ("$3.299/gal", True), "Shell": ("$3.359/gal", False)}
+    fuel.update(conn, _fill_id(conn, "Shell"), fuel.FillInput(_days_ago(20), 10_600, "gas", 10.0, 3_299, station="Shell"))
+    rows = fuel_status.where_you_fill(fuel_status.load(conn, vehicles.get(conn, car)))["rows"]
+    assert not any(r["cheapest"] for r in rows)
+
+
+def _fill_id(conn, station):
+    return conn.execute("SELECT id FROM fuel_logs WHERE station = ?", (station,)).fetchone()[0]
+
+
+def test_where_you_charge_counts_home_and_marks_nothing_alone(conn, ev):
+    fuel.create(conn, ev, fuel.FillInput(_days_ago(20), 5_000, "electric", 40.0, 600, place="home"))
+    fuel.create(conn, ev, fuel.FillInput(_days_ago(10), 5_130, "electric", 40.0, 640, place="home"))
+    fuel.create(conn, ev, fuel.FillInput(_days_ago(5), 5_260, "electric", 30.0, None, place="public"))
+    from amg.web import fuel_status
+
+    shown = fuel_status.where_you_fill(fuel_status.load(conn, vehicles.get(conn, ev)))
+    assert shown["heading"] == "Where you charge"
+    assert shown["line"] == "Last 12 months, most visits first. 1 charge doesn't name a station."
+    assert [(r["name"], r["visits"], r["price"], r["cheapest"]) for r in shown["rows"]] == [
+        ("Home", "2 charges · $12.40", "15.5¢/kWh", False)]
+
+
+def test_with_no_station_named_there_is_nothing_to_compare(conn, car):
+    _steady(conn, car)
+    from amg.web import fuel_status
+
+    assert fuel_status.where_you_fill(fuel_status.load(conn, vehicles.get(conn, car))) is None
+
+
 def test_one_stretch_has_no_trend_yet(signed_in, conn, car):
     fuel.create(conn, car, fuel.FillInput(_days_ago(10), 30_000, "gas", 10.0))
     fuel.create(conn, car, fuel.FillInput(_days_ago(1), 30_300, "gas", 10.0))

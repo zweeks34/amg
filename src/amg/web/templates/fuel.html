@@ -45,6 +45,28 @@
 </section>
 {% endif %}
 
+{% if stations %}
+<section class="block" aria-labelledby="stations-heading">
+  <h2 class="h3" id="stations-heading">{{ stations.heading }}</h2>
+  <p class="muted block__hint">{{ stations.line }}</p>
+  <ul class="fuelsum sheet sheet--flush">
+    {% for s in stations.rows %}
+    <li class="fuelsum__row">
+      {{ logo(s.name, "card") }}
+      <span class="fuelsum__about">
+        <span class="fuelsum__name">{{ s.name }}</span>
+        <span class="fuelsum__visits">{{ s.visits }}</span>
+      </span>
+      <span class="fuelsum__price">
+        {%- if s.cheapest %}<span class="fuelsum__cheapest">Cheapest</span>{% endif -%}
+        <span class="mono">{{ s.price or "" }}</span>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section class="block" aria-labelledby="log-heading">
   <h2 class="h3" id="log-heading">The log</h2>
   {% if log %}

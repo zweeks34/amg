@@ -200,8 +200,9 @@ def test_a_logo_uploaded_for_a_brand_covers_every_station_of_it(signed_in, conn,
     response = _upload(signed_in, "BP #4")
     assert response.status_code == 303 and "Saved BP #4." in page(signed_in, response.headers["location"])
     mine = logos.brand_logos(conn)["BP"]["document_id"]
-    log = page(signed_in, f"/vehicles/{car}/fuel")
-    assert log.count(_shown(conn, mine)) == 2 and "/logos/bp.com.png" not in log      # both, and nothing fetched
+    fuel_page = page(signed_in, f"/vehicles/{car}/fuel")
+    log = fuel_page.split('id="log-heading"', 1)[1]
+    assert log.count(_shown(conn, mine)) == 2 and "/logos/bp.com.png" not in fuel_page  # both, and nothing fetched
     text = page(signed_in, "/places")
     assert text.count("Recognised as BP. Your logo, for every BP.") == 2
     assert "Remove your logo for every BP" in text and fetched == []
@@ -214,7 +215,7 @@ def test_a_logo_for_a_name_amg_doesnt_know_is_for_that_name(signed_in, conn, car
     assert "For Joe's Gas. PNG, JPG or GIF." in page(signed_in, "/places")
     _upload(signed_in, "Joe's Gas")
     mine = logos.places(conn)["joe's gas"]["logo_document_id"]
-    log = page(signed_in, f"/vehicles/{car}/fuel")
+    log = page(signed_in, f"/vehicles/{car}/fuel").split('id="log-heading"', 1)[1]
     assert log.count(_shown(conn, mine)) == 1 and "Your logo." in page(signed_in, "/places")
     assert '<span class="logo logo--row" aria-hidden="true">J</span>' in log            # Joe's Garage: its letter
 
@@ -229,7 +230,7 @@ def test_which_logo_wins(signed_in, conn, car, fetched):
     own, _ = documents.store(conn, png("blue"), "corner.png")
     logos.set_logo(conn, "Shell Route 9", own["id"])                                  # this one's own
     signed_in.post("/places", data={"name": "Shell on Main", "website": "", "letter_only": "1"})
-    log = page(signed_in, f"/vehicles/{car}/fuel")
+    log = page(signed_in, f"/vehicles/{car}/fuel").split('id="log-heading"', 1)[1]      # the log, a row a fill
     assert log.count(_shown(conn, brand)) == 1 and log.count(_shown(conn, own["id"])) == 1
     assert '<span class="logo logo--row" aria-hidden="true">S</span>' in log           # its letter, as asked
     assert "/logos/shell.com.png" not in log                                          # your logo beats the fetched one

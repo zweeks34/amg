@@ -74,6 +74,7 @@ def fuel_page(request: Request, vehicle_id: int, saved: int | None = None, delet
         tank_to_tank=status.tank_to_tank(state),
         trend=status.trend(state),
         price_trend=status.price_trend(state),
+        stations=status.where_you_fill(state),
         log=status.log_rows(state),
         saved=status.saved(state, saved) if saved else None,
         deleted=bool(deleted),
