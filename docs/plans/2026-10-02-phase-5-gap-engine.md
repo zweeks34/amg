@@ -1,6 +1,6 @@
 > **Approved** 2026-10-02 21:21 · **Roadmap** [Phase 5](../ROADMAP.md#phase-5--gap-engine-interval-chart-dashboard)
 >
-> **Built in** `0237463` feat(engine): odometer model, `3f88bdc` feat(engine): gap engine, `b8f791a` feat(web): next up, the interval chart, garage badges and mark as done, `3abfdcb` docs(roadmap): tick off phase 5
+> **Built in** `d0485d6` feat(engine): odometer model, `e33af42` feat(engine): gap engine, `6bbe297` feat(web): next up, the interval chart, garage badges and mark as done, `05b7283` docs(roadmap): tick off phase 5
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 

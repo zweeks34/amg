@@ -1,6 +1,6 @@
 > **Approved** 2026-10-26 22:23 · **Roadmap** [Phase 16](../ROADMAP.md#phase-16--logos-icons-and-gauges)
 >
-> **Built in** `fffdca7` feat: upload your own logo for a station, shop or brand, and the docs commit that adds this record
+> **Built in** `0d28787` feat: upload your own logo for a station, shop or brand, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
 > - **A name you've given its own website** takes an upload for itself, not its brand: its website would otherwise come before the brand's logo, and the upload wouldn't show. The upload hint says which ("For every BP station or shop", "For Shell on Main").

@@ -1,9 +1,9 @@
 > **Approved** 2026-10-08 15:23 · **Roadmap** [Phase 13](../ROADMAP.md#phase-13--issues-and-the-sheet-for-the-shop)
 >
-> **Built in** `8bfe8eb` feat(issues): note what's wrong with a car, with photos, until a visit fixes it, `12bdff8` feat(issues): a sheet for the shop: your issues, what's due and what was recommended, and the docs commit that adds this record
+> **Built in** `7378cb9` feat(issues): note what's wrong with a car, with photos, until a visit fixes it, `2085cf4` feat(issues): a sheet for the shop: your issues, what's due and what was recommended, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
-> - **Photo thumbnails** load a 480px render: page images gained `size=thumb` (`documents.THUMB_LONG_EDGE`, `page_url(..., thumb=True)`), rather than a 1600px preview shrunk to 6rem (`8bfe8eb`).
+> - **Photo thumbnails** load a 480px render: page images gained `size=thumb` (`documents.THUMB_LONG_EDGE`, `page_url(..., thumb=True)`), rather than a 1600px preview shrunk to 6rem (`7378cb9`).
 > - **`repo.issues.photos()`** isn't a function of its own: `everything()` gives each issue its photos and checks, and the export reads them from there. The README's count line adds "N photo(s)".
 > - **The service page's block** is headed "Your issues", with one **All of them** link to the car's issues rather than a link per row; it asks "Did this visit fix it?".
 > - **Fixing by a visit you'd said it was still there after** removes that check, so a visit is never both.

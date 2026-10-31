@@ -1,6 +1,6 @@
 > **Approved** 2026-10-05 21:15 · **Roadmap** [Phase 7](../ROADMAP.md#phase-7--forecast-and-budget)
 >
-> **Built in** `340a197` feat(budget): the budget by type of work, `025f310` docs(roadmap): budget by type
+> **Built in** `7378e21` feat(budget): the budget by type of work, `ba79894` docs(roadmap): budget by type
 >
 > **As built:** Jobs say "3 times · 1 due now" and "due now", not "1 overdue" and "expired": one phrase for overdue jobs and expired fees, matching the Due now figure.
 >

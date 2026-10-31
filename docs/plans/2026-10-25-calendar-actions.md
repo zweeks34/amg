@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 20:39 · **Roadmap** [Phase 8](../ROADMAP.md#phase-8--outbound-alerts)
 >
-> **Built in** `5997dd8` feat(alerts): say each job's action in the calendar file, and the docs commit that adds this record
+> **Built in** `cd94fbb` feat(alerts): say each job's action in the calendar file, and the docs commit that adds this record
 >
 > **As built:** As planned. Checked on the scratch garage by building its calendar file before and after the change and writing it to a scratch file, with nothing sent. Its six events went from "Brakes · Hatch" to "INSPECT Brakes · Hatch", "PERFORM Tire rotation · Hatch", "REPLACE Engine oil and filter · Hatch" and so on. Each kept its UID and day.
 >
@@ -9,7 +9,7 @@
 # The action words in the calendar file
 
 ## Context
-The weekly email and the pushes now say **REPLACE**, **INSPECT** or **PERFORM** before each schedule job (`df4eb09`, `57df82c`). The calendar file's job events don't yet: "Oil and filter · Outback". Each should say what to do, in the same plain-text form: "REPLACE Oil and filter · Outback".
+The weekly email and the pushes now say **REPLACE**, **INSPECT** or **PERFORM** before each schedule job (`9e89c0c`, `ea83404`). The calendar file's job events don't yet: "Oil and filter · Outback". Each should say what to do, in the same plain-text form: "REPLACE Oil and filter · Outback".
 
 **Re-importing is safe.** Each job event's UID already carries the job's action (`amg-{car}-{codes}-{action}-{n}@amg`), so the UIDs don't change. Every file also carries a higher `SEQUENCE`, so importing a new file renames your existing events rather than adding a second set.
 

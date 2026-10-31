@@ -1,8 +1,8 @@
 > **Approved** 2026-10-26 20:50 · **Roadmap** [Phase 16](../ROADMAP.md#phase-16--logos-icons-and-gauges)
 >
-> **Built in** `447039a` feat(fuel): the station on each fill-up · `d025693` feat: logos for stations and shops ·
-> `9deaea2` feat: an icon for each kind of service · `ff119a4` feat(schedule): interval gauges in Next up ·
-> `c21b239` feat(garage): the odometer as rolling drums · `83a58f0` feat(garage): an economy sparkline on each card ·
+> **Built in** `7b40aa3` feat(fuel): the station on each fill-up · `ac26bbb` feat: logos for stations and shops ·
+> `74bdd9e` feat: an icon for each kind of service · `f940555` feat(schedule): interval gauges in Next up ·
+> `bd8eb59` feat(garage): the odometer as rolling drums · `935b7e5` feat(garage): an economy sparkline on each card ·
 > and the docs commit that adds this record
 >
 > **As built:** As planned, except:

@@ -1,13 +1,13 @@
 > **Approved** 2026-10-02 20:14 · **Roadmap** [Phase 4](../ROADMAP.md#phase-4--baseline-schedules)
 >
-> **Built in** `7960750` feat(db): schedule tables, `94ccda5` feat(schedules): read schedule pages and turn marks into intervals, `e09304c` feat(schedules): templates and background reading, `34f2487` feat(web): schedule review, schedule page and editor, `841ec07` docs(roadmap): tick off phase 4, with the trial findings, `2231a21` fix(web): name the file in scan links so a cached page is never the wrong one, `9228e11` docs(roadmap): mark phase 4 done
+> **Built in** `b6612ac` feat(db): schedule tables, `2fdf632` feat(schedules): read schedule pages and turn marks into intervals, `cb1056a` feat(schedules): templates and background reading, `228fea3` feat(web): schedule review, schedule page and editor, `8c8ebfe` docs(roadmap): tick off phase 4, with the trial findings, `a8f7056` fix(web): name the file in scan links so a cached page is never the wrong one, `9985c9a` docs(roadmap): mark phase 4 done
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 
 # Phase 4: Baseline schedules
 
 ## Context
-Phase 3 is done (`8fcc5d9`). Phase 4 gives each car the manufacturer schedule its history is judged against; Phase 5's gap engine reads it.
+Phase 3 is done (`b0c0f87`). Phase 4 gives each car the manufacturer schedule its history is judged against; Phase 5's gap engine reads it.
 
 The real test case is `samples/2016-Subaru-Outback-Maintenance-Plan.pdf`:
 - **Two scanned pages.** The Epson text layer is garbled.

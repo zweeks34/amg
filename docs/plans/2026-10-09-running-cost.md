@@ -1,11 +1,11 @@
 > **Approved** 2026-10-09 23:15 · **Roadmap** [Phase 15](../ROADMAP.md#phase-15--running-cost)
 >
-> **Built in** `8f7bd00` feat(running-cost): what a car costs a mile, since you got it and year by year, `5ea7e02` feat(running-cost): the next 12 months, and the garage, `2c56175` fix(running-cost): a mile beside the year; the garage says when fuel isn't in it, and the docs commit that adds this record
+> **Built in** `51d3d5a` feat(running-cost): what a car costs a mile, since you got it and year by year, `8069946` feat(running-cost): the next 12 months, and the garage, `3fccb0b` fix(running-cost): a mile beside the year; the garage says when fuel isn't in it, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
-> - **The table's columns** (`2c56175`): the figure a mile comes straight after the year, not last, so a phone shows it without scrolling. "In all" at the foot adds up to the headline.
-> - **The garage says "a mile, not counting fuel"** for a car with no fill-up costs (`2c56175`). In the browser check, the scratch Civic showed 1.0¢ a mile beside the Outback's 16.5¢, which had fuel in it.
-> - **A year with nothing recorded** shows no figure a mile rather than 0.0¢ (`2c56175`).
+> - **The table's columns** (`3fccb0b`): the figure a mile comes straight after the year, not last, so a phone shows it without scrolling. "In all" at the foot adds up to the headline.
+> - **The garage says "a mile, not counting fuel"** for a car with no fill-up costs (`3fccb0b`). In the browser check, the scratch Civic showed 1.0¢ a mile beside the Outback's 16.5¢, which had fuel in it.
+> - **A year with nothing recorded** shows no figure a mile rather than 0.0¢ (`3fccb0b`).
 > - **Words:**
 >   - Every start shows its day ("from May 1, 2019"), where the plan's examples gave a month for two of them.
 >   - The headline's label names the start ("Since it was new").

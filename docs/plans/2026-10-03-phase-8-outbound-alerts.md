@@ -1,6 +1,6 @@
 > **Approved** 2026-10-03 22:09 · **Roadmap** [Phase 8](../ROADMAP.md#phase-8--outbound-alerts)
 >
-> **Built in** `3d60cf2` feat(db): alert log and the per-car switch, `85ecbc2` feat(alerts): what to send, by push and email, `8c4799e` feat(web): the alerts page, `2137c58` feat(deploy): the daily alerts timer, `ea63c7a` docs(roadmap): phase 8
+> **Built in** `bb37689` feat(db): alert log and the per-car switch, `7964fa4` feat(alerts): what to send, by push and email, `3840f46` feat(web): the alerts page, `dce07ca` feat(deploy): the daily alerts timer, `9d6a066` docs(roadmap): phase 8
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 

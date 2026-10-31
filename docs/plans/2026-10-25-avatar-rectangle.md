@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 22:06 · **Roadmap** [Phase 1](../ROADMAP.md#phase-1--garage-manual-records-extraction-trial)
 >
-> **Built in** `e484c30` style(garage): the car avatar as a rounded rectangle, and the docs commit that adds this record
+> **Built in** `96d4a8f` style(garage): the car avatar as a rounded rectangle, and the docs commit that adds this record
 >
 > **As built:** As planned. Checked in the browser on the scratch garage, with made-up cars:
 > - **One screenshot** (the garage) showed both cards' rounded rectangles: the made-up car picture framed on "Hatch", and "B" for "Bolt". After it, the browser's screen capture timed out again, so the rest was checked by measuring the page.

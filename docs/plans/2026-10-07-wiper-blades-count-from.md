@@ -1,6 +1,6 @@
 > **Approved** 2026-10-07 06:56 · **Roadmap** [Phase 5](../ROADMAP.md#phase-5--gap-engine-interval-chart-dashboard)
 >
-> **Built in** `910d540` feat(schedule): wiper blades count from today where none are on record, and the docs commit that adds this record
+> **Built in** `79f2e23` feat(schedule): wiper blades count from today where none are on record, and the docs commit that adds this record
 >
 > **As built:** As planned. The schedule page words a 12-month interval "every 1 year", so the item reads "every 1 year, counting from" the deploy day. The second test is named `test_wiper_blades_on_record_is_what_already_counts_for_the_item`; it also checks that an inspection of the blades doesn't count for a replacement item. The roadmap's decision that a count-from date is one you set now names this migration as the one exception.
 >

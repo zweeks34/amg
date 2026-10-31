@@ -1,6 +1,6 @@
 > **Approved** 2026-10-03 20:49 · **Roadmap** [Phase 9 (came forward)](../ROADMAP.md#phase-9--reports-and-exports)
 >
-> **Built in** `c844ad6` feat(web): sort, filter and search confirmed receipts, `69fd80f` docs(roadmap): receipt search came forward from phase 9
+> **Built in** `bdb0683` feat(web): sort, filter and search confirmed receipts, `7680b4b` docs(roadmap): receipt search came forward from phase 9
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 

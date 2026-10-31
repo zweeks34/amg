@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 20:32 · **Roadmap** [Phase 8](../ROADMAP.md#phase-8--outbound-alerts)
 >
-> **Built in** `57df82c` feat(alerts): say each job's action in the pushes, and the docs commit that adds this record
+> **Built in** `ea83404` feat(alerts): say each job's action in the pushes, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
 > - **The dry run's test pinned the push's lines too** (`tests/amg/alerts/test_run.py`), so it gains the word as well.
@@ -13,7 +13,7 @@
 # The action words in the ntfy pushes
 
 ## Context
-The weekly email now says **REPLACE**, **INSPECT** or **PERFORM** before each schedule job (`df4eb09`). The ntfy pushes don't yet: "Outback: Oil and filter due soon". They should, in the same plain-text form the email's text part uses.
+The weekly email now says **REPLACE**, **INSPECT** or **PERFORM** before each schedule job (`9e89c0c`). The ntfy pushes don't yet: "Outback: Oil and filter due soon". They should, in the same plain-text form the email's text part uses.
 
 **How the alerts log works:** it remembers what it has sent by job and level (`alerts.logged`: subject and level), not by the words. Each sent alert's line is only stored as its title, which the Alerts page lists under recent alerts. So the words can change safely: nothing is pushed twice. The logged title gets the word too, so that list matches what was pushed.
 

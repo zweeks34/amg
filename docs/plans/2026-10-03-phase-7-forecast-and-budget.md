@@ -1,6 +1,6 @@
 > **Approved** 2026-10-03 09:13 · **Roadmap** [Phase 7](../ROADMAP.md#phase-7--forecast-and-budget)
 >
-> **Built in** `6ea6004` feat(db): price_book, `4c989fd` feat(engine): forecast and budget arithmetic, `8594f43` feat(ingest): Claude's price estimates, `b48f3e6` feat(web): the budget, `fdc4b72` docs(roadmap): tick off phase 7
+> **Built in** `c6ae465` feat(db): price_book, `dddc4a9` feat(engine): forecast and budget arithmetic, `1f0cea0` feat(ingest): Claude's price estimates, `7cc0715` feat(web): the budget, `4975995` docs(roadmap): tick off phase 7
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 

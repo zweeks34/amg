@@ -1,9 +1,9 @@
 > **Approved** 2026-10-07 22:22 · **Roadmap** [Phase 11](../ROADMAP.md#phase-11--recommendations-recalls-and-readings)
 >
-> **Built in** `62bbc80` feat(alerts): ask for an odometer reading when the last is old, `2be7487` feat(receipts): follow up on shop recommendations, `8bfb4ac` feat(recalls): check NHTSA for recalls, `05bc3c4` fix(recalls): one garage line however many recalls a car has, and the docs commit that adds this record
+> **Built in** `be7508a` feat(alerts): ask for an odometer reading when the last is old, `8eef96e` feat(receipts): follow up on shop recommendations, `f664ad7` feat(recalls): check NHTSA for recalls, `231104a` fix(recalls): one garage line however many recalls a car has, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
-> - **The garage card** shows a car's recalls in one line, by name when there's one and "Recalls 4 open" when there are more, not a line each. Real model years carry several, often for the same part (`05bc3c4`).
+> - **The garage card** shows a car's recalls in one line, by name when there's one and "Recalls 4 open" when there are more, not a line each. Real model years carry several, often for the same part (`231104a`).
 > - **`vehicles` gained a fourth column,** `recalls_listed`: NHTSA's model names, kept so the page can list them when the car's model matches none.
 > - **Recall pushes** go at priority 4, and 5 when NHTSA says not to drive or to park outside.
 > - **The weekly email** lists recommendations for a car with alerts on even when it has no schedule.

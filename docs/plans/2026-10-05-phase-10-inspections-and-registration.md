@@ -1,6 +1,6 @@
 > **Approved** 2026-10-05 06:53 · **Roadmap** [Phase 10](../ROADMAP.md#phase-10--inspections-and-registration)
 >
-> **Built in** `b31f72a` feat(renewals): inspection and registration dates, `40099e3` feat(web): inspections and registration on the car page and garage, `48569f9` feat(alerts): remind of inspections and registration, `80d3f2d` feat(reports): inspections and registration in your data, `c1b354d` docs(roadmap): phase 10
+> **Built in** `fc7805d` feat(renewals): inspection and registration dates, `c627e73` feat(web): inspections and registration on the car page and garage, `3eb8d0a` feat(alerts): remind of inspections and registration, `44bd6ae` feat(reports): inspections and registration in your data, `6eaa3f0` docs(roadmap): phase 10
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 

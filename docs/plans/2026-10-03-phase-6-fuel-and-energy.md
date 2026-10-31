@@ -1,6 +1,6 @@
 > **Approved** 2026-10-03 02:09 · **Roadmap** [Phase 6](../ROADMAP.md#phase-6--fuel-and-energy)
 >
-> **Built in** `93253d7` feat(db): fuel_logs, and fill-ups as odometer readings, `8c41274` feat(engine): fuel economy, `e5cc206` feat(web): log fill-ups and charges, `61ced65` feat(web): the fuel page, `3bb6706` docs(roadmap): tick off phase 6
+> **Built in** `a943c32` feat(db): fuel_logs, and fill-ups as odometer readings, `255a087` feat(engine): fuel economy, `ca787b8` feat(web): log fill-ups and charges, `a12faec` feat(web): the fuel page, `ee9a033` docs(roadmap): tick off phase 6
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 

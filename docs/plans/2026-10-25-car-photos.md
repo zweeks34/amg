@@ -1,9 +1,9 @@
 > **Approved** 2026-10-25 21:21 · **Roadmap** [Phase 1](../ROADMAP.md#phase-1--garage-manual-records-extraction-trial)
 >
-> **Built in** `2bf6d40` feat(garage): a photo for each car, shown as its avatar, `b31db2e` style(garage): make the car avatar 25% larger, and the docs commits
+> **Built in** `e1f232b` feat(garage): a photo for each car, shown as its avatar, `5bc0465` style(garage): make the car avatar 25% larger, and the docs commits
 >
 > **As built:** As planned, except:
-> - **The circle is 25% larger** (`b31db2e`), at your request once you'd seen it: 3.75rem on the garage card (not 3rem), 5.625rem on the car's page and its form, and 3.4375rem in the Fill-up picker. The initial grows with it. Checked at 360px, with nothing scrolling sideways.
+> - **The circle is 25% larger** (`5bc0465`), at your request once you'd seen it: 3.75rem on the garage card (not 3rem), 5.625rem on the car's page and its form, and 3.4375rem in the Fill-up picker. The initial grows with it. Checked at 360px, with nothing scrolling sideways.
 > - **Garage cards now line up their names.** The cards in a row share a height, and a shorter card spread its spare height between its rows, which pushed a car's name (and now its avatar) about 25px below its neighbour's. `.carcard` now puts the spare height below (`align-content: start`).
 > - **`[hidden]` always hides.** A `.btn` sets its own `display`, so **Remove photo** stayed visible after it was used. One rule beside `[x-cloak]` now makes the `hidden` attribute win everywhere, and the fuel log's own rule for its copy box is dropped.
 > - **`avatar_url` checks that the row brought the photo's hash**, so a car row from a query that doesn't join it shows the initial rather than failing.

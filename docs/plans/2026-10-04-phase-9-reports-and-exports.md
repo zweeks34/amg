@@ -1,6 +1,6 @@
 > **Approved** 2026-10-04 21:29 · **Roadmap** [Phase 9](../ROADMAP.md#phase-9--reports-and-exports)
 >
-> **Built in** `308b6e7` feat(reports): filters, history, spending and fuel reports, as CSV too, `1c5d738` feat(web): the reports page, `d3f3ec1` feat(reports): the sale packet, `855e48a` feat(reports): download your data, `2bc8563` docs(roadmap): phase 9
+> **Built in** `6513952` feat(reports): filters, history, spending and fuel reports, as CSV too, `b178c9a` feat(web): the reports page, `5048c13` feat(reports): the sale packet, `5a54ea3` feat(reports): download your data, `fe3c2e6` docs(roadmap): phase 9
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 

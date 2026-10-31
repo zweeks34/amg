@@ -1,6 +1,6 @@
 > **Approved** 2026-10-29 20:38 · **Roadmap** [Phase 6](../ROADMAP.md#phase-6--fuel-and-energy)
 >
-> **Built in** `fe072c4` feat(fuel): tank to tank — lowest, highest, mean and std deviation · `ff869c8` feat(fuel): the usual band on the economy chart · `30679c5` feat(fuel): price paid over time · `8057141` feat(fuel): where you fill up, compared, and the docs commit that adds this record
+> **Built in** `42813cd` feat(fuel): tank to tank — lowest, highest, mean and std deviation · `f6275b2` feat(fuel): the usual band on the economy chart · `af40b3b` feat(fuel): price paid over time · `2f8d5c3` feat(fuel): where you fill up, compared, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
 > - **A tie for cheapest marks each station in it.** Stations are compared by the price as shown, so three at $3.299 are all marked, though one was 0.05¢ cheaper. When every station with a price shows the same, none is marked.
@@ -133,7 +133,7 @@ You asked for the lowest, highest, mean and standard deviation of mpg alongside 
 5. `docs: …`
    - Phase 6 gains these items ("added after the phase shipped, 2026-10-29").
    - Phase 6's decision "never a mean of each tank's figure" gains "except Tank to tank's Mean, which says so".
-   - Phase 16's decision "The estimate stays in words" is corrected, now that today's estimate has drums (`f937b8a`).
+   - Phase 16's decision "The estimate stays in words" is corrected, now that today's estimate has drums (`a0e6795`).
    - The plan's record goes in `docs/plans/2026-10-29-tank-to-tank.md` with a README row.
 
 ## Verification

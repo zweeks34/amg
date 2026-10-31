@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 20:22 · **Roadmap** [Phase 8](../ROADMAP.md#phase-8--outbound-alerts)
 >
-> **Built in** `df4eb09` feat(alerts): say each job's action in the weekly email, and the docs commit that adds this record
+> **Built in** `9e89c0c` feat(alerts): say each job's action in the weekly email, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
 > - **Checked by rendering the scratch garage's email to files**, not with `amg alerts --dry-run`. A dry run also asks NHTSA for recalls, and rendering called nothing outside and sent nothing.

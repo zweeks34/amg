@@ -1,6 +1,6 @@
 > **Approved** 2026-10-05 21:43 · **Roadmap** [Phase 7](../ROADMAP.md#phase-7--forecast-and-budget)
 >
-> **Built in** `a46e363` feat(budget): month bars by type, with a type picker, `d221869` docs(roadmap): month bars by type
+> **Built in** `e9bc694` feat(budget): month bars by type, with a type picker, `08af1e3` docs(roadmap): month bars by type
 >
 > **As built:** Chosen from the four options drawn in [budget-chart-options.html](2026-10-05-budget-chart-options.html) (A's colours with B's picker). On a phone the type buttons take one row that scrolls sideways, its far edge faded, instead of wrapping into five rows.
 >

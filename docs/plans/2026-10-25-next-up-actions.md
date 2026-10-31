@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 15:00 · **Roadmap** [Phase 5](../ROADMAP.md#phase-5--gap-engine-interval-chart-dashboard)
 >
-> **Built in** `08f6f5a` feat(schedule): show each next-up job's action, and the docs commit that adds this record
+> **Built in** `4074eb7` feat(schedule): show each next-up job's action, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
 > - **The design reference gained a row**, "Brake inspection", so it shows an inspect stamp. Its four sample jobs were all replace or perform.

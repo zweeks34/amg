@@ -1,6 +1,6 @@
 > **Approved** 2026-10-06 22:48 · **Roadmap** [Phase 1](../ROADMAP.md#phase-1--garage-manual-records-extraction-trial) and [Phase 5](../ROADMAP.md#phase-5--gap-engine-interval-chart-dashboard)
 >
-> **Built in** `7cc9516` feat(catalogue): washer fluid, beside wiper blades, `b97d883` feat(schedule): count an item from a date, and the docs commit that adds this record
+> **Built in** `f01fe57` feat(catalogue): washer fluid, beside wiper blades, `7d3a2af` feat(schedule): count an item from a date, and the docs commit that adds this record
 >
 > **As built:** As planned. The gap engine also ignores a date on a one-off item (the editor refuses one anyway), and setting a date doesn't mark an item "Set by you": it changes how AMG counts, not the manual's interval.
 >

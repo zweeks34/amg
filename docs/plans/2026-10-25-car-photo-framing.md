@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 21:47 · **Roadmap** [Phase 1](../ROADMAP.md#phase-1--garage-manual-records-extraction-trial)
 >
-> **Built in** `0dc0765` feat(garage): frame a car's photo in its avatar, and the docs commit that adds this record
+> **Built in** `fe9bc55` feat(garage): frame a car's photo in its avatar, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
 > - **No screenshots were taken.** The browser's screen capture timed out on every page, including ones without an avatar, so how the whole photo sits in the circle wasn't seen. The behaviour was checked instead by driving the page on the scratch garage (the made-up car picture on "Hatch") and reading back what it did:

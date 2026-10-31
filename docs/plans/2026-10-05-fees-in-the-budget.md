@@ -1,6 +1,6 @@
 > **Approved** 2026-10-05 20:52 · **Roadmap** [Phase 10](../ROADMAP.md#phase-10--inspections-and-registration)
 >
-> **Built in** `8a07141` feat(budget): inspection and registration fees, `8ef0541` feat(alerts): the fee in inspection and registration reminders, `1f6dd31` docs(roadmap): fees in the budget
+> **Built in** `b767ddb` feat(budget): inspection and registration fees, `5e17b8a` feat(alerts): the fee in inspection and registration reminders, `b409243` docs(roadmap): fees in the budget
 >
 > **As built:** The line for kinds without a date shows only when a car has no dates at all — "Inspection and registration fees are budgeted once their dates are on the car's page" — rather than naming each untracked kind, so a state with no emissions testing isn't reminded forever.
 >

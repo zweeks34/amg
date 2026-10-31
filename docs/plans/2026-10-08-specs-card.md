@@ -1,10 +1,10 @@
 > **Approved** 2026-10-08 07:25 · **Roadmap** [Phase 12](../ROADMAP.md#phase-12--specs-card)
 >
-> **Built in** `7ef5778` feat(specs): a specs card per car, typed or from your receipts, `25af41c` feat(specs): read specs from the owner's manual or photos, `68bbef4` fix(specs): wiper lengths, "e.g." examples, and the card's car name, and the docs commit that adds this record
+> **Built in** `5b8f278` feat(specs): a specs card per car, typed or from your receipts, `63c7824` feat(specs): read specs from the owner's manual or photos, `b352eb7` fix(specs): wiper lengths, "e.g." examples, and the card's car name, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
-> - **Wiper boxes** are offered a blade's length from the receipt line ("26 in") before its part number, since any brand's blade of that length fits (`68bbef4`).
-> - **Placeholders say "e.g.",** so an example part number on an empty box isn't taken for the car's own, and a suggestion already in its box isn't offered (`68bbef4`).
+> - **Wiper boxes** are offered a blade's length from the receipt line ("26 in") before its part number, since any brand's blade of that length fits (`b352eb7`).
+> - **Placeholders say "e.g.",** so an example part number on an empty box isn't taken for the car's own, and a suggestion already in its box isn't offered (`b352eb7`).
 > - **`spec_reads` keeps `values_json`,** the boxes a reading fills, beside Claude's untouched `extraction_json`; a reading has no draft of its own to save. A stalled reading carries on like a schedule's (`jobs.resume`).
 > - **`manuals.find_pages`** takes `scorer` and `sought` (the plan said `score` and `what`); the page-limit message no longer says "schedule pages".
 > - **The card names the car** as "2019 Honda Civic EX", without the powertrain, and says nothing for a car with no year, make or model.

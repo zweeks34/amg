@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 19:49 · **Roadmap** [Phase 13](../ROADMAP.md#phase-13--issues-and-the-sheet-for-the-shop)
 >
-> **Built in** `895a998` feat(issues): say each due job's action on the sheet for the shop, and the docs commit that adds this record
+> **Built in** `7ba5039` feat(issues): say each due job's action on the sheet for the shop, and the docs commit that adds this record
 >
 > **As built:** As planned. Checked in the browser on the scratch car's sheet, with made-up data:
 > - **INSPECT** Brakes and **REPLACE** Cabin air filter, with the names lined up
@@ -13,7 +13,7 @@
 # The action words on the For the shop sheet
 
 ## Context
-Next up now stamps each job R, I or P (`08f6f5a`). The **For the shop** sheet's "Due now" list, which you show on your phone or print for the shop, still names each job without saying what to do. For a mechanic a word reads better than a letter, so each job there gets its action as a word: **Replace**, **Inspect** or **Perform**. The rows already carry the action (`status.next_up` gives each one `action`), and the words are the shared `action_words` from `web/templating.py`.
+Next up now stamps each job R, I or P (`4074eb7`). The **For the shop** sheet's "Due now" list, which you show on your phone or print for the shop, still names each job without saying what to do. For a mechanic a word reads better than a letter, so each job there gets its action as a word: **Replace**, **Inspect** or **Perform**. The rows already carry the action (`status.next_up` gives each one `action`), and the words are the shared `action_words` from `web/templating.py`.
 
 ## How it looks
 ```

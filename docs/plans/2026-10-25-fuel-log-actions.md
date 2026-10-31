@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 18:19 · **Roadmap** [Phase 6](../ROADMAP.md#phase-6--fuel-and-energy)
 >
-> **Built in** `544fc00` feat(fuel): edit, copy and delete a fill-up from the log, and the docs commit that adds this record
+> **Built in** `9775cc2` feat(fuel): edit, copy and delete a fill-up from the log, and the docs commit that adds this record
 >
 > **As built:** As planned, except:
 > - **The copied line is `row.line`, not `row.copy`.** Jinja reads `row.copy` as the dictionary's own `copy` method.

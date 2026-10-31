@@ -1,8 +1,8 @@
 > **Approved** 2026-09-29 08:33 · **Roadmap** [The whole roadmap](../ROADMAP.md)
 >
-> **Built in** `5b19c0b` chore: initialize repository with spec and ignore rules, `ad35a92` docs: add roadmap and fill in project conventions, `f2c937f` build: add pyproject with approved dependencies and pytest config, `968081e` feat: add SQLite migrations, settings store and single-password auth, `4b3abea` feat(web): add app shell, login guard, design system and design reference, `2cff7a0` docs: mark phase 0 complete in roadmap
+> **Built in** `d442c26` chore: initialize repository with spec and ignore rules, `7645cf2` docs: add roadmap and fill in project conventions, `6fbd2b7` build: add pyproject with approved dependencies and pytest config, `02e500e` feat: add SQLite migrations, settings store and single-password auth, `897de0e` feat(web): add app shell, login guard, design system and design reference, `c8edd5f` docs: mark phase 0 complete in roadmap
 >
-> **As built:** The overall plan: stack, data model and the phases that became the roadmap. Phases 0–3 were built straight from it, without plans of their own; their commits run from `5b19c0b` to `8fcc5d9`, and where the build differed is recorded in each phase's section of the roadmap.
+> **As built:** The overall plan: stack, data model and the phases that became the roadmap. Phases 0–3 were built straight from it, without plans of their own; their commits run from `d442c26` to `b0c0f87`, and where the build differed is recorded in each phase's section of the roadmap.
 >
 > The plan below is as it was approved; it isn't edited afterwards.
 

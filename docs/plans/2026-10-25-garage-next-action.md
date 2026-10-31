@@ -1,6 +1,6 @@
 > **Approved** 2026-10-25 20:17 · **Roadmap** [Phase 5](../ROADMAP.md#phase-5--gap-engine-interval-chart-dashboard)
 >
-> **Built in** `32b0981` feat(garage): say the next job's action on each car's card, and the docs commit that adds this record
+> **Built in** `a2f8204` feat(garage): say the next job's action on each car's card, and the docs commit that adds this record
 >
 > **As built:** As planned. Checked in the browser on the scratch garage, with made-up data:
 > - the card reads "Next: INSPECT Brakes 5,323 mi overdue · due May 17", on the desktop and at 360px (no sideways scroll), in dark mode too
@@ -11,7 +11,7 @@
 # The action word on the garage card's Next line
 
 ## Context
-The For the shop sheet now says each due job's action as a word (`895a998`). The garage card's "Next:" line still names the job alone: "Next: Cabin air filter · 1,283 mi overdue". It should say what to do, the same way: "Next: **REPLACE** Cabin air filter". The line comes from `status.summary`, whose `next` is the first `next_up` row, so it already carries `action`. The words are the shared `action_words` from `web/templating.py`.
+The For the shop sheet now says each due job's action as a word (`7ba5039`). The garage card's "Next:" line still names the job alone: "Next: Cabin air filter · 1,283 mi overdue". It should say what to do, the same way: "Next: **REPLACE** Cabin air filter". The line comes from `status.summary`, whose `next` is the first `next_up` row, so it already carries `action`. The words are the shared `action_words` from `web/templating.py`.
 
 ## How it looks
 ```
