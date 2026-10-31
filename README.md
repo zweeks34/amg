@@ -137,3 +137,7 @@ Everything else stays in `data/` on your own machine.
 - [docs/ROADMAP.md](docs/ROADMAP.md) gives the build phase by phase: the decisions, what each phase owns, and what its tests pin.
 - [docs/plans/](docs/plans/README.md) holds every approved plan, as approved, with what was built.
 - [CLAUDE.md](CLAUDE.md) has the conventions for working on the code.
+
+## License
+
+[MIT](LICENSE).
