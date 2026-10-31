@@ -1,7 +1,14 @@
-# Secrets — never commit
+# Secrets — never commit (.env.deploy, the home network's addresses, included)
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+
+# Copies of data that belong in data/, should one land elsewhere: databases
+# (with their -wal and -shm files) and archives, such as a backup
+*.sqlite3*
+*.zip
 
 # App data written at runtime (database, stored receipts/manuals)
 data/
