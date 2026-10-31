@@ -14,6 +14,12 @@ Phone (NordVPN) / desktop
 [LXC 302 · amg]                 <amg-ip>:8000   — uvicorn, 2 workers
 ```
 
+**Addresses.** `<amg-ip>`, `<nginx-ip>` and `<router-ip>` stand for your own:
+AMG's container, the nginx container and your router; `<scratch-ip>` is a
+throwaway container for rehearsing a restore (step 9). They're kept out of the
+repo. `scripts/deploy.sh` reads the two it needs from `.env.deploy`, which git
+ignores (step 4).
+
 **What lives where on LXC 302**
 
 | Path | What | Owned by | Survives a deploy? |
@@ -130,20 +136,23 @@ Phase 4 needs it to read scanned owner's manuals, so it's installed now.
 
 ## 4 · First deploy
 
-**WSL:**
+**WSL:** tell the script where the containers are, once, in `.env.deploy`
+beside `pyproject.toml`. Git ignores it, and the deploy never copies it.
 
 ```bash
 cd /mnt/c/projects/amg
+printf 'AMG_HOST=root@<amg-ip>\nAMG_NGINX_IP=<nginx-ip>\n' > .env.deploy   # your addresses
 bash scripts/deploy.sh
 ```
 
 The script:
 
-1. Copies the code. It never copies `.env`, `data/`, `samples/`, `.git` or
-   `.venv`.
+1. Copies the code. It never copies `.env`, `.env.deploy`, `data/`,
+   `samples/`, `.git` or `.venv`.
 2. Installs the Python dependencies. This takes a minute or two the first time.
 3. Installs `/usr/local/bin/amg` (the command-line tasks, run as the app's
-   user), the systemd unit from `deploy/amg.service`, and the daily alerts
+   user), the systemd unit from `deploy/amg.service` with the nginx
+   container's address filled in, and the daily alerts
    run with its timer (`deploy/amg-alerts.*`, step 10).
 4. Saves a database-only backup if a database already exists.
 5. Restarts the app and waits until it answers `/healthz`.

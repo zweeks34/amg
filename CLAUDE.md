@@ -51,5 +51,6 @@ The Automobile Maintenance Genie (AMG) is an automobile maintenance manager.
 ## Gotchas
 - Tesseract on this Windows machine is at `C:\Program Files\Tesseract-OCR\tesseract.exe` and is NOT on PATH — `amg.ingest.ocr` must fall back to that path
 - `.env` holds real API keys — never commit it, print it, or copy values into code. `.env.example` lists every setting; add new ones there
+- The home network's addresses stay out of the repo: docs use `<amg-ip>`, `<nginx-ip>`, `<router-ip>`, `<scratch-ip>`, and `scripts/deploy.sh` reads the real ones from `.env.deploy` (gitignored)
 - On the server, CLI tasks run as `amg <command>` (as the `amg` user). Run as root against `/var/lib/amg`, they leave files the app can't write, so the CLI refuses
 - `deploy/*` and `*.sh` must stay LF (`.gitattributes`): they run on Linux as-is

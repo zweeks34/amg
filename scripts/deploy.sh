@@ -1,18 +1,40 @@
 #!/usr/bin/env bash
 # Ship this checkout to AMG's container and restart the app.
 #
-#   bash scripts/deploy.sh                                # to root@<amg-ip>
+#   bash scripts/deploy.sh                                # to AMG_HOST in .env.deploy
 #   AMG_HOST=root@<scratch-ip> bash scripts/deploy.sh    # to a scratch container
 #
 # Run it from WSL. docs/DEPLOY-proxmox.md prepares a container the first time;
 # after that, this is the whole of a deploy. It never touches the server's data
 # (/var/lib/amg) or its settings (/opt/amg/app/.env).
+#
+# Your home network's addresses aren't in the repo. They're in .env.deploy,
+# beside pyproject.toml, which git ignores; anything set in the environment wins:
+#   AMG_HOST=root@<amg-ip>      where AMG's container is
+#   AMG_NGINX_IP=<nginx-ip>     the nginx container: the one address AMG believes
+#                               when it says who's asking (deploy/amg.service)
 set -euo pipefail
 
-HOST="${AMG_HOST:-root@<amg-ip>}"
 cd "$(dirname "$0")/.."
 if [ ! -f pyproject.toml ] || [ ! -f deploy/amg.service ]; then
     echo "This isn't the AMG repo — run scripts/deploy.sh from inside it." >&2
+    exit 1
+fi
+
+given_host="${AMG_HOST:-}" given_nginx="${AMG_NGINX_IP:-}"
+if [ -f .env.deploy ]; then
+    . ./.env.deploy
+fi
+HOST="${given_host:-${AMG_HOST:-}}" NGINX_IP="${given_nginx:-${AMG_NGINX_IP:-}}"
+HOST="${HOST%$'\r'}" NGINX_IP="${NGINX_IP%$'\r'}"     # a file saved on Windows
+if [ -z "$HOST" ] || [ -z "$NGINX_IP" ]; then
+    echo "Say where to deploy in .env.deploy, beside pyproject.toml (docs/DEPLOY-proxmox.md, step 4):" >&2
+    echo "  AMG_HOST=root@<amg-ip>" >&2
+    echo "  AMG_NGINX_IP=<nginx-ip>" >&2
+    exit 1
+fi
+if [[ ! "$NGINX_IP" =~ ^[0-9A-Fa-f.:/,]+$ ]]; then
+    echo "AMG_NGINX_IP in .env.deploy should be the nginx container's address; it's \"$NGINX_IP\"." >&2
     exit 1
 fi
 
@@ -36,7 +58,7 @@ rsync -rlt --perms --chmod=D755,F644 --delete --compress \
     -e "${SSH[*]}" ./ "$HOST:/opt/amg/app/"
 
 echo "→ Installing and restarting"
-"${SSH[@]}" "$HOST" bash -s <<'REMOTE'
+"${SSH[@]}" "$HOST" "NGINX_IP='$NGINX_IP' bash -s" <<'REMOTE'
 set -euo pipefail
 cd /opt/amg/app
 
@@ -47,13 +69,17 @@ if ! cmp -s pyproject.toml /opt/amg/installed-pyproject.toml; then
     cp pyproject.toml /opt/amg/installed-pyproject.toml
 fi
 
-# The `amg` command and the service definition travel with the code.
+# The `amg` command and the service definition travel with the code; the
+# service gets the nginx container's address filled in.
 install -m 755 deploy/amg /usr/local/bin/amg
-if ! cmp -s deploy/amg.service /etc/systemd/system/amg.service; then
-    install -m 644 deploy/amg.service /etc/systemd/system/amg.service
+unit=$(mktemp)
+sed "s|<nginx-ip>|$NGINX_IP|g" deploy/amg.service > "$unit"
+if ! cmp -s "$unit" /etc/systemd/system/amg.service; then
+    install -m 644 "$unit" /etc/systemd/system/amg.service
     systemctl daemon-reload
     systemctl enable --quiet amg
 fi
+rm -f "$unit"
 
 # The daily alerts run (8:00) and its timer.
 reload=0

@@ -22,7 +22,8 @@ Environment=AMG_DATA_DIR=/var/lib/amg
 #   --timeout-keep-alive outlasts nginx's 60s upstream keepalive, so nginx never
 #   reuses a connection uvicorn has just closed (an occasional 502 otherwise).
 #   --forwarded-allow-ips trusts X-Forwarded-For only from the nginx container,
-#   so the log shows the phone's address rather than nginx's.
+#   so the log shows the phone's address rather than nginx's. scripts/deploy.sh
+#   fills in <nginx-ip> from .env.deploy, so the address stays out of the repo.
 ExecStart=/opt/amg/venv/bin/uvicorn amg.app:app \
     --host 0.0.0.0 --port 8000 \
     --workers 2 \
