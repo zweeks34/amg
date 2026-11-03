@@ -45,6 +45,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-10-26 | [Logos, service icons, gauges, a rolling odometer and economy sparklines](2026-10-26-logos-icons-gauges.md) | Phase 16 | `7b40aa3`…`935b7e5` |
 | 2026-10-26 | [Upload your own logos for stations and shops](2026-10-26-uploaded-logos.md) | Phase 16 | `0d28787` |
 | 2026-10-29 | [Tank to tank: lowest, highest, mean and std deviation, the usual band, price over time, and stations compared](2026-10-29-tank-to-tank.md) | Phase 6 | `42813cd`…`2f8d5c3` |
+| 2026-11-03 | [City and state on a fill-up](2026-11-03-fill-up-city-state.md) | Phase 6 | `4cfaaba` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
