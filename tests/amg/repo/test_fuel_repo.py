@@ -22,6 +22,48 @@ def _fill(on="2026-09-28", miles=64_300, gallons=11.482, cents=3_972, **kw):
     return FillInput(filled_on=on, odometer=miles, energy="gas", quantity=gallons, cost_cents=cents, **kw)
 
 
+def test_a_fill_keeps_its_city_and_state_and_a_made_up_state_is_refused(conn, car):
+    fill_id = fuel.create(conn, car, _fill(station="Shell", station_city="Trenton", station_state="NJ"))
+    row = fuel.get(conn, fill_id)
+    assert (row["station_city"], row["station_state"]) == ("Trenton", "NJ")
+    fuel.update(conn, fill_id, _fill(station="Shell", station_city="Halifax", station_state="NS"))     # Canada's too
+    row = fuel.get(conn, fill_id)
+    assert (row["station_city"], row["station_state"]) == ("Halifax", "NS")
+    fuel.update(conn, fill_id, _fill(station="Shell"))
+    row = fuel.get(conn, fill_id)
+    assert (row["station_city"], row["station_state"]) == ("", "")
+    with pytest.raises(ValueError, match="Unknown state or province 'ZZ'"):
+        fuel.create(conn, car, _fill(station_state="ZZ"))
+
+
+def test_the_state_list_is_every_state_dc_and_every_province_and_territory_once():
+    us, canada = fuel.STATES["United States"], fuel.STATES["Canada"]
+    assert len(us) == 51 and "DC" in us and len(canada) == 13
+    assert len(set(us) | set(canada)) == 64
+
+
+def test_a_station_is_remembered_where_it_last_said_it_was(conn, car, ev):
+    for day, miles, station, city, state in (("2026-09-01", 1_000, "Shell", "Trenton", "NJ"),
+                                             ("2026-09-02", 1_100, "shell", "Newark", "NJ"),     # moved on, any capitals
+                                             ("2026-09-03", 1_200, "Shell", "", ""),             # said nothing: still Newark
+                                             ("2026-09-04", 1_300, "Wawa  on Route 9", "", "PA"),
+                                             ("2026-09-05", 1_400, "Costco", "", ""),            # never said
+                                             ("2026-09-06", 1_500, "", "Dover", "DE")):          # names no station
+        fuel.create(conn, car, _fill(day, miles, station=station, station_city=city, station_state=state))
+    fuel.create(conn, ev, FillInput("2026-09-07", 500, "electric", 30.0, station="Shell Recharge", station_city="Camden",
+                                    station_state="NJ", place="public"))
+    assert fuel.station_places(conn, "gas") == {"shell": {"city": "Newark", "state": "NJ"},
+                                                "wawa on route 9": {"city": "", "state": "PA"}}
+    assert fuel.station_places(conn, "electric") == {"shell recharge": {"city": "Camden", "state": "NJ"}}
+
+
+def test_cities_are_each_once_and_most_recent_first(conn, car):
+    for day, miles, city in (("2026-09-01", 1_000, "Trenton"), ("2026-09-02", 1_100, "Newark"),
+                             ("2026-09-03", 1_200, "trenton"), ("2026-09-04", 1_300, "")):
+        fuel.create(conn, car, _fill(day, miles, station_city=city))
+    assert fuel.cities(conn) == ["trenton", "Newark"]
+
+
 def test_fill_round_trip(conn, car):
     fill_id = fuel.create(conn, car, _fill(note="Costco"))
     row = fuel.get(conn, fill_id)

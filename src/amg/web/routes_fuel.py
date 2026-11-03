@@ -22,7 +22,8 @@ from .templating import render
 
 router = APIRouter()
 
-_FIELDS = ("filled_on", "odometer", "quantity", "cost", "full", "missed_before", "place", "note", "station")
+_FIELDS = ("filled_on", "odometer", "quantity", "cost", "full", "missed_before", "place", "note", "station",
+           "station_city", "station_state")
 
 # How many of your recent stations the form offers to tap.
 RECENT_STATIONS = 5
@@ -95,6 +96,8 @@ def edit_fill(request: Request, fill_id: int, conn: sqlite3.Connection = Depends
         "place": row["place"] or "",
         "note": row["note"],
         "station": row["station"],
+        "station_city": row["station_city"],
+        "station_state": row["station_state"],
     }
     return _form(request, conn, car, status.UNITS[row["energy"]], raw, errors={}, fill=row)
 
@@ -147,8 +150,12 @@ def _form(request: Request, conn: sqlite3.Connection, car, units: status.Units, 
         latest=vehicles.latest_odometer(conn, car["id"]),
         stations=stations,
         recent_stations=stations[:RECENT_STATIONS],
+        cities=fuel.cities(conn),
+        states=fuel.STATES,
         options={"unit": units.quantity, "rate": rate, "quantity": raw.get("quantity", ""),
-                 "cost": raw.get("cost", ""), "place": raw.get("place", ""), "station": raw.get("station", "")},
+                 "cost": raw.get("cost", ""), "place": raw.get("place", ""), "station": raw.get("station", ""),
+                 "city": raw.get("station_city", ""), "state": raw.get("station_state", ""),
+                 "places": fuel.station_places(conn, units.energy)},
     )
 
 
@@ -184,6 +191,9 @@ def _read(conn: sqlite3.Connection, vehicle_id: int, units: status.Units, raw: d
         place = raw.get("place") if raw.get("place") in fuel.PLACES else None
         if place is None:
             errors["place"] = "Choose home or public."
+    station_state = raw.get("station_state", "")
+    if station_state and not any(station_state in codes for codes in fuel.STATES.values()):
+        errors["station_state"] = "Choose a state or province from the list."
     if filled_on and miles is not None:
         ignore = (fuel.point_source(units.energy), fill_id) if fill_id else None
         if clash := odometer.conflict(conn, vehicle_id, filled_on, miles, ignore=ignore):
@@ -200,5 +210,7 @@ def _read(conn: sqlite3.Connection, vehicle_id: int, units: status.Units, raw: d
         place=place,
         note=raw.get("note", ""),
         station=" ".join(raw.get("station", "").split()),
+        station_city=" ".join(raw.get("station_city", "").split()),
+        station_state=station_state,
     )
     return fill, errors

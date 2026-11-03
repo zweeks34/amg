@@ -176,6 +176,68 @@ def test_a_fill_up_says_where_and_the_form_offers_your_recent_stations(signed_in
     assert '<p class="fuellog__station">At Shell</p>' in page and page.count('class="fuellog__station"') == 4
 
 
+def test_a_fill_up_says_what_town_it_was_in_and_the_edit_page_keeps_it(signed_in, conn, car):
+    _log(signed_in, car, "2026-09-28", "64,300", "11.482", cost="39.72", station="Shell",
+         station_city="  New   Brunswick ", station_state="NJ")
+    row = fuel.last(conn, car)
+    assert (row["station_city"], row["station_state"]) == ("New Brunswick", "NJ")      # spaces tidied
+
+    edit = signed_in.get(f"/fuel/{row['id']}/edit").text
+    assert 'value="New Brunswick" x-model="city"' in edit
+    assert '<option value="NJ" selected>NJ</option>' in edit
+    data = {"filled_on": "2026-09-28", "odometer": "64,300", "quantity": "11.482", "cost": "39.72", "full": "1",
+            "station": "Shell", "station_city": "Halifax", "station_state": "NS"}
+    assert signed_in.post(f"/fuel/{row['id']}/edit", data=data, follow_redirects=False).status_code == 303
+    row = fuel.get(conn, row["id"])
+    assert (row["station_city"], row["station_state"]) == ("Halifax", "NS")
+
+
+def test_a_made_up_state_is_refused_and_the_form_keeps_what_was_typed(signed_in, conn, car):
+    response = _log(signed_in, car, "2026-09-28", "64,300", "10", station="Shell", station_city="Trenton",
+                    station_state="ZZ")
+    assert response.status_code == 422 and fuel.last(conn, car) is None
+    assert "Choose a state or province from the list." in response.text
+    assert 'value="Trenton" x-model="city"' in response.text
+
+
+def test_the_form_groups_the_states_and_knows_where_each_station_is(signed_in, conn, car):
+    form = signed_in.get(f"/vehicles/{car}/fuel/new").text
+    assert '<optgroup label="United States">' in form and '<optgroup label="Canada">' in form
+    assert '<option value="NJ">NJ</option>' in form and '<option value="QC">QC</option>' in form
+    assert 'id="f-cities"></datalist>' in form                                       # none yet
+    _log(signed_in, car, "2026-09-28", "64,300", "10", station="O'Neil's Gas", station_city="Trenton", station_state="NJ")
+    form = signed_in.get(f"/vehicles/{car}/fuel/new").text
+    assert 'value="" x-model="city"' in form                                         # a new one starts blank
+    assert '<datalist id="f-cities"><option value="Trenton"></option></datalist>' in form
+    options = form.split("x-data='fuelForm(")[1].split(")'>")[0]
+    assert "'" not in options                                                        # it sits in single quotes
+    assert json.loads(options)["places"] == {"o'neil's gas": {"city": "Trenton", "state": "NJ"}}
+
+
+
+@pytest.mark.parametrize("station, city, state, where, line", [
+    ("Shell", "Trenton", "NJ", "At Shell in Trenton, NJ", "Shell in Trenton, NJ"),
+    ("Shell", "Trenton", "", "At Shell in Trenton", "Shell in Trenton"),
+    ("Shell", "", "NJ", "At Shell in NJ", "Shell in NJ"),
+    ("Shell", "", "", "At Shell", "Shell"),
+    ("", "Trenton", "NJ", "In Trenton, NJ", "Trenton, NJ"),
+])
+def test_where_a_fill_was_reads_as_far_as_it_says(signed_in, conn, car, station, city, state, where, line):
+    fuel.create(conn, car, fuel.FillInput("2026-10-20", 45_210, "gas", 10.2, 3_467, station=station, station_city=city,
+                                          station_state=state))
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert f'<p class="fuellog__station">{where}</p>' in page
+    from amg.web import fuel_status
+
+    row = fuel_status.log_rows(fuel_status.load(conn, vehicles.get(conn, car)))[0]
+    assert row["line"].startswith(f"Oct 20, 2026 · {line} · 45,210 mi · ")
+
+
+def test_a_fill_that_says_nowhere_has_no_where_line(signed_in, conn, car):
+    fuel.create(conn, car, fuel.FillInput("2026-10-20", 45_210, "gas", 10.2, 3_467))
+    assert 'class="fuellog__station"' not in signed_in.get(f"/vehicles/{car}/fuel").text
+
+
 def test_tapping_a_fill_opens_edit_copy_and_delete(signed_in, conn, car):
     _log(signed_in, car, "2026-09-28", "64,300", "11.482", cost="39.72")
     fill_id = fuel.last(conn, car)["id"]
@@ -269,6 +331,19 @@ def test_tank_to_tank_counts_each_tank_alike_and_leaves_the_unusual_out(signed_i
     page = signed_in.get(f"/vehicles/{car}/fuel").text
     assert '<h2 class="h3" id="spread-heading">Tank to tank</h2>' in page and "<dt>Std deviation</dt>" in page
     assert '<dl class="figures figures--four sheet">' in page
+
+
+def test_tank_to_tank_says_what_town_the_lowest_and_highest_were_in(conn, car):
+    for days_ago, miles, station, city, state in ((50, 10_000, "", "", ""), (40, 10_250, "Sunoco", "Trenton", "NJ"),
+                                                  (30, 10_550, "", "", ""), (20, 10_900, "", "Dover", "DE")):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", 10.0, 3_500, station=station,
+                                              station_city=city, station_state=state))
+    from amg.web import fuel_status
+
+    found = fuel_status.tank_to_tank(fuel_status.load(conn, vehicles.get(conn, car)))
+    notes = [figure["note"] for figure in found["figures"]]
+    assert f"{_days_ago(40)} at Sunoco in Trenton, NJ" in notes
+    assert f"{_days_ago(20)} in Dover, DE" in notes
 
 
 def test_tank_to_tank_names_the_station_and_counts_those_within(conn, car):
@@ -415,6 +490,25 @@ def test_a_tie_for_cheapest_marks_each_and_all_alike_marks_none(conn, car):
     fuel.update(conn, _fill_id(conn, "Shell"), fuel.FillInput(_days_ago(20), 10_600, "gas", 10.0, 3_299, station="Shell"))
     rows = fuel_status.where_you_fill(fuel_status.load(conn, vehicles.get(conn, car)))["rows"]
     assert not any(r["cheapest"] for r in rows)
+
+
+def test_the_same_station_in_two_towns_is_compared_like_two_stations(signed_in, conn, car):
+    for days_ago, miles, cents, city, state in ((40, 10_000, 3_299, "Trenton", "NJ"), (30, 10_300, 3_399, "Newark", "NJ"),
+                                                (20, 10_600, 3_299, "Dover", "DE"), (10, 10_900, 3_450, "", "")):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", 10.0, cents, station="Shell",
+                                              station_city=city, station_state=state))
+    from amg.web import fuel_status
+
+    rows = fuel_status.where_you_fill(fuel_status.load(conn, vehicles.get(conn, car)))["rows"]
+    assert {r["town"]: (r["name"], r["price"], r["cheapest"]) for r in rows} == {
+        "Trenton, NJ": ("Shell", "$3.299/gal", True),          # a tie across two towns marks each,
+        "Dover, DE": ("Shell", "$3.299/gal", True),            # though both are called Shell
+        "Newark, NJ": ("Shell", "$3.399/gal", False),
+        "": ("Shell", "$3.450/gal", False),                    # no town said: on its own, until it's edited
+    }
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert '<span class="fuelsum__name">Shell</span>\n        <span class="fuelsum__visits">Dover, DE</span>' in page
+    assert page.count('class="fuelsum__row"') == 4
 
 
 def _fill_id(conn, station):

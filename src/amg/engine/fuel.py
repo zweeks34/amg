@@ -37,6 +37,8 @@ class Fill:
     missed_before: bool = False
     place: str | None = None      # home or public, for charges
     station: str = ""             # where, as written; "" when not
+    city: str = ""                # the town it's in, likewise
+    state: str = ""               # its state or province, likewise
 
 
 @dataclass(frozen=True)
@@ -157,23 +159,28 @@ class StationSum:
     fills: int
     spent: int                  # cents
     unit_price: float | None    # cents a gallon (or kWh), over the fills with a cost
+    city: str = ""              # as last written
+    state: str = ""
 
 
 def stations(fills: Iterable[Fill], since: date | None = None) -> tuple[list[StationSum], int]:
     """Each station's fills on or after ``since``, most first, then by name, a name being the same whatever its case
-    or spacing; and how many fills named no station."""
-    named: dict[str, list[Fill]] = {}
+    or spacing; and how many fills named no station. The same name in another town is another station, and so is one
+    that doesn't say where it is."""
+    named: dict[tuple[str, ...], list[Fill]] = {}
     unnamed = 0
     for fill in _order(fills):
         if since is not None and fill.day < since:
             continue
-        if not (key := " ".join(fill.station.split()).lower()):
+        name, city, state = (" ".join(part.split()) for part in (fill.station, fill.city, fill.state))
+        if not name:
             unnamed += 1
             continue
-        named.setdefault(key, []).append(fill)
-    found = [StationSum(" ".join(group[-1].station.split()), len(group), spent(group), unit_price(group))
+        named.setdefault((name.lower(), city.lower(), state.lower()), []).append(fill)
+    found = [StationSum(" ".join(group[-1].station.split()), len(group), spent(group), unit_price(group),
+                        " ".join(group[-1].city.split()), " ".join(group[-1].state.split()))
              for group in named.values()]
-    return sorted(found, key=lambda s: (-s.fills, s.name.lower())), unnamed
+    return sorted(found, key=lambda s: (-s.fills, s.name.lower(), s.city.lower(), s.state.lower())), unnamed
 
 
 def home_rate(fills: Iterable[Fill]) -> float | None:

@@ -65,7 +65,8 @@ def _fill(row) -> Fill:
     """A row for the arithmetic; a charge at home that names no station is at Home."""
     station = row["station"] or ("Home" if row["place"] == "home" else "")
     return Fill(row["id"], date.fromisoformat(row["filled_on"]), row["odometer"], row["quantity"], row["cost_cents"],
-                bool(row["full"]), bool(row["missed_before"]), row["place"], station)
+                bool(row["full"]), bool(row["missed_before"]), row["place"], station,
+                row["station_city"], row["station_state"])
 
 
 def load(conn: sqlite3.Connection, car, today: date | None = None) -> FuelStatus:
@@ -105,16 +106,27 @@ def quantity_words(quantity: float, units: Units) -> str:
 _PLACES = {"home": "Home", "public": "Public"}
 
 
+def town_words(city: str, state: str) -> str:
+    """'Trenton, NJ'; either alone when that's all that was said."""
+    return ", ".join(part for part in (city, state) if part)
+
+
+def where_words(row) -> str:
+    """Where a fill was, as far as it says: 'Shell in Trenton, NJ', 'Shell', 'Trenton, NJ', or nothing."""
+    town = town_words(row["station_city"], row["station_state"])
+    return " in ".join(part for part in (row["station"], town) if part)
+
+
 def copy_words(row, units: Units, stretch: Stretch | None) -> str:
     """A fill on one line, for the clipboard, in the log's own words:
-    'Oct 20, 2026 · Shell · 45,210 mi · 10.200 gal · $34.67 ($3.399/gal) · 32.4 mpg · Full tank · Paid inside'.
+    'Oct 20, 2026 · Shell in Trenton, NJ · 45,210 mi · 10.200 gal · $34.67 ($3.399/gal) · 32.4 mpg · Full tank'.
     A part it hasn't got (a cost, economy) is left out."""
     cost = None
     if row["cost_cents"] is not None:
         cost = f"{money(row['cost_cents'])} ({price_words(row['cost_cents'] / row['quantity'], units)})"
     parts = [
         day_words(row["filled_on"]),
-        row["station"],
+        where_words(row),
         f"{row['odometer']:,} mi",
         quantity_words(row["quantity"], units),
         cost,
@@ -210,8 +222,9 @@ def tank_to_tank(state: FuelStatus) -> dict | None:
         return economy_words(value, units)  # type: ignore[return-value]
 
     def when(stretch: Stretch) -> str:
-        station = rows[stretch.end.id]["station"] if stretch.end.id in rows else ""
-        return stretch.end.day.isoformat() + (f" at {station}" if station else "")
+        row = rows.get(stretch.end.id)
+        where = where_words(row) if row else ""
+        return stretch.end.day.isoformat() + (f" {'at' if row['station'] else 'in'} {where}" if where else "")
 
     low, high = _number(words(found.mean - found.stdev)), _number(words(found.mean + found.stdev))
     if low == high:
@@ -267,9 +280,9 @@ def where_you_fill(state: FuelStatus) -> dict | None:
     if not found:
         return None
     priced = [s for s in found if s.unit_price is not None]
-    shown = {s.name: price_words(s.unit_price, units) for s in priced}
-    lowest = shown[min(priced, key=lambda s: s.unit_price).name] if priced else None  # type: ignore[arg-type,return-value]
-    cheapest = {name for name, words in shown.items() if words == lowest} if len(set(shown.values())) > 1 else set()
+    shown = {s: price_words(s.unit_price, units) for s in priced}
+    lowest = shown[min(priced, key=lambda s: s.unit_price)] if priced else None  # type: ignore[arg-type,return-value]
+    cheapest = {s for s, words in shown.items() if words == lowest} if len(set(shown.values())) > 1 else set()
 
     def count(n: int) -> str:
         return f"{n} {units.fill}{'s' if n != 1 else ''}"
@@ -281,9 +294,10 @@ def where_you_fill(state: FuelStatus) -> dict | None:
         "heading": "Where you fill up" if units.quantity == "gal" else "Where you charge",
         "line": line,
         "rows": [{"name": s.name,
+                  "town": town_words(s.city, s.state),
                   "visits": count(s.fills) + (f" · {money(s.spent)}" if s.spent else ""),
                   "price": price_words(s.unit_price, units),
-                  "cheapest": s.name in cheapest} for s in found],
+                  "cheapest": s in cheapest} for s in found],
     }
 
 
@@ -429,5 +443,6 @@ def log_rows(state: FuelStatus) -> list[dict]:
             "place": _PLACES.get(row["place"] or ""),
             "note": row["note"],
             "station": row["station"],
+            "where": where_words(row),
         })
     return rows

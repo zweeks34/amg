@@ -44,6 +44,25 @@
       <p class="field__hint" id="f-station-hint">If you like: its logo shows in the log.</p>
     </div>
 
+    <div class="fuelform__town">
+      {{ input("station_city", "City", raw, errors, attrs='x-model="city" @input="keepTown()" list="f-cities" autocomplete="off"') }}
+      <datalist id="f-cities">{% for name in cities %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+      <div class="field">
+        <label for="f-station_state">State or province</label>
+        <select id="f-station_state" name="station_state" x-model="state" @change="keepTown()"{{ described("station_state", errors, None) }}>
+          <option value=""></option>
+          {%- for country, codes in states.items() %}
+          <optgroup label="{{ country }}">
+            {%- for code in codes %}
+            <option value="{{ code }}"{% if raw.get("station_state") == code %} selected{% endif %}>{{ code }}</option>
+            {%- endfor %}
+          </optgroup>
+          {%- endfor %}
+        </select>
+        {{ message("station_state", errors, None) }}
+      </div>
+    </div>
+
     {% if units.energy == "electric" %}
     <fieldset class="field field--wide">
       <legend>Where</legend>

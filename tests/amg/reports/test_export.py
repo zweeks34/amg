@@ -47,7 +47,8 @@ def test_everything_is_there(conn, tmp_path):
     thrown, _ = rf.receipt(conn, outback, rf.pdf_bytes("THROWN"), "thrown.pdf", confirm=False, date="2025-01-02")
     receipts.discard(conn, thrown)
     rf.visit(conn, outback, "2021-06-01", source="diy", lines=[rf.line("Oil change", 4_000, "engine_oil")])
-    fuel.create(conn, outback, fuel.FillInput("2026-09-01", 92_000, "gas", 12.5, cost_cents=4_375, station="Wawa"))
+    fuel.create(conn, outback, fuel.FillInput("2026-09-01", 92_000, "gas", 12.5, cost_cents=4_375, station="Wawa",
+                                              station_city="Halifax", station_state="NS"))
     odometer.add(conn, outback, "2026-09-20", 92_300, "from the dash")
     manual, _ = documents.store(conn, rf.pdf_bytes("OWNER'S MANUAL"), "2016 Outback manual.pdf")
     draft = schedules.create_draft(conn, outback, "template", draft={"origin": "template", "items": []})
@@ -117,7 +118,7 @@ def test_everything_is_there(conn, tmp_path):
     assert sheet(zf, "fuel.csv")[0] == {
         "Car": "Outback", "Date": "2026-09-01", "Odometer": "92000", "Energy": "Gas", "Quantity": "12.5",
         "Unit": "gal", "Cost": "43.75", "Full": "Yes", "Missed one before": "No", "Place": "",
-        "Station": "Wawa", "Note": ""}
+        "Station": "Wawa", "City": "Halifax", "State or province": "NS", "Note": ""}
     readings = sheet(zf, "odometer.csv")
     assert {"Car": "Outback", "Date": "2026-09-20", "Miles": "92300", "From": "Typed in"} in readings
     assert {"Car": "Outback", "Date": "2026-09-01", "Miles": "92000", "From": "A fill-up"} in readings

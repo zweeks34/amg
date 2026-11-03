@@ -259,13 +259,30 @@ document.addEventListener("alpine:init", () => {
 
   // The fill-up form: the price a gallon (or kWh) as you type, and for a home
   // charge, the cost at your last home rate until you type a cost yourself.
+  // Picking a station you've given a location before fills in its city and
+  // state, until you type your own; a location already saved stays put.
   Alpine.data("fuelForm", (options) => ({
     quantity: options.quantity,
     cost: options.cost,
     place: options.place,
     station: options.station,
+    city: options.city,
+    state: options.state,
     typed: options.cost !== "",
+    townTyped: options.city !== "" || options.state !== "",
 
+    init() {
+      this.$watch("station", () => this.fillTown());
+    },
+    fillTown() {
+      if (this.townTyped) return;
+      const town = options.places[this.station.trim().replace(/\s+/g, " ").toLowerCase()];
+      this.city = town ? town.city : "";
+      this.state = town ? town.state : "";
+    },
+    keepTown() {
+      this.townTyped = this.city !== "" || this.state !== "";
+    },
     number(text) {
       const value = parseFloat(String(text).replace(/[$,\s]/g, ""));
       return Number.isFinite(value) ? value : null;

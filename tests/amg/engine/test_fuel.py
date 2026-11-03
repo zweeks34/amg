@@ -168,6 +168,23 @@ def test_stations_go_by_name_whatever_its_case_and_spacing():
     assert stations([]) == ([], 0)
 
 
+def test_the_same_station_in_another_town_is_another_station():
+    fills = [
+        Fill(1, D("2026-01-05"), 1_000, 10.0, 3_300, station="Shell", city="trenton", state="NJ"),
+        Fill(2, D("2026-02-05"), 1_300, 10.0, 3_500, station="shell", city=" Trenton ", state="NJ"),  # the same one
+        Fill(3, D("2026-03-05"), 1_600, 10.0, 3_100, station="Shell", city="Newark", state="NJ"),
+        Fill(4, D("2026-04-05"), 1_900, 10.0, 3_200, station="Shell", city="Newark", state="DE"),     # another Newark
+        Fill(5, D("2026-05-05"), 2_200, 10.0, 3_400, station="Shell"),                                # doesn't say
+        Fill(6, D("2026-06-05"), 2_500, 10.0, 3_000, city="Trenton", state="NJ"),                     # no station
+    ]
+    assert stations(fills) == ([
+        StationSum("shell", 2, 6_800, 340.0, "Trenton", "NJ"),
+        StationSum("Shell", 1, 3_400, 340.0),
+        StationSum("Shell", 1, 3_200, 320.0, "Newark", "DE"),
+        StationSum("Shell", 1, 3_100, 310.0, "Newark", "NJ"),
+    ], 1)
+
+
 def test_charges_work_alike_and_give_the_home_rate():
     charges = [
         Fill(1, D("2026-09-01"), 12_000, 40.0, 600, place="home"),

@@ -16,6 +16,15 @@ from ..db import now_iso
 ENERGIES = ("gas", "electric")
 PLACES = ("home", "public")
 
+# The two-letter codes a station's state, province or territory can be, grouped as the form's dropdown shows them.
+STATES = {
+    "United States": ("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN",
+                      "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ",
+                      "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA",
+                      "WI", "WV", "WY"),
+    "Canada": ("AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"),
+}
+
 
 def energy_for(powertrain: str) -> str:
     """What a car runs on, for its log: electric cars charge, the rest fill up."""
@@ -39,6 +48,8 @@ class FillInput:
     place: str | None = None        # home or public; charges only
     note: str = ""
     station: str = ""               # where: "Shell", "Wawa on Route 9"
+    station_city: str = ""          # the town it's in, as typed
+    station_state: str = ""         # a code from STATES
 
 
 def _check(fill: FillInput) -> None:
@@ -46,13 +57,15 @@ def _check(fill: FillInput) -> None:
         raise ValueError(f"Unknown energy {fill.energy!r}.")
     if fill.place is not None and (fill.energy != "electric" or fill.place not in PLACES):
         raise ValueError(f"A {fill.energy} fill can't be at {fill.place!r}.")
+    if fill.station_state and not any(fill.station_state in codes for codes in STATES.values()):
+        raise ValueError(f"Unknown state or province {fill.station_state!r}.")
     if not fill.quantity > 0:
         raise ValueError("A fill needs a quantity above zero.")
 
 
 def _values(fill: FillInput) -> tuple:
     return (fill.filled_on, fill.odometer, fill.energy, fill.quantity, fill.cost_cents, int(fill.full),
-            int(fill.missed_before), fill.place, fill.note, fill.station)
+            int(fill.missed_before), fill.place, fill.note, fill.station, fill.station_city, fill.station_state)
 
 
 def create(conn: sqlite3.Connection, vehicle_id: int, fill: FillInput) -> int:
@@ -60,7 +73,8 @@ def create(conn: sqlite3.Connection, vehicle_id: int, fill: FillInput) -> int:
     now = now_iso()
     cursor = conn.execute(
         "INSERT INTO fuel_logs (filled_on, odometer, energy, quantity, cost_cents, full, missed_before, place, note,"
-        " station, vehicle_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " station, station_city, station_state, vehicle_id, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (*_values(fill), vehicle_id, now, now),
     )
     return cursor.lastrowid  # type: ignore[return-value]
@@ -70,7 +84,8 @@ def update(conn: sqlite3.Connection, fill_id: int, fill: FillInput) -> None:
     _check(fill)
     conn.execute(
         "UPDATE fuel_logs SET filled_on = ?, odometer = ?, energy = ?, quantity = ?, cost_cents = ?, full = ?,"
-        " missed_before = ?, place = ?, note = ?, station = ?, updated_at = ? WHERE id = ?",
+        " missed_before = ?, place = ?, note = ?, station = ?, station_city = ?, station_state = ?, updated_at = ?"
+        " WHERE id = ?",
         (*_values(fill), now_iso(), fill_id),
     )
 
@@ -106,6 +121,29 @@ def stations(conn: sqlite3.Connection, energy: str) -> list[str]:
         " (PARTITION BY station COLLATE NOCASE ORDER BY filled_on DESC, id DESC) AS n"
         " FROM fuel_logs WHERE station <> '' AND energy = ?) WHERE n = 1 ORDER BY filled_on DESC, id DESC",
         (energy,),
+    )]
+
+
+def station_places(conn: sqlite3.Connection, energy: str) -> dict[str, dict[str, str]]:
+    """Where each station last said it was, by its name in lowercase with its spacing tidied: the form fills this in
+    when you pick the station. A later visit that gave no location doesn't forget the one before it."""
+    rows = conn.execute(
+        "SELECT station, station_city, station_state FROM fuel_logs"
+        " WHERE station <> '' AND energy = ? AND (station_city <> '' OR station_state <> '')"
+        " ORDER BY filled_on, id",
+        (energy,),
+    )
+    return {" ".join(row["station"].split()).lower(): {"city": row["station_city"], "state": row["station_state"]}
+            for row in rows}
+
+
+def cities(conn: sqlite3.Connection) -> list[str]:
+    """Every city any car has filled (or charged) in, most recently used first; each once whatever its capitals, as it
+    was last typed."""
+    return [row["station_city"] for row in conn.execute(
+        "SELECT station_city FROM (SELECT station_city, filled_on, id, row_number() OVER"
+        " (PARTITION BY station_city COLLATE NOCASE ORDER BY filled_on DESC, id DESC) AS n"
+        " FROM fuel_logs WHERE station_city <> '') WHERE n = 1 ORDER BY filled_on DESC, id DESC"
     )]
 
 

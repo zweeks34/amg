@@ -1755,6 +1755,8 @@ p.notice, div.notice { margin-bottom: 1rem; }
   .fuelform__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .fuelform__grid > .field:first-child, .fuelform__grid > .field:last-child { grid-column: auto; }
 }
+/* The station's city and state: as narrow as the state's label allows, for the city's sake. */
+.fuelform__town { display: grid; grid-template-columns: minmax(0, 1fr) 8rem; gap: 1rem; }
 .fuelblock .facts { margin: 0; }
 /* Your recent stations, one tap to fill the field in. Tall enough to hit with a thumb at the pump. */
 .stations { margin: 0 0 0.25rem; }
