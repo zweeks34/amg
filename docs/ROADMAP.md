@@ -366,6 +366,7 @@ Outback's chart against your full history on the server is yours.*
 - [x] **Price over time** (added 2026-10-29): a second chart under the economy one, the price paid at each fill-up with a cost, partial ones included, and the last 12 months' average dashed; a charge's dot says Home or Public
 - [x] **Where you fill up** (added 2026-10-29; **Where you charge** for an EV): each station named in the last 12 months with its logo, its fill-ups, what they came to and its average price paid, most visits first. The cheapest by the price as shown is marked (each, on a tie; none when all show the same). A home charge that names no station counts as Home
 - [x] **City and state** (added 2026-11-03): **City** and **State or province** under Station on the form, both optional. The dropdown holds the 50 states, DC, and Canada's provinces and territories. Picking a station fills in where it last said it was, until you type your own; a location already saved on a fill-up stays put, and nothing is copied from your last fill-up, so a road trip can't save the wrong town. The log, the copied line and Tank to tank say "Shell in Trenton, NJ", and the fuel CSV has the two columns. **Where you fill up** goes by location: the same station in two towns is two rows, each compared on its own, and one that says no town stays apart until it's edited. Logos still go by name, so Stations and shops keeps one row for the two. Existing fill-ups stay blank
+- [x] **Filter and sort the log** (added 2026-11-03): a **Filter** panel over the log, folded until it's wanted: From and To, State or province and City (narrowed to the state), Station, **Needs a look** (anything missing or unusual, no location, no station, no cost, unusual; a charge at home is missing no place), Fill (full or partial) and Note, and a Sort by date, price, cost or economy, rows without the figure last. The filters are in the address, so a narrowed log is a link. A line says what they found ("3 of 9 fill-ups · 30.0 gal · $98.99 · $3.300/gal"), with no average economy, and **Download these** gives those rows as a CSV. The log is worked out whole first, so a filter never changes a row, and nothing above the log moves. Edit and delete come back to the same filtered log, so **No location** works as a to-do list
 - [x] Every fill-up is an odometer reading feeding Phase 5's model (the `odometer_points` view), checked like any other; the car page's readings list folds after six
 
 **Decisions:** no plug-in hybrids (your call) — gas and hybrid cars fill up in
@@ -394,7 +395,11 @@ the price chart's scale, and stations grouped across case and spacing with
 ties for cheapest. Added 2026-11-03: a station in two towns (or two Newarks in
 two states) kept apart with a tie for cheapest across them, a made-up state
 refused, where a station last said it was, and where a fill was worded with each
-part missing.
+part missing. Also added 2026-11-03: each log filter alone and together, two
+Newarks, every sort with missing figures last, a link that doesn't fit the log,
+a home charge in Needs a look, the totals line worked by hand, the page above the
+log unchanged by a filter, a row's economy kept, and the way back from edit,
+delete and Cancel.
 
 **Done when:** the engine matches the hand-worked log *(it does, 2026-10-03)*,
 and you log a real fill-up from your phone at the pump and it shows on the car
