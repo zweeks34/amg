@@ -15,6 +15,12 @@
 </dl>
 {% endmacro %}
 
+{#- Above the log it's about when the log has been narrowed or sorted, as that's where the page opens. -#}
+{% macro notices(saved, deleted, units) -%}
+{% if saved %}<p class="notice notice--done" role="status">{{ saved }}</p>{% endif -%}
+{% if deleted %}<p class="notice notice--done" role="status">{{ units.fill | capitalize }} deleted.</p>{% endif -%}
+{%- endmacro %}
+
 {% block content %}
 <header class="pagehead">
   <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
@@ -24,8 +30,7 @@
   </div>
 </header>
 
-{% if saved %}<p class="notice notice--done" role="status">{{ saved }}</p>{% endif %}
-{% if deleted %}<p class="notice notice--done" role="status">{{ units.fill | capitalize }} deleted.</p>{% endif %}
+{% if not finder.changed %}{{ notices(saved, deleted, units) }}{% endif %}
 
 {% if figures %}{{ figure_sheet(figures) }}{% endif %}
 
@@ -70,8 +75,17 @@
 
 <section class="block" aria-labelledby="log-heading">
   <h2 class="h3" id="log-heading">The log</h2>
-  {% if log %}
+  {% if finder.changed %}{{ notices(saved, deleted, units) }}{% endif %}
+  {% if logged %}
   <p class="muted fuellog__hint">Tap a {{ units.fill }} to edit, copy or delete it.</p>
+  {% include "_fuel_filters.html" %}
+  {% if totals %}
+  <div class="fuellog__totals">
+    <p class="fuellog__summary">{{ totals }}</p>
+    <a class="btn btn--secondary" href="{{ finder.csv_url(car.id) }}" download>Download these</a>
+  </div>
+  {% endif %}
+  {% if log %}
   <ol class="fuellog sheet sheet--flush">
     {% for row in log %}
     <li>
@@ -100,14 +114,14 @@
       </summary>
       <div class="fuellog__actions" x-data='copyLine({{ row.line | tojson }})'>
         {% if row.where %}<p class="fuellog__station">{{ "At" if row.station else "In" }} {{ row.where }}</p>{% endif %}
-        <a class="btn btn--secondary" href="/fuel/{{ row.id }}/edit" aria-label="Edit the {{ row.fill }} of {{ row.when }}">Edit</a>
+        <a class="btn btn--secondary" href="/fuel/{{ row.id }}/edit{{ finder.query() }}" aria-label="Edit the {{ row.fill }} of {{ row.when }}">Edit</a>
         <button class="btn btn--secondary" type="button" @click="copy()" aria-label="Copy the {{ row.fill }} of {{ row.when }}"
                 x-text="copied ? 'Copied' : 'Copy'">Copy</button>
         <span class="vh" role="status" x-text="copied ? 'Copied to the clipboard' : ''"></span>
         <div class="fuellog__delete" x-data="{ confirming: false }">
           <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true"
                   aria-label="Delete the {{ row.fill }} of {{ row.when }}">Delete</button>
-          <form method="post" action="/fuel/{{ row.id }}/delete" class="confirm" x-show="confirming" x-cloak>
+          <form method="post" action="/fuel/{{ row.id }}/delete{{ finder.query() }}" class="confirm" x-show="confirming" x-cloak>
             <span>Delete this {{ row.fill }}? Its odometer reading goes with it.</span>
             <button class="btn btn--danger" type="submit">Delete {{ row.fill }}</button>
             <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>
@@ -122,6 +136,11 @@
     </li>
     {% endfor %}
   </ol>
+  {% else %}
+  <div class="sheet empty empty--small">
+    <p>No {{ units.fill }}s match these filters. <a href="{{ finder.cleared(car.id) }}">Clear filters</a></p>
+  </div>
+  {% endif %}
   {% else %}
   <div class="sheet empty empty--small">
     <p>Nothing logged yet. {{ units.economy_name }} shows from your second {{ units.full_noun }}.</p>

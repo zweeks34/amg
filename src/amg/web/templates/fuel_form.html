@@ -10,7 +10,7 @@
   <h1 class="display">{{ verb }} a {{ units.fill }}</h1>
 </header>
 
-<form class="sheet form fuelform" method="post" action="{{ '/fuel/%d/edit' % fill.id if fill else '/vehicles/%d/fuel' % car.id }}"
+<form class="sheet form fuelform" method="post" action="{{ ('/fuel/%d/edit' % fill.id) ~ finder.query() if fill else '/vehicles/%d/fuel' % car.id }}"
       x-data='fuelForm({{ options | tojson }})'>
   <div class="form__body">
     <div class="fuelform__grid">
@@ -95,14 +95,14 @@
 
   <div class="form__actions">
     <button class="btn btn--primary" type="submit">Save {{ units.fill }}</button>
-    <a class="btn btn--quiet" href="{{ '/vehicles/%d/fuel' % car.id if fill else '/vehicles/%d' % car.id }}">Cancel</a>
+    <a class="btn btn--quiet" href="{{ finder.url(car.id) if fill else '/vehicles/%d' % car.id }}">Cancel</a>
   </div>
 </form>
 
 {% if fill %}
 <div class="zone" x-data="{ confirming: false }">
   <button class="btn btn--quiet" type="button" x-show="!confirming" @click="confirming = true">Delete this {{ units.fill }}</button>
-  <form method="post" action="/fuel/{{ fill.id }}/delete" class="confirm" x-show="confirming" x-cloak>
+  <form method="post" action="/fuel/{{ fill.id }}/delete{{ finder.query() }}" class="confirm" x-show="confirming" x-cloak>
     <span>Delete this {{ units.fill }}? Its odometer reading goes with it.</span>
     <button class="btn btn--danger" type="submit">Delete {{ units.fill }}</button>
     <button class="btn btn--quiet" type="button" @click="confirming = false">Keep it</button>

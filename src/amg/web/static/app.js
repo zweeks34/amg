@@ -306,6 +306,21 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
+  // The fuel log's filters: City offers the cities of the state chosen, and
+  // lets go of one that isn't in it.
+  Alpine.data("fuelFilters", (options) => ({
+    state: options.state,
+    city: options.city,
+
+    cities() {
+      const towns = options.cities.filter((town) => !this.state || town.state === this.state);
+      return [...new Set(towns.map((town) => town.name))];
+    },
+    pickState() {
+      if (!this.cities().includes(this.city)) this.city = "";
+    },
+  }));
+
   // A car's photo on its form: what you pick shows in the frame before you
   // save. One file goes up: picking with one button clears the other, and
   // Remove photo clears both and the photo already kept. The big frame

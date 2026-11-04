@@ -419,7 +419,8 @@ def saved(state: FuelStatus, fill_id: int) -> str | None:
 
 
 def log_rows(state: FuelStatus) -> list[dict]:
-    """The log, newest first, each fill worded in its own units."""
+    """The log, newest first, each fill worded in its own units, with the figures behind the words for narrowing and
+    sorting it (fuel_finder.py). A price in other units doesn't sort with these."""
     flagged = engine.unusual(state.stretches)
     rows = []
     for row in state.rows:
@@ -444,5 +445,32 @@ def log_rows(state: FuelStatus) -> list[dict]:
             "note": row["note"],
             "station": row["station"],
             "where": where_words(row),
+            "city": row["station_city"],
+            "state": row["station_state"],
+            "cost_cents": row["cost_cents"],
+            "unit_cents": price if row["energy"] == state.units.energy else None,
+            "economy_value": stretch.economy if stretch else None,
+            "amount": row["quantity"],
+            "unit": units.quantity,
+            "economy_unit": units.economy,
         })
     return rows
+
+
+def log_totals(state: FuelStatus, found: list[dict]) -> str:
+    """The line over a narrowed log: how many of the whole it shows, what went in, what it came to and the average
+    paid, as Price paid works it out. A fill with no cost is counted, and said, and left out of the price. No economy:
+    a tank's figure is the driving before the fill, so an average of the rows found would say nothing about them. Fills
+    in other units, from before a car's powertrain was corrected, stay in the count but can't add up with these."""
+    units = state.units
+    shown = {row["id"] for row in found}
+    fills = [fill for fill in state.fills if fill.id in shown]
+    no_cost = sum(fill.cost_cents is None for fill in fills)
+    parts = [
+        f"{len(found)} of {len(state.rows)} {units.fill}{'s' if len(state.rows) != 1 else ''}",
+        f"{sum(fill.quantity for fill in fills):,.1f} {units.quantity}" if fills else None,
+        money(engine.spent(fills)) if len(fills) > no_cost else None,
+        price_words(engine.unit_price(fills), units),
+        f"{no_cost} {'has' if no_cost == 1 else 'have'} no cost" if no_cost else None,
+    ]
+    return " · ".join(part for part in parts if part)

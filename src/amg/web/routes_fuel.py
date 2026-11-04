@@ -2,6 +2,9 @@
 
 Every fill is an odometer reading too, so it goes through the same check as
 any other: one lower than an earlier reading is refused.
+
+The log's filters are in the address (fuel_finder.py). Edit and delete keep them
+in theirs, so you come back to the log you left.
 """
 
 from __future__ import annotations
@@ -14,9 +17,11 @@ from starlette.responses import RedirectResponse, Response
 
 from ..engine import fuel as engine
 from ..repo import fuel, odometer, vehicles
-from . import forms
+from ..reports import csvs
+from . import forms, fuel_finder
 from . import fuel_status as status
 from .deps import get_conn
+from .routes_reports import slug
 from .routes_vehicles import vehicle_or_404
 from .templating import render
 
@@ -65,6 +70,7 @@ def fuel_page(request: Request, vehicle_id: int, saved: int | None = None, delet
               conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     car = vehicle_or_404(conn, vehicle_id)
     state = status.load(conn, car)
+    finder, options, log = _log(request, state)
     return render(
         request,
         "fuel.html",
@@ -76,10 +82,26 @@ def fuel_page(request: Request, vehicle_id: int, saved: int | None = None, delet
         trend=status.trend(state),
         price_trend=status.price_trend(state),
         stations=status.where_you_fill(state),
-        log=status.log_rows(state),
+        log=log,
+        logged=bool(state.rows),
+        finder=finder,
+        choices=options,
+        looks=fuel_finder.NEEDS_A_LOOK,
+        sorts=fuel_finder.sorts(state.units.economy_name),
+        totals=status.log_totals(state, log) if finder.active and log else None,
         saved=status.saved(state, saved) if saved else None,
         deleted=bool(deleted),
     )
+
+
+@router.get("/vehicles/{vehicle_id}/fuel.csv")
+def log_csv(request: Request, vehicle_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    """The log as the page shows it: the same filters, the same order."""
+    car = vehicle_or_404(conn, vehicle_id)
+    _, _, log = _log(request, status.load(conn, car))
+    name = f"amg-fuel-log-{slug(car['name'])}-{date.today().isoformat()}.csv"
+    return Response(csvs.fuel_log_csv(log), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @router.get("/fuel/{fill_id}/edit")
@@ -99,7 +121,7 @@ def edit_fill(request: Request, fill_id: int, conn: sqlite3.Connection = Depends
         "station_city": row["station_city"],
         "station_state": row["station_state"],
     }
-    return _form(request, conn, car, status.UNITS[row["energy"]], raw, errors={}, fill=row)
+    return _form(request, conn, car, status.UNITS[row["energy"]], raw, errors={}, fill=row, finder=_finder(request))
 
 
 @router.post("/fuel/{fill_id}/edit")
@@ -107,22 +129,35 @@ async def update_fill(request: Request, fill_id: int, conn: sqlite3.Connection =
     row = _fill_or_404(conn, fill_id)
     car = vehicle_or_404(conn, row["vehicle_id"])
     units = status.UNITS[row["energy"]]
+    finder = _finder(request)
     raw = await _raw(request)
     fill, errors = _read(conn, car["id"], units, raw, fill_id=fill_id)
     if errors:
-        return _form(request, conn, car, units, raw, errors, fill=row, status_code=422)
+        return _form(request, conn, car, units, raw, errors, fill=row, finder=finder, status_code=422)
     fuel.update(conn, fill_id, fill)
-    return RedirectResponse(f"/vehicles/{car['id']}/fuel?saved={fill_id}", status_code=303)
+    return RedirectResponse(finder.url(car["id"], saved=fill_id), status_code=303)
 
 
 @router.post("/fuel/{fill_id}/delete")
-def delete_fill(fill_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+def delete_fill(request: Request, fill_id: int, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     row = _fill_or_404(conn, fill_id)
     fuel.delete(conn, fill_id)
-    return RedirectResponse(f"/vehicles/{row['vehicle_id']}/fuel?deleted=1", status_code=303)
+    return RedirectResponse(_finder(request).url(row["vehicle_id"], deleted=1), status_code=303)
 
 
 # ---------- Helpers ----------
+
+
+def _finder(request: Request) -> fuel_finder.Finder:
+    return fuel_finder.Finder.read(request.query_params)
+
+
+def _log(request: Request, state: status.FuelStatus) -> tuple[fuel_finder.Finder, dict, list[dict]]:
+    """The filters the address asks for, what the log holds to filter by, and the rows that leaves."""
+    rows = status.log_rows(state)
+    options = fuel_finder.choices(rows)
+    finder = _finder(request).within(options)
+    return finder, options, fuel_finder.find(rows, finder)
 
 
 def _fill_or_404(conn: sqlite3.Connection, fill_id: int) -> sqlite3.Row:
@@ -133,7 +168,8 @@ def _fill_or_404(conn: sqlite3.Connection, fill_id: int) -> sqlite3.Row:
 
 
 def _form(request: Request, conn: sqlite3.Connection, car, units: status.Units, raw: dict, errors: dict,
-          fill: sqlite3.Row | None = None, status_code: int = 200) -> Response:
+          fill: sqlite3.Row | None = None, finder: fuel_finder.Finder | None = None,
+          status_code: int = 200) -> Response:
     fills = status.load(conn, car).fills
     rate = engine.home_rate(fills) if units.energy == "electric" else None
     stations = fuel.stations(conn, units.energy)
@@ -147,6 +183,7 @@ def _form(request: Request, conn: sqlite3.Connection, car, units: status.Units, 
         raw=raw,
         errors=errors,
         fill=fill,
+        finder=finder or fuel_finder.Finder(),
         latest=vehicles.latest_odometer(conn, car["id"]),
         stations=stations,
         recent_stations=stations[:RECENT_STATIONS],

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from datetime import date, timedelta
 
@@ -580,3 +582,151 @@ def test_the_garage_card_draws_the_last_tanks_as_a_line(signed_in, conn, car):
     for n in range(4, 16):                                                                     # only the last 12
         fuel.create(conn, car, fuel.FillInput(f"2026-10-{n:02d}", 45_960 + n * 300, "gas", 10.0))
     assert len(fuel_status.sparkline(fuel_status.load(conn, vehicles.get(conn, car)))["points"]) == 12
+
+
+def _filtered_log(conn, car):
+    """Four fill-ups; the Trenton ones come to 19.5 gal, $52.25 and, over the 15.5 gal with a cost, 337.1¢ a gallon."""
+    for days_ago, miles, gallons, cents, city in ((40, 10_000, 8.0, 3_000, "Newark"), (30, 10_300, 10.0, 3_300, "Trenton"),
+                                                  (20, 10_600, 5.5, 1_925, "Trenton"), (10, 10_900, 4.0, None, "Trenton")):
+        fuel.create(conn, car, fuel.FillInput(_days_ago(days_ago), miles, "gas", gallons, cents, station="Shell",
+                                              station_city=city, station_state="NJ"))
+
+
+def test_the_filter_panel_is_folded_and_offers_what_the_log_holds(signed_in, conn, car):
+    assert 'class="fuelfilter"' not in signed_in.get(f"/vehicles/{car}/fuel").text           # nothing to filter yet
+    _filtered_log(conn, car)
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert '<details class="fuelfilter">' in page and "<summary>Filter</summary>" in page
+    assert f'action="/vehicles/{car}/fuel#log-heading"' in page                              # lands on the log
+    assert '<option value="NJ">NJ</option>' in page and '<option value="DE">' not in page
+    assert '<option value="Shell">Shell</option>' in page
+    assert ">Show fill-ups</button>" in page and ">All fill-ups</option>" in page
+    assert ">Full tank</option>" in page and ">Partial fill</option>" in page
+    assert ">Best MPG</option>" in page
+    assert "fuellog__totals" not in page and "Clear filters" not in page
+
+
+def test_a_charge_log_words_its_filters_as_charges(signed_in, conn, ev):
+    fuel.create(conn, ev, fuel.FillInput(_days_ago(5), 5_000, "electric", 30.0, 450, place="public"))
+    page = signed_in.get(f"/vehicles/{ev}/fuel").text
+    assert ">Show charges</button>" in page and ">All charges</option>" in page
+    assert ">Full charge</option>" in page and ">Partial charge</option>" in page and ">Best mi/kWh</option>" in page
+    assert "No charges match these filters." in signed_in.get(f"/vehicles/{ev}/fuel?note=nothing").text
+
+
+def test_a_filter_narrows_the_log_and_totals_what_it_found(signed_in, conn, car):
+    _filtered_log(conn, car)
+    page = signed_in.get(f"/vehicles/{car}/fuel?city=Trenton").text
+    assert '<p class="fuellog__summary">3 of 4 fill-ups · 19.5 gal · $52.25 · $3.371/gal · 1 has no cost</p>' in page
+    assert page.count('class="fuellog__item"') == 3
+    assert '<details class="fuelfilter" open>' in page and "<summary>Filter · 1 on</summary>" in page
+    assert f'href="/vehicles/{car}/fuel.csv?city=Trenton" download>Download these</a>' in page
+    assert f'href="/vehicles/{car}/fuel#log-heading">Clear filters</a>' in page
+
+
+def test_the_totals_say_nothing_of_a_cost_none_of_the_rows_has(signed_in, conn, car):
+    _filtered_log(conn, car)
+    page = signed_in.get(f"/vehicles/{car}/fuel?look=cost").text
+    assert '<p class="fuellog__summary">1 of 4 fill-ups · 4.0 gal · 1 has no cost</p>' in page
+
+
+def test_sorting_alone_keeps_every_row_and_shows_no_totals(signed_in, conn, car):
+    _filtered_log(conn, car)
+    page = signed_in.get(f"/vehicles/{car}/fuel?sort=oldest").text
+    assert page.count('class="fuellog__item"') == 4
+    assert "fuellog__totals" not in page and "Clear filters" not in page
+    assert '<details class="fuelfilter" open>' in page and "<summary>Filter</summary>" in page
+    assert page.index(_days_ago(40) + "</span>") < page.index(_days_ago(10) + "</span>")
+
+
+def test_a_filter_changes_the_log_and_nothing_above_it(signed_in, conn, car):
+    _filtered_log(conn, car)
+    whole = signed_in.get(f"/vehicles/{car}/fuel").text
+    narrowed = signed_in.get(f"/vehicles/{car}/fuel?city=Newark&sort=oldest").text
+    log = '<section class="block" aria-labelledby="log-heading">'
+    assert narrowed.split(log)[0] == whole.split(log)[0]
+
+
+def test_a_row_keeps_the_economy_the_whole_log_gives_it(signed_in, conn, car):
+    fuel.create(conn, car, fuel.FillInput(_days_ago(20), 10_000, "gas", 10.0, 3_300, station_city="Trenton"))
+    fuel.create(conn, car, fuel.FillInput(_days_ago(10), 10_300, "gas", 10.0, 3_300, station_city="Newark"))
+    page = signed_in.get(f"/vehicles/{car}/fuel?city=Newark").text
+    assert page.count('class="fuellog__item"') == 1 and "30.0 mpg" in page.split('aria-labelledby="log-heading"')[1]
+
+
+def test_no_matches_say_so_and_offer_the_way_back(signed_in, conn, car):
+    _filtered_log(conn, car)
+    page = signed_in.get(f"/vehicles/{car}/fuel?note=nothing&sort=cost").text
+    assert "No fill-ups match these filters." in page and "Nothing logged yet" not in page
+    assert 'class="fuellog sheet' not in page and "fuellog__totals" not in page
+    assert f'href="/vehicles/{car}/fuel?sort=cost#log-heading">Clear filters</a>' in page
+
+
+def test_a_link_that_doesnt_fit_this_log_shows_the_whole_log(signed_in, conn, car):
+    _filtered_log(conn, car)
+    page = signed_in.get(f"/vehicles/{car}/fuel?state=ZZ&city=Atlantis&station=Nope&look=x&fill=x&sort=x&from=x").text
+    assert page.count('class="fuellog__item"') == 4 and '<details class="fuelfilter">' in page
+
+
+def test_edit_and_delete_come_back_to_the_filtered_log(signed_in, conn, car):
+    _filtered_log(conn, car)
+    fill = fuel.last(conn, car)["id"]
+    page = signed_in.get(f"/vehicles/{car}/fuel?city=Trenton&sort=cost").text
+    assert f'href="/fuel/{fill}/edit?city=Trenton&amp;sort=cost"' in page
+    assert f'action="/fuel/{fill}/delete?city=Trenton&amp;sort=cost"' in page
+
+    form = signed_in.get(f"/fuel/{fill}/edit?city=Trenton&sort=cost").text
+    back = f"/vehicles/{car}/fuel?city=Trenton&amp;sort=cost#log-heading"
+    assert f'href="{back}">Cancel</a>' in form
+    assert f'action="/fuel/{fill}/edit?city=Trenton&amp;sort=cost"' in form
+    assert f'action="/fuel/{fill}/delete?city=Trenton&amp;sort=cost"' in form
+
+    data = {"filled_on": _days_ago(10), "odometer": "10,900", "quantity": "4", "cost": "14.00", "full": "1",
+            "station": "Shell", "station_city": "Trenton", "station_state": "NJ"}
+    saved = signed_in.post(f"/fuel/{fill}/edit?city=Trenton&sort=cost", data=data, follow_redirects=False)
+    assert saved.headers["location"] == f"/vehicles/{car}/fuel?city=Trenton&sort=cost&saved={fill}#log-heading"
+    page = signed_in.get(saved.headers["location"]).text
+    assert page.index('id="log-heading"') < page.index("Saved.")                     # where the page opens
+
+    deleted = signed_in.post(f"/fuel/{fill}/delete?city=Trenton&sort=cost", follow_redirects=False)
+    assert deleted.headers["location"] == f"/vehicles/{car}/fuel?city=Trenton&sort=cost&deleted=1#log-heading"
+    page = signed_in.get(deleted.headers["location"]).text
+    assert page.index('id="log-heading"') < page.index("Fill-up deleted.")
+
+
+def test_a_refused_edit_keeps_its_way_back_to_the_filtered_log(signed_in, conn, car):
+    _filtered_log(conn, car)
+    fill = fuel.last(conn, car)["id"]
+    data = {"filled_on": _days_ago(10), "odometer": "10,900", "quantity": "", "full": "1"}
+    response = signed_in.post(f"/fuel/{fill}/edit?city=Trenton", data=data, follow_redirects=False)
+    assert response.status_code == 422
+    assert f'action="/fuel/{fill}/edit?city=Trenton"' in response.text
+
+
+def test_edit_and_delete_from_the_whole_log_go_where_they_always_did(signed_in, conn, car):
+    _filtered_log(conn, car)
+    fill = fuel.last(conn, car)["id"]
+    assert f'href="/vehicles/{car}/fuel">Cancel</a>' in signed_in.get(f"/fuel/{fill}/edit").text
+    deleted = signed_in.post(f"/fuel/{fill}/delete", follow_redirects=False)
+    assert deleted.headers["location"] == f"/vehicles/{car}/fuel?deleted=1"
+    page = signed_in.get(deleted.headers["location"]).text
+    assert page.index("Fill-up deleted.") < page.index('id="log-heading"')           # at the top, as before
+
+
+def test_download_these_is_the_log_as_shown(signed_in, conn, car):
+    _filtered_log(conn, car)
+    fuel.create(conn, car, fuel.FillInput(_days_ago(5), 11_200, "gas", 10.0, 3_000, station="=Odd", station_city="Trenton",
+                                          station_state="NJ", full=False, note="Halfway"))
+    response = signed_in.get(f"/vehicles/{car}/fuel.csv?city=Trenton&sort=cost")
+    assert response.headers["content-type"].startswith("text/csv")
+    assert f'filename="amg-fuel-log-outback-{date.today().isoformat()}.csv"' in response.headers["content-disposition"]
+    rows = list(csv.DictReader(io.StringIO(response.text.lstrip(chr(0xFEFF)))))
+    assert [row["Cost"] for row in rows] == ["33.00", "30.00", "19.25", ""]         # highest first, none last
+    first, second = rows[0], rows[1]
+    assert {key: first[key] for key in ("Date", "Odometer", "Station", "City", "State or province", "Quantity", "Unit",
+                                        "Price per unit", "Economy", "Economy unit", "Full", "Unusual")} == {
+        "Date": _days_ago(30), "Odometer": "10300", "Station": "Shell", "City": "Trenton", "State or province": "NJ",
+        "Quantity": "10", "Unit": "gal", "Price per unit": "3.300", "Economy": "30.0", "Economy unit": "mpg",
+        "Full": "Yes", "Unusual": "Yes"}                                             # 30 mpg against 54.5 and 75
+    assert (second["Station"], second["Full"], second["Economy"], second["Economy unit"], second["Note"]) == (
+        "'=Odd", "No", "", "", "Halfway")                                            # safe in a spreadsheet

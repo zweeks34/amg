@@ -23,6 +23,8 @@ HISTORY_COLUMNS = ("Car", "Date", "Odometer", "Where", "Invoice", "Source", "Lin
                    "Amount", "Services", "Category", "Visit total", "Visit tax", "Notes", "Visit #")
 FUEL_COLUMNS = ("Car", "Month", "Fill-ups", "Miles", "Quantity", "Unit", "Economy", "Economy unit", "Cents a mile",
                 "Spent", "Price per unit")
+FUEL_LOG_COLUMNS = ("Date", "Odometer", "Station", "City", "State or province", "Quantity", "Unit", "Cost",
+                    "Price per unit", "Economy", "Economy unit", "Full", "Place", "Missed one before", "Unusual", "Note")
 _FORMULA = ("=", "+", "-", "@", "\t", "\r")
 
 
@@ -93,6 +95,22 @@ def fuel_csv(sections: list[Section]) -> str:
                 number(month.unit_price / 100 if month.unit_price is not None else None, 3),
             ])
     return sheet(FUEL_COLUMNS, rows)
+
+
+def fuel_log_csv(log: list[dict]) -> str:
+    """A car's log as the fuel page shows it, narrowed and in the same order. Price per unit is dollars a gallon or kWh."""
+    rows = []
+    for row in log:
+        price = row["cost_cents"] / row["amount"] / 100 if row["cost_cents"] is not None else None
+        economy = row["economy_value"]
+        rows.append([
+            row["day"], str(row["odometer"]), text(row["station"]), text(row["city"]), row["state"],
+            number(row["amount"]), row["unit"], amount(row["cost_cents"]), number(price, 3),
+            number(economy, 1 if row["unit"] == "gal" else 2), row["economy_unit"] if economy is not None else "",
+            "No" if row["partial"] else "Yes", row["place"] or "", "Yes" if row["missed_before"] else "No",
+            "Yes" if row["unusual"] else "No", text(row["note"]),
+        ])
+    return sheet(FUEL_LOG_COLUMNS, rows)
 
 
 def sheet(header, rows) -> str:

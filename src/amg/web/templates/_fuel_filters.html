@@ -1,0 +1,72 @@
+{#- The log's filters: a plain form into the address bar, like a report's, folded until you want it. State, City and
+    Station offer only what this car's log holds. -#}
+<details class="fuelfilter"{% if finder.changed %} open{% endif %}>
+  <summary>Filter{% if finder.on %} · {{ finder.on }} on{% endif %}</summary>
+  <form class="finder reportfilters" method="get" action="/vehicles/{{ car.id }}/fuel#log-heading" aria-label="Narrow the log"
+        x-data='fuelFilters({{ {"state": finder.state, "city": finder.city, "cities": choices.cities} | tojson }})'>
+    <div class="field field--date">
+      <label for="log-from">From</label>
+      <input id="log-from" type="date" name="from" value="{{ finder.start or '' }}">
+    </div>
+    <div class="field field--date">
+      <label for="log-to">To</label>
+      <input id="log-to" type="date" name="to" value="{{ finder.end or '' }}">
+    </div>
+    {% if choices.states %}
+    <div class="field">
+      <label for="log-state">State or province</label>
+      <select id="log-state" name="state" x-model="state" @change="pickState()">
+        <option value="">Any</option>
+        {% for code in choices.states %}<option value="{{ code }}"{% if code == finder.state %} selected{% endif %}>{{ code }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if choices.cities %}
+    <div class="field">
+      <label for="log-city">City</label>
+      <select id="log-city" name="city" x-model="city">
+        <option value="">Any</option>
+        <template x-for="name in cities()" :key="name">
+          <option :value="name" :selected="name === city" x-text="name"></option>
+        </template>
+      </select>
+    </div>
+    {% endif %}
+    {% if choices.stations %}
+    <div class="field">
+      <label for="log-station">Station</label>
+      <select id="log-station" name="station">
+        <option value="">Any</option>
+        {% for name in choices.stations %}<option value="{{ name }}"{% if name == finder.station %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="field">
+      <label for="log-look">Needs a look</label>
+      <select id="log-look" name="look">
+        <option value="">All {{ units.fill }}s</option>
+        {% for value, label in looks.items() %}<option value="{{ value }}"{% if value == finder.look %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="log-fill">Fill</label>
+      <select id="log-fill" name="fill">
+        <option value="">Any</option>
+        <option value="full"{% if finder.fill == "full" %} selected{% endif %}>{{ units.full_noun | capitalize }}</option>
+        <option value="partial"{% if finder.fill == "partial" %} selected{% endif %}>Partial {{ "fill" if units.quantity == "gal" else "charge" }}</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="log-note">Note</label>
+      <input id="log-note" type="text" name="note" value="{{ finder.note }}" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="log-sort">Sort</label>
+      <select id="log-sort" name="sort">
+        {% for value, label in sorts.items() %}<option value="{{ value }}"{% if value == finder.sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn btn--secondary reportfilters__go" type="submit">Show {{ units.fill }}s</button>
+    {% if finder.active %}<a class="fuelfilter__clear" href="{{ finder.cleared(car.id) }}">Clear filters</a>{% endif %}
+  </form>
+</details>
