@@ -83,6 +83,7 @@ def fuel_page(request: Request, vehicle_id: int, saved: int | None = None, delet
         price_trend=status.price_trend(state),
         stations=status.where_you_fill(state),
         log=log,
+        switch=_switch(conn, car, finder),
         logged=bool(state.rows),
         finder=finder,
         choices=options,
@@ -158,6 +159,18 @@ def _log(request: Request, state: status.FuelStatus) -> tuple[fuel_finder.Finder
     options = fuel_finder.choices(rows)
     finder = _finder(request).within(options)
     return finder, options, fuel_finder.find(rows, finder)
+
+
+def _switch(conn: sqlite3.Connection, car, finder: fuel_finder.Finder) -> list[dict]:
+    """The garage's logs to switch between, by name, this one marked; nothing when it's the only one. Each keeps the
+    filters and sort, and the log it opens drops any it can't use."""
+    cars = [other for other in fuel.cars_by_last_fill(conn) if other["last_filled"] or other["id"] == car["id"]]
+    if not any(other["id"] == car["id"] for other in cars):
+        cars.append(car)                                      # an archived car still shows where you are
+    if len(cars) < 2:
+        return []
+    return [{"name": other["name"], "url": finder.url(other["id"]), "current": other["id"] == car["id"]}
+            for other in sorted(cars, key=lambda c: (c["name"].lower(), c["id"]))]
 
 
 def _fill_or_404(conn: sqlite3.Connection, fill_id: int) -> sqlite3.Row:

@@ -758,3 +758,40 @@ def test_the_picker_offers_each_filled_car_its_log(signed_in, conn, car):
     page = signed_in.get("/fuel/new").text
     assert f'href="/vehicles/{other}/fuel"' in page and 'aria-label="Civic: the fill-up log">Log</a>' in page
     assert f'href="/vehicles/{car}/fuel"' not in page          # Outback has no fill-ups yet
+
+
+def test_one_log_has_no_car_switcher(signed_in, car):
+    _log(signed_in, car, _days_ago(2), "30,200", "12")
+    assert "carswitch" not in signed_in.get(f"/vehicles/{car}/fuel").text
+
+
+def test_the_log_switches_between_cars_that_have_one(signed_in, conn, car, ev):
+    civic = vehicles.create(conn, vehicles.VehicleFields(name="Civic"))       # never filled: not offered
+    _log(signed_in, car, _days_ago(2), "30,200", "12")
+    _log(signed_in, ev, _days_ago(2), "8,000", "30", place="home")
+    page = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert f'href="/vehicles/{ev}/fuel">Leaf</a>' in page
+    assert f'href="/vehicles/{car}/fuel" aria-current="page">Outback</a>' in page
+    assert page.index(f'href="/vehicles/{ev}/fuel"') < page.index(f'href="/vehicles/{car}/fuel" aria-current')  # by name
+    assert f'href="/vehicles/{civic}/fuel"' not in page
+
+
+def test_switching_cars_keeps_the_filters_and_the_other_log_drops_what_it_cannot_use(signed_in, car, ev):
+    _log(signed_in, car, _days_ago(5), "30,200", "12", station="Shell")
+    _log(signed_in, ev, _days_ago(5), "8,000", "30", place="home")
+    page = signed_in.get(f"/vehicles/{car}/fuel?station=Shell&sort=oldest").text
+    switch = f'/vehicles/{ev}/fuel?station=Shell&amp;sort=oldest#log-heading'
+    assert f'href="{switch}"' in page
+    other = signed_in.get(switch.replace("&amp;", "&").split("#")[0]).text
+    assert "No charges match these filters" not in other                       # no Shell to filter by: dropped
+    assert f'href="/vehicles/{ev}/fuel?sort=oldest#log-heading" aria-current="page">Leaf</a>' in other  # sort kept
+
+
+def test_an_archived_cars_log_still_shows_where_you_are(signed_in, conn, car, ev):
+    _log(signed_in, car, _days_ago(2), "30,200", "12")
+    _log(signed_in, ev, _days_ago(2), "8,000", "30", place="home")
+    vehicles.archive(conn, car)
+    archived = signed_in.get(f"/vehicles/{car}/fuel").text
+    assert f'href="/vehicles/{car}/fuel" aria-current="page">Outback</a>' in archived
+    assert f'href="/vehicles/{ev}/fuel">Leaf</a>' in archived
+    assert "carswitch" not in signed_in.get(f"/vehicles/{ev}/fuel").text      # the Leaf's only other log is archived

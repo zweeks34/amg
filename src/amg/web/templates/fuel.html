@@ -25,6 +25,11 @@
 <header class="pagehead">
   <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
   <h1 class="display">{{ units.title }}</h1>
+  {% if switch %}<nav class="carswitch" aria-label="Switch car">
+    {%- for other in switch %}
+    <a class="carswitch__car" href="{{ other.url }}"{% if other.current %} aria-current="page"{% endif %}>{{ other.name }}</a>
+    {%- endfor %}
+  </nav>{% endif %}
   <div class="pagehead__actions">
     <a class="btn btn--primary" href="/vehicles/{{ car.id }}/fuel/new">Log a {{ units.fill }}</a>
   </div>
