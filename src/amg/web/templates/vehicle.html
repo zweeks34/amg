@@ -105,6 +105,7 @@
   </dl>
   <div class="pagehead__actions">
     <a class="btn btn--primary" href="/vehicles/{{ car.id }}/services/new">Log a service</a>
+    {% if fuel.count %}<a class="btn btn--secondary" href="/vehicles/{{ car.id }}/fuel">{{ fuel.units.fill | capitalize }} log</a>{% endif %}
     <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/edit">Edit car</a>
     <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/specs">Specs</a>
     <a class="btn btn--secondary" href="/vehicles/{{ car.id }}/for-the-shop">For the shop</a>

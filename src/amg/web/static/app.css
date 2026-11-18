@@ -1863,6 +1863,10 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .pick__what { display: grid; gap: 0.25rem; min-width: 0; }
 .pick__car:hover { border-color: var(--ink); }
 .pick__name { font: 700 1.75rem/1 var(--display); }
+/* The car's log beside its tile, not inside it: the tile stays one big target. */
+.pick__row { display: flex; align-items: center; gap: 0.5rem; }
+.pick__row .pick__car { flex: 1; min-width: 0; }
+.pick__log { flex: none; }
 
 /* The log: date, odometer, quantity, price, total, economy; two lines on a phone.
    A fill opens in place to Edit, Copy and Delete, one at a time. */

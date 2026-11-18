@@ -8,6 +8,9 @@
 <header class="pagehead">
   <p class="eyebrow"><a href="/vehicles/{{ car.id }}">{{ car.name }}</a></p>
   <h1 class="display">{{ verb }} a {{ units.fill }}</h1>
+  {% if has_log %}<div class="pagehead__actions">
+    <a class="btn btn--quiet" href="/vehicles/{{ car.id }}/fuel">The {{ units.fill }} log</a>
+  </div>{% endif %}
 </header>
 
 <form class="sheet form fuelform" method="post" action="{{ ('/fuel/%d/edit' % fill.id) ~ finder.query() if fill else '/vehicles/%d/fuel' % car.id }}"

@@ -730,3 +730,31 @@ def test_download_these_is_the_log_as_shown(signed_in, conn, car):
         "Full": "Yes", "Unusual": "Yes"}                                             # 30 mpg against 54.5 and 75
     assert (second["Station"], second["Full"], second["Economy"], second["Economy unit"], second["Note"]) == (
         "'=Odd", "No", "", "", "Halfway")                                            # safe in a spreadsheet
+
+
+def test_the_car_page_header_reaches_the_log_once_there_is_one(signed_in, car, ev):
+    link = f'href="/vehicles/{car}/fuel">Fill-up log</a>'
+    assert link not in signed_in.get(f"/vehicles/{car}").text
+    _log(signed_in, car, _days_ago(2), "30,200", "12")
+    assert link in signed_in.get(f"/vehicles/{car}").text
+    _log(signed_in, ev, _days_ago(2), "8,000", "30", place="home")
+    assert f'href="/vehicles/{ev}/fuel">Charge log</a>' in signed_in.get(f"/vehicles/{ev}").text
+
+
+def test_the_fill_up_form_links_to_the_log_once_there_is_one(signed_in, conn, car):
+    link = f'href="/vehicles/{car}/fuel">The fill-up log</a>'
+    assert link not in signed_in.get(f"/vehicles/{car}/fuel/new").text
+    _log(signed_in, car, _days_ago(2), "30,200", "12")
+    assert link in signed_in.get(f"/vehicles/{car}/fuel/new").text
+    assert link in signed_in.get(f"/fuel/{fuel.last(conn, car)['id']}/edit").text
+    fill_id = fuel.last(signed_in.app.state.conn if hasattr(signed_in.app.state, "conn") else None, car)["id"] \
+        if False else None
+    del fill_id
+
+
+def test_the_picker_offers_each_filled_car_its_log(signed_in, conn, car):
+    other = vehicles.create(conn, vehicles.VehicleFields(name="Civic"))
+    fuel.create(conn, other, fuel.FillInput(_days_ago(3), 50_000, "gas", 10.0))
+    page = signed_in.get("/fuel/new").text
+    assert f'href="/vehicles/{other}/fuel"' in page and 'aria-label="Civic: the fill-up log">Log</a>' in page
+    assert f'href="/vehicles/{car}/fuel"' not in page          # Outback has no fill-ups yet
