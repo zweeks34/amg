@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% from "_logo.html" import named %}
+{% block title %}Where you filled up · {{ units.title }}{% endblock %}
+
+{#- Every car's fills (or charges) at their towns: a dot a town, sized by visits and shaded by price, on the state
+    and province outlines. Picking a state on the map, or in the filters, zooms to it. Each dot links to its town's
+    row below, which lists the visits and links to each car's log for that town. -#}
+
+{% block content %}
+<header class="pagehead">
+  <p class="eyebrow"><a href="/reports?view=fuel">Reports</a></p>
+  <h1 class="display">Where you {{ "charged" if filters.energy == "electric" else "filled up" }}</h1>
+  <p class="pagehead__lede">Each {{ units.fill }} at the middle of its town: AMG knows the city and state you wrote,
+    not where the {{ "charger" if filters.energy == "electric" else "pump" }} was.</p>
+  {% if energies | length > 1 %}
+  <nav class="horizon" aria-label="Fuel or charging">
+    {% for key, words in energies.items() %}<a href="{{ filters.url(energy=key, brand='', state='', city='') }}"{% if key == filters.energy %} aria-current="page"{% endif %}>{{ words }}</a>{% endfor %}
+  </nav>
+  {% endif %}
+</header>
+
+{% if not anything %}
+<div class="sheet empty empty--small">
+  <p>Nothing to map yet. Log a fill-up or a charge with its city and state and it shows up here.</p>
+</div>
+{% else %}
+<form class="finder reportfilters" method="get" action="/fuel/map" aria-label="Narrow the map">
+  {% if filters.energy != "gas" %}<input type="hidden" name="energy" value="{{ filters.energy }}">{% endif %}
+  {% if filters.sort != "fills" %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
+  {% if options.cars | length > 1 %}
+  <div class="field">
+    <label for="map-car">Car</label>
+    <select id="map-car" name="car">
+      <option value="">All cars</option>
+      {% for c in options.cars %}<option value="{{ c.id }}"{% if c.id == filters.car %} selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="field field--date">
+    <label for="map-from">From</label>
+    <input id="map-from" type="date" name="from" value="{{ filters.start or '' }}">
+  </div>
+  <div class="field field--date">
+    <label for="map-to">To</label>
+    <input id="map-to" type="date" name="to" value="{{ filters.end or '' }}">
+  </div>
+  <div class="field">
+    <label for="map-brand">{{ "Network" if filters.energy == "electric" else "Brand" }}</label>
+    <select id="map-brand" name="brand">
+      <option value="">Any</option>
+      {% for b in options.brands %}<option value="{{ b.value }}"{% if b.value == filters.brand %} selected{% endif %}>{{ b.label }} ({{ b.count }})</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="map-state">State or province</label>
+    <select id="map-state" name="state">
+      <option value="">Anywhere</option>
+      {% for s in options.states %}<option value="{{ s }}"{% if s == filters.state %} selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="map-city">City</label>
+    <select id="map-city" name="city">
+      <option value="">Any city</option>
+      {% for t in options.cities if not filters.state or t.state == filters.state %}
+      <option value="{{ t.name }}"{% if t.name == filters.city %} selected{% endif %}>{{ t.name }}, {{ t.state }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="btn btn--secondary reportfilters__go" type="submit">Show the map</button>
+</form>
+{% if filters.active %}<p class="reportfilters__clear"><a href="{{ filters.cleared() }}">Clear filters</a></p>{% endif %}
+
+<p class="fmap__line">{{ summary.line }}{% for u in summary.unplaced %}{% if loop.first %} — {% else %}, {% endif %}<a href="{{ u.url }}">{{ u.car }}'s {{ u.count }}</a>{% endfor %}</p>
+
+<figure class="fmap sheet sheet--flush">
+  <svg class="fmap__svg" viewBox="{{ drawing.view }}" preserveAspectRatio="xMidYMid meet" role="img"
+       aria-label="Map of where you {{ 'charged' if filters.energy == 'electric' else 'filled up' }}: {{ summary.line }}. The towns are listed below.">
+    <g class="fmap__land">
+      {%- for r in drawing.regions %}
+      <a href="{{ filters.url(state='' if r.picked else r.code, city='') }}"><path class="fmap__region{% if r.visited %} is-visited{% endif %}{% if r.picked %} is-picked{% endif %}" d="{{ r.path }}"><title>{{ r.name }}{% if not r.picked %}: show only {{ r.code }}{% endif %}</title></path></a>
+      {%- endfor %}
+    </g>
+    <g class="fmap__labels" style="font-size: {{ drawing.font }}px" aria-hidden="true">
+      {%- for l in drawing.labels %}<text x="{{ l.x }}" y="{{ l.y }}">{{ l.code }}</text>{% endfor -%}
+    </g>
+    <g class="fmap__dots">
+      {%- for d in drawing.dots %}
+      <a href="#{{ d.id }}">{% if d.name %}<text class="fmap__town" x="{{ d.x + d.r * 1.3 }}" y="{{ d.y }}" style="font-size: {{ drawing.town_font }}px">{{ d.name }}</text>{% endif %}<circle class="fmap__dot{% if d.tone is not none %} fmap__dot--{{ d.tone }}{% endif %} fmap__dot--{{ d.how }}" cx="{{ d.x }}" cy="{{ d.y }}" r="{{ d.r }}"><title>{{ d.title }}{% if d.how == "state" %}, placed at the middle of the state{% elif d.how == "guessed" %}, one of several towns of that name{% endif %}</title></circle></a>
+      {%- endfor %}
+    </g>
+  </svg>
+  <figcaption class="fmap__key">
+    <span><span class="fmap__keydot fmap__keydot--small"></span><span class="fmap__keydot"></span> More visits, bigger dot</span>
+    {% if drawing.toned %}
+    <span class="fmap__scale">{{ price(drawing.low) }} <span class="fmap__ramp" aria-hidden="true">{% for i in range(5) %}<span class="fmap__dot--{{ i }}"></span>{% endfor %}</span> {{ price(drawing.high) }}</span>
+    {% endif %}
+    <span><span class="fmap__keydot fmap__keydot--state"></span> Somewhere in the state</span>
+    <span>{% if filters.state %}<a href="{{ filters.url(state='', city='') }}">Show the whole map</a>{% else %}Pick a state to zoom in{% endif %}</span>
+  </figcaption>
+</figure>
+
+{% if towns %}
+<section class="block" aria-labelledby="towns-heading">
+  <div class="block__head">
+    <h2 class="h3" id="towns-heading">By town</h2>
+    <form method="get" action="/fuel/map" class="fmap__sort">
+      {% for key, value in [("energy", filters.energy if filters.energy != "gas" else ""), ("car", filters.car or ""), ("from", filters.start or ""), ("to", filters.end or ""), ("brand", filters.brand), ("state", filters.state), ("city", filters.city)] if value %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+      <label for="map-sort" class="vh">Sort</label>
+      <select id="map-sort" name="sort" x-data @change="$el.form.requestSubmit()">
+        {% for key, words in sorts.items() %}<option value="{{ key }}"{% if key == filters.sort %} selected{% endif %}>{{ words }}</option>{% endfor %}
+      </select>
+      <noscript><button class="btn btn--quiet" type="submit">Sort</button></noscript>
+    </form>
+  </div>
+  <ol class="towns sheet sheet--flush">
+    {% for t in towns %}
+    <li class="town" id="{{ t.id }}">
+      <details>
+        <summary class="town__head">
+          <span class="town__name">{{ t.name }}
+            {%- if t.how == "state" %} <span class="tag tag--gap">Somewhere in it</span>{% elif t.how == "guessed" %} <span class="tag tag--gap" title="The state has more than one town of this name: AMG put it at the one nearest your other {{ units.fill }}s">Nearest of several</span>{% endif %}</span>
+          <span class="town__count mono">{{ t.count }}×</span>
+          <span class="town__spent mono">{{ t.spent | money if t.spent else "" }}</span>
+          <span class="town__price mono">{{ t.price }}</span>
+          <span class="town__last mono">{{ t.last }}</span>
+        </summary>
+        <ul class="town__fills">
+          {% for f in t.fills %}
+          <li><span class="mono">{{ f.day }}</span> <span>{{ f.car }}</span> <span>{{ named(f.station) if f.station else "No station" }}</span>
+            <span class="mono">{{ "%.1f" | format(f.quantity) }} {{ units.quantity }}</span> <span class="mono">{{ f.cost | money if f.cost is not none else "" }}</span></li>
+          {% endfor %}
+        </ul>
+        <p class="town__logs">In the log: {% for l in t.logs %}<a href="{{ l.url }}">{{ l.car }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+      </details>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+<p class="aside fmap__credit">Town locations from the US Census Bureau's gazetteer and from
+  <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0); outlines from Natural Earth. Nothing about where you've
+  been leaves AMG.</p>
+{% endif %}
+{% endblock %}

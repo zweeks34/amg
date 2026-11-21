@@ -18,7 +18,7 @@ from starlette.responses import RedirectResponse, Response
 from ..engine import fuel as engine
 from ..repo import fuel, odometer, vehicles
 from ..reports import csvs
-from . import forms, fuel_finder
+from . import forms, fuel_finder, fuel_map
 from . import fuel_status as status
 from .deps import get_conn
 from .routes_reports import slug
@@ -42,6 +42,27 @@ def pick_car(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> 
         return RedirectResponse(f"/vehicles/{cars[0]['id']}/fuel/new", status_code=303)
     return render(request, "fuel_pick.html", active="fuel",
                   cars=[{"car": car, "units": status.units_for(car)} for car in cars])
+
+
+@router.get("/fuel/map")
+def fill_map(request: Request, conn: sqlite3.Connection = Depends(get_conn)) -> Response:
+    """Where you filled up: every car's fills (or charges) at their towns, narrowed by the filters in the address."""
+    rows = fuel.everywhere(conn)
+    energies = [e for e in fuel_map.ENERGIES if any(row["energy"] == e for row in rows)]
+    filters = fuel_map.MapFilters.read(request.query_params, energies)
+    offered = fuel_map.options(rows, filters.energy)
+    filters = filters.within(offered)
+    mine = [row for row in rows if row["energy"] == filters.energy]
+    places, unplaced = fuel_map.place(fuel_map.chosen(rows, filters), mine)
+    return render(
+        request, "fuel_map.html", active="fuel",
+        filters=filters, options=offered, energies={e: fuel_map.ENERGIES[e] for e in energies},
+        anything=bool(rows), drawing=fuel_map.drawing(places, filters.state),
+        towns=fuel_map.rows_for_table(fuel_map.ordered(places, filters.sort), filters.energy),
+        summary=fuel_map.summary(places, unplaced, filters.energy), sorts=fuel_map.SORTS,
+        units=status.UNITS[filters.energy],
+        price=lambda cents: status.price_words(cents, status.UNITS[filters.energy]),
+    )
 
 
 @router.get("/vehicles/{vehicle_id}/fuel/new")

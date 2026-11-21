@@ -3,6 +3,7 @@
     measured, the best and worst are marked; the price paid a month is charted beside the economy. -#}
 {% from "_fuel_chart.html" import trend_chart %}
 {% if sections %}
+<p class="reportlink"><a class="btn btn--secondary" href="/fuel/map{% if filters.car %}?car={{ filters.car }}{% endif %}">See where you filled up, on a map</a></p>
 {% for s in sections %}
 {% set u = s.units %}
 <section class="block reportcar" aria-labelledby="fuel-{{ s.car.id }}">

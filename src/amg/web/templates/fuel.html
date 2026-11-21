@@ -32,6 +32,7 @@
   </nav>{% endif %}
   <div class="pagehead__actions">
     <a class="btn btn--primary" href="/vehicles/{{ car.id }}/fuel/new">Log a {{ units.fill }}</a>
+    <a class="btn btn--secondary" href="/fuel/map?car={{ car.id }}{% if units.quantity != 'gal' %}&amp;energy=electric{% endif %}">Where you {{ "charged" if units.quantity != "gal" else "filled up" }}</a>
   </div>
 </header>
 

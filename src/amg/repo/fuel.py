@@ -155,3 +155,12 @@ def cars_by_last_fill(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         " WHERE v.archived_at IS NULL GROUP BY v.id"
         " ORDER BY last_filled IS NULL, last_filled DESC, v.name COLLATE NOCASE, v.id"
     ).fetchall()
+
+
+def everywhere(conn: sqlite3.Connection) -> list[dict]:
+    """Every car's fills and charges, archived cars' too, newest first, each with its car's name: the map's rows."""
+    return [dict(row) for row in conn.execute(
+        "SELECT f.*, v.name AS car_name, v.archived_at IS NOT NULL AS car_archived"
+        " FROM fuel_logs f JOIN vehicles v ON v.id = f.vehicle_id"
+        " ORDER BY f.filled_on DESC, f.odometer DESC, f.id DESC"
+    )]
