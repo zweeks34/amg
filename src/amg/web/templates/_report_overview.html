@@ -1,0 +1,186 @@
+{#- The Overview: what the cars cost to run — fuel, service and repairs, and fees — over the dates asked for. The
+    garage's figures, a card a car (cheapest a mile first, with the budget's next 12 months), the years, and the
+    months, each month against the average one. A month whose logged tanks cover less than half its miles is a gap:
+    its fuel is mostly estimated, hatched on its bar, and left out of the average. -#}
+{% from "_budget.html" import bars as stack_bars %}
+{% set o = overview %}
+
+{% macro money_cell(cents) -%}
+{{ (cents | round | int) | dollars if cents else "" }}
+{%- endmacro %}
+
+{% macro splitbar(period) -%}
+<span class="splitbar" aria-hidden="true">
+  {%- for p in split(period) %}{% if p.share %}<span class="splitbar__part splitbar__part--{{ p.key }}" style="flex: {{ p.share }} 1 0" title="{{ p.label }}: {{ (p.cents | round | int) | dollars }}"></span>{% endif %}{% endfor -%}
+</span>
+{%- endmacro %}
+
+{% macro month_row(m) -%}
+{%- set p = m.period %}
+<tr{% if m.gap %} class="is-gap"{% endif %}>
+  <th scope="row">{{ m.label }}{% if m.gap %} <span class="tag tag--gap">Gap</span>{% endif %}</th>
+  <td class="num mono">{{ "{:,}".format(p.miles | round | int) if p.miles >= 1 else "" }}</td>
+  <td class="num mono">{% if p.fuel %}{{ money_cell(p.fuel) }}{% if m.gap %} <span class="est">est.</span>{% endif %}{% endif %}</td>
+  <td class="num mono">{{ money_cell(p.service) }}</td>
+  <td class="num mono">{{ money_cell(p.fees) }}</td>
+  <td class="num mono">{{ money_cell(p.total) or "$0" }}</td>
+  <td class="num mono overview__change{% if m.change is not none and m.change > 0 %} is-up{% elif m.change is not none and m.change < 0 %} is-down{% endif %}">
+    {%- if m.change is none %}—{% elif m.change > 0 %}▲ {{ m.change }}%{% elif m.change < 0 %}▼ {{ -m.change }}%{% else %}={% endif -%}
+  </td>
+</tr>
+{%- endmacro %}
+
+{% macro month_table(rows, caption) -%}
+<div class="tablewrap sheet sheet--flush" role="region" aria-label="{{ caption }}" tabindex="0">
+  <table class="sumtable">
+    <thead>
+      <tr>
+        <th scope="col">Month</th>
+        <th scope="col" class="num">Miles</th>
+        <th scope="col" class="num">Fuel</th>
+        <th scope="col" class="num">Service</th>
+        <th scope="col" class="num">Fees</th>
+        <th scope="col" class="num">Total</th>
+        <th scope="col" class="num">Against average</th>
+      </tr>
+    </thead>
+    <tbody>{% for m in rows %}{{ month_row(m) }}{% endfor %}</tbody>
+  </table>
+</div>
+{%- endmacro %}
+
+{% if o.cars %}
+{% if o.whole %}
+<dl class="figures figures--report figures--four sheet">
+  <div class="figure">
+    <dt>To run</dt>
+    <dd class="figure__value mono">{{ (o.whole.total | round | int) | dollars }}</dd>
+    <dd class="figure__note">{{ span_words(o.whole.start.isoformat(), o.whole.end.isoformat()) }} · {{ "{:,}".format(o.whole.miles | round | int) }} mi</dd>
+  </div>
+  <div class="figure">
+    <dt>A mile</dt>
+    <dd class="figure__value mono">{{ a_mile_words(o.whole) }}</dd>
+    <dd class="figure__note">{% if o.unfuelled %}not counting fuel for {{ o.unfuelled | join(", ") }}{% else %}fuel, service and fees{% endif %}</dd>
+  </div>
+  <div class="figure">
+    <dt>A month</dt>
+    <dd class="figure__value mono">{{ (o.a_month | round | int) | dollars }}</dd>
+    <dd class="figure__note">{% if o.average_month is not none %}{{ (o.average_month | round | int) | dollars }} in a month with full records{% else %}over the whole span{% endif %}</dd>
+  </div>
+  <div class="figure">
+    <dt>Where it went</dt>
+    <dd class="figure__split">{{ splitbar(o.whole) }}</dd>
+    <dd class="figure__note">
+      {%- for p in split(o.whole) %}{% if not loop.first %} · {% endif %}<span class="splitkey splitkey--{{ p.key }}"></span>{{ p.label }} {{ p.share | round | int }}%{% endfor -%}
+    </dd>
+  </div>
+</dl>
+{% endif %}
+
+<section class="block" aria-labelledby="overview-cars">
+  <h2 class="h3" id="overview-cars">Car by car</h2>
+  <ul class="costcards">
+    {% for c in o.cars %}
+    <li class="costcard sheet">
+      <h3 class="costcard__name"><a href="/vehicles/{{ c.car.id }}#running-cost">{{ c.car.name }}</a>{% if c.car.archived_at %} <span class="muted">(archived)</span>{% endif %}</h3>
+      {% if c.whole %}
+      <p class="costcard__value"><span class="mono">{{ a_mile_words(c.whole) }}</span> <span class="figure__unit">a mile</span></p>
+      {{ splitbar(c.whole) }}
+      <dl class="costcard__facts">
+        <div><dt>Cost</dt><dd class="mono">{{ (c.whole.total | round | int) | dollars }}</dd></div>
+        <div><dt>Miles</dt><dd class="mono">{{ "{:,}".format(c.whole.miles | round | int) }}</dd></div>
+        <div><dt>Dates</dt><dd>{{ span_words(c.start.isoformat(), c.end.isoformat()) }}</dd></div>
+      </dl>
+      {% if c.reason %}<p class="aside">{{ c.reason }}</p>{% elif not c.fuel_counted %}<p class="aside">{{ c.units.title }} isn't counted: log {{ c.units.fill }}s with their cost and it will be.</p>{% endif %}
+      {% if c.ahead %}
+      <p class="costcard__ahead"><span class="costcard__ahead-label">{{ c.ahead.label }}</span> <span class="mono">{{ c.ahead.value }}</span> a mile
+        <span class="costcard__ahead-note">{{ c.ahead.note }}{% for extra in c.ahead.extras %} {{ extra }}{% endfor %}</span></p>
+      {% endif %}
+      {% else %}
+      <p class="aside">{{ c.reason }}</p>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="splitlegend aside">{% for key, label in [("fuel", "Fuel"), ("service", "Service and repairs"), ("fees", "Fees")] %}<span><span class="splitkey splitkey--{{ key }}"></span>{{ label }}</span>{% endfor %}</p>
+</section>
+
+{% if o.years %}
+<section class="block" aria-labelledby="overview-years">
+  <h2 class="h3" id="overview-years">Year by year</h2>
+  {% set yb = bars(o.years, "year") %}
+  {% if yb %}<div class="sheet">{{ stack_bars(yb) }}</div>{% endif %}
+  <div class="tablewrap sheet sheet--flush" role="region" aria-labelledby="overview-years" tabindex="0">
+    <table class="sumtable">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col" class="num">Miles</th>
+          <th scope="col" class="num">Fuel</th>
+          <th scope="col" class="num">Service</th>
+          <th scope="col" class="num">Fees</th>
+          <th scope="col" class="num">Total</th>
+          <th scope="col" class="num">A mile</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for y in o.years %}{% set p = y.period %}
+        <tr>
+          <th scope="row">{{ y.label }}{% if y.note %} <span class="muted running__when">{{ y.note }}</span>{% endif %}</th>
+          <td class="num mono">{{ "{:,}".format(p.miles | round | int) }}</td>
+          <td class="num mono">{% if p.fuel is not none %}{{ money_cell(p.fuel) }}{% if p.estimated %} <span class="est">est.</span>{% endif %}{% endif %}</td>
+          <td class="num mono">{{ money_cell(p.service) }}</td>
+          <td class="num mono">{{ money_cell(p.fees) }}</td>
+          <td class="num mono">{{ money_cell(p.total) }}</td>
+          <td class="num mono">{{ a_mile_words(p) if p.total else "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if o.years | length > 1 %}
+      <tfoot>
+        <tr>
+          <th scope="row">In all</th>
+          <td class="num mono">{{ "{:,}".format(o.whole.miles | round | int) }}</td>
+          <td class="num mono">{% if o.whole.fuel is not none %}{{ money_cell(o.whole.fuel) }}{% endif %}</td>
+          <td class="num mono">{{ money_cell(o.whole.service) }}</td>
+          <td class="num mono">{{ money_cell(o.whole.fees) }}</td>
+          <td class="num mono">{{ money_cell(o.whole.total) }}</td>
+          <td class="num mono">{{ a_mile_words(o.whole) }}</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+  {% if o.estimated %}<p class="aside">Fuel marked est. counts the miles no logged fill-up or charge measured at what
+    that car's fuel usually costs a mile; the miles they measured are at what they cost.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if o.months | length > 1 %}
+<section class="block" aria-labelledby="overview-months">
+  <h2 class="h3" id="overview-months">Month by month</h2>
+  {% set recent = o.months[:shown_months] %}
+  {% set mb = bars(recent, "month") %}
+  {% if mb %}<div class="sheet">{{ stack_bars(mb) }}</div>{% endif %}
+  {{ month_table(recent, "The last " ~ recent | length ~ " months") }}
+  {% if o.months | length > shown_months %}
+  <details class="overview__more">
+    <summary>Show all {{ o.months | length }} months</summary>
+    {{ month_table(o.months[shown_months:], "Earlier months") }}
+  </details>
+  {% endif %}
+  <p class="aside">
+    {%- if o.average_month is not none %}Each month is against the average month, {{ (o.average_month | round | int) | dollars }}, over
+    the whole months with records.{% endif %}
+    {%- if o.gaps %} A gap is a month whose logged fill-ups or charges cover less than half the miles driven, so its
+    fuel is mostly estimated: it's hatched on its bar and left out of the average.{% endif %}
+    A month spreads each tank over the days it covered, so a fill-up on the 2nd pays mostly for the month before;
+    the years count a tank in the month it ended, so the months can add up to a little more or less than their year.
+    Service lands in the month it was done, so one big job makes a big month.</p>
+</section>
+{% endif %}
+{% else %}
+<div class="sheet empty empty--small">
+  <p>None of your cars was yours in these dates. <a href="{{ filters.cleared() }}">Clear filters</a> to see them all.</p>
+</div>
+{% endif %}

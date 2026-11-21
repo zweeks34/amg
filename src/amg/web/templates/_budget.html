@@ -36,7 +36,7 @@
       {% for tick in chart.ticks %}<span style="--y: {{ tick.y }}">{{ tick.label }}</span>{% endfor %}
     </div>
     <div class="mbars__plot" role="img"
-         aria-label="{% if chart.per_month is not none %}{{ chart.what }} each month, against putting aside {{ chart.per_month | dollars }} a month. The months are listed below.{% else %}{{ chart.what }} each year. The table below has the figures.{% endif %}">
+         aria-label="{% if chart.per_month is not none %}{{ chart.what }} each month, against putting aside {{ chart.per_month | dollars }} a month. The months are listed below.{% else %}{{ chart.what }} each {{ chart.per or "year" }}. The table below has the figures.{% endif %}">
       {% for tick in chart.ticks %}<span class="mbars__grid" style="--y: {{ tick.y }}"></span>{% endfor %}
       <ol class="mbars__bars">
         {% for bar in chart.bars %}<li class="mbars__bar" style="--h: {{ bar.h }}; --i: {{ loop.index0 }}" title="{{ bar.title }}">

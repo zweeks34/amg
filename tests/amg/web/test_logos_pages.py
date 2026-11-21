@@ -102,7 +102,7 @@ def test_fill_ups_and_services_show_their_logos(signed_in, conn, car):
     assert '<img src="/logos/wawa.com.png"' in page(signed_in, f"/vehicles/{car}/fuel/new")   # the chips
     service = page(signed_in, f"/services/{jiffy}")
     assert '<span class="logo logo--page" aria-hidden="true">J<img src="/logos/jiffylube.com.png"' in service
-    assert '<img src="/logos/jiffylube.com.png"' in page(signed_in, "/reports")
+    assert '<img src="/logos/jiffylube.com.png"' in page(signed_in, "/reports?view=history")
 
 
 def test_stations_and_shops_lists_each_once_and_says_where_its_logo_comes_from(signed_in, conn, car, fetched):

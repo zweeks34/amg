@@ -14,6 +14,7 @@ import io
 
 from .filters import Filters
 from .fuel import Section
+from .overview import Overview
 from .history import History, category
 from .spending import Spending
 
@@ -25,6 +26,8 @@ FUEL_COLUMNS = ("Car", "Month", "Fill-ups", "Miles", "Quantity", "Unit", "Econom
                 "Spent", "Price per unit")
 FUEL_LOG_COLUMNS = ("Date", "Odometer", "Station", "City", "State or province", "Quantity", "Unit", "Cost",
                     "Price per unit", "Economy", "Economy unit", "Full", "Place", "Missed one before", "Unusual", "Note")
+OVERVIEW_COLUMNS = ("Car", "Year", "From", "To", "Miles", "Fuel", "Fuel estimated", "Service and repairs", "Fees",
+                    "Total", "Cents a mile")
 _FORMULA = ("=", "+", "-", "@", "\t", "\r")
 
 
@@ -95,6 +98,23 @@ def fuel_csv(sections: list[Section]) -> str:
                 number(month.unit_price / 100 if month.unit_price is not None else None, 3),
             ])
     return sheet(FUEL_COLUMNS, rows)
+
+
+def overview_csv(found: Overview) -> str:
+    """Each car's years, oldest first, as the Overview counts them: a row a car and year, in cents to the cent.
+    Fuel is blank where it isn't counted; Fuel estimated says when some of it is at the car's cost a mile."""
+    rows = []
+    for car in found.cars:
+        for period in car.years:
+            fuel = None if period.fuel is None else round(period.fuel)
+            total = round(period.total)
+            rows.append([
+                text(car.car["name"]), str(period.start.year), period.start.isoformat(), period.end.isoformat(),
+                number(round(period.miles)), amount(fuel), "Yes" if period.estimated else "No",
+                amount(period.service), amount(period.fees), amount(total),
+                number(period.cents_a_mile, 1),
+            ])
+    return sheet(OVERVIEW_COLUMNS, rows)
 
 
 def fuel_log_csv(log: list[dict]) -> str:

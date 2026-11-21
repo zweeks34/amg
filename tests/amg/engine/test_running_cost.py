@@ -28,7 +28,7 @@ from amg.engine import forecast, fuel
 from amg.engine.forecast import Due, Fee, Job, Price
 from amg.engine.fuel import Fill
 from amg.engine.odometer import Odometer
-from amg.engine.running_cost import MIN_MILES, Period, Spend, ahead, whole, years
+from amg.engine.running_cost import MIN_MILES, Period, Spend, ahead, months, whole, years
 
 START, TODAY = date(2023, 7, 1), date(2025, 7, 1)
 ODO = Odometer([(START, 40_000), (date(2024, 1, 1), 46_000), (date(2025, 1, 1), 58_000), (TODAY, 64_000)])
@@ -147,3 +147,41 @@ def test_ahead_leaves_out_whats_due_now_and_counts_whats_unpriced():
 def test_ahead_without_a_cost_a_mile_or_a_pace():
     assert ahead(_months(cents_a_mile=None), 40.0).period.fuel is None
     assert ahead(_months(), None) is None and ahead([], 40.0) is None
+
+
+# ---------- Month by month ----------
+#
+# A car read at 1,000 on Jan 31 and 1,590 on Mar 31: 10 mi a day, so February
+# goes 280 mi and March (to the 31st) 300. One tank, filled Feb 10 at 1,100 and
+# again Mar 2 at 1,300: 200 mi for $20 over 20 days, 18 of them in February.
+#
+#   Feb   covered 180 mi, $18;  100 mi at 10¢ = $10   fuel $28, 100 estimated
+#   Mar   covered  20 mi,  $2;  280 mi at 10¢ = $28   fuel $30, 280 estimated
+
+MONTH_ODO = Odometer([(date(2026, 1, 31), 1_000), (date(2026, 3, 31), 1_590)])
+MONTH_TANK = fuel.stretches([Fill(1, date(2026, 2, 10), 1_100, 8.0, 2_400), Fill(2, date(2026, 3, 2), 1_300, 8.0, 2_000)])
+
+
+def test_a_month_spreads_each_tank_over_the_days_it_covered():
+    feb, mar = months(date(2026, 2, 1), date(2026, 3, 31), MONTH_ODO, [Spend(date(2026, 3, 15), "service", 5_000)],
+                      MONTH_TANK, 10.0)
+    assert (feb.start, feb.end, mar.start, mar.end) == (date(2026, 2, 1), date(2026, 2, 28), date(2026, 3, 1),
+                                                        date(2026, 3, 31))
+    assert feb.miles == pytest.approx(280) and mar.miles == pytest.approx(300)
+    assert feb.fuel == pytest.approx(2_800) and feb.estimated_miles == pytest.approx(100)
+    assert mar.fuel == pytest.approx(3_000) and mar.estimated_miles == pytest.approx(280)
+    assert (feb.service, mar.service) == (0, 5_000)
+
+
+def test_months_start_where_the_span_does_and_keep_uncovered_miles_without_a_rate():
+    (first, second) = months(date(2026, 2, 15), date(2026, 3, 31), MONTH_ODO, [], MONTH_TANK, None)
+    assert first.start == date(2026, 2, 15) and second.start == date(2026, 3, 1)
+    assert first.fuel is None and first.estimated_miles == pytest.approx(0)      # Feb 15–28: all inside the tank
+    assert second.fuel is None and second.estimated_miles == pytest.approx(280)  # uncovered, with no rate to count
+    assert months(date(2026, 3, 2), date(2026, 3, 1), MONTH_ODO, [], [], 10.0) == []
+
+
+def test_a_tank_filled_twice_on_one_day_lands_on_that_day():
+    same = fuel.stretches([Fill(1, date(2026, 2, 10), 1_100, 8.0, 2_400), Fill(2, date(2026, 2, 10), 1_150, 2.0, 600)])
+    feb, mar = months(date(2026, 2, 1), date(2026, 3, 31), MONTH_ODO, [], same, 10.0)
+    assert feb.fuel == pytest.approx(600 + 230 * 10) and mar.fuel == pytest.approx(3_000)

@@ -15,7 +15,9 @@
 
 {% if not anything %}
 <div class="sheet empty empty--small">
-  {% if filters.view == "fuel" %}
+  {% if filters.view == "overview" %}
+  <p>Nothing to report yet. Add a car, with an odometer reading or two, and this shows what it costs to run.</p>
+  {% elif filters.view == "fuel" %}
   <p>Nothing to report yet. Log a fill-up or a charge and this shows its economy, month by month.</p>
   {% else %}
   <p>Nothing to report yet. Confirm receipts or log services and they show up here.</p>

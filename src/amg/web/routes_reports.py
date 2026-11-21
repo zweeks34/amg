@@ -1,4 +1,4 @@
-"""Reports: the History, Spending and Fuel views, each one as a CSV, a car's sale packet, and your data.
+"""Reports: the Overview, History, Spending and Fuel views, each one as a CSV, a car's sale packet, and your data.
 
 Every report is a GET with its filters in the address bar (reports/filters.py),
 so a report is a link you can keep, print, or download as it stands.
@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.background import BackgroundTask
 from starlette.responses import FileResponse, Response
 
-from ..reports import csvs, export, fuel, history, packet, spending
+from ..reports import csvs, export, fuel, history, overview, packet, spending
 from ..reports.filters import VIEWS, Filters, service_label, service_options, span_words
 from ..repo import reports
 from . import fuel_status
@@ -27,7 +27,7 @@ from .templating import render
 
 router = APIRouter()
 
-TITLES = {"history": "Service history", "spending": "Spending by year", "fuel": "Fuel economy"}
+TITLES = {"overview": "What it costs to run", "history": "Service history", "spending": "Spending by year", "fuel": "Fuel economy"}
 
 
 @router.get("/reports")
@@ -36,7 +36,12 @@ def page(request: Request, view: str = "", car: str = "", start: str = Query("",
          conn: sqlite3.Connection = Depends(get_conn)) -> Response:
     filters, options = _filters(conn, view, car, start, end, service, shop)
     context: dict = {}
-    if filters.view == "fuel":
+    if filters.view == "overview":
+        context["overview"] = overview.load(conn, _cars_for(options["cars"], filters), filters)
+        context["anything"] = bool(options["cars"])
+        context.update(split=overview.split, a_mile_words=overview.a_mile_words, bars=overview.bars,
+                       shown_months=overview.SHOWN_MONTHS, cents_a_mile=fuel_status.cents_a_mile)
+    elif filters.view == "fuel":
         context["sections"] = fuel.load(conn, _cars_for(options["cars"], filters), filters)
         context["anything"] = reports.has_fills(conn)
         context.update(economy_words=fuel_status.economy_words, cents_a_mile=fuel_status.cents_a_mile,
@@ -83,7 +88,9 @@ def download(view: str, car: str = "", start: str = Query("", alias="from"), end
     if view not in VIEWS:
         raise HTTPException(status_code=404)
     filters, options = _filters(conn, view, car, start, end, service, shop)
-    if view == "fuel":
+    if view == "overview":
+        text = csvs.overview_csv(overview.load(conn, _cars_for(options["cars"], filters), filters))
+    elif view == "fuel":
         text = csvs.fuel_csv(fuel.load(conn, _cars_for(options["cars"], filters), filters))
     else:
         found = history.load(conn, filters)

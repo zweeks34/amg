@@ -93,6 +93,57 @@ def years(start: date, end: date, odometer: Odometer, spends: Iterable[Spend], s
     return found
 
 
+def months(start: date, end: date, odometer: Odometer, spends: Iterable[Spend], stretches: Iterable[Stretch],
+           rate: float | None) -> list[Period]:
+    """A period a calendar month from ``start`` to ``end``, both included, oldest first.
+
+    Unlike ``years``, a tank isn't counted in the month it ended: its miles and
+    cost are spread over the days it covered (the day after one full fill to
+    the day of the next), so a fill-up on March 2 pays mostly for February.
+    Over a month, one tank lands in the wrong place; over a year, hardly at
+    all, which is why ``years`` keeps the simpler rule. ``estimated_miles`` is
+    the miles no tank covered, whether or not there's a ``rate`` to count them at.
+    """
+    if end < start:
+        return []
+    spends = list(spends)
+    measured = [s for s in stretches if s.cost_cents is not None]
+    firsts = [start]
+    while (nxt := _next_month(firsts[-1])) <= end:
+        firsts.append(nxt)
+    found = []
+    for index, first in enumerate(firsts):
+        following = firsts[index + 1] if index + 1 < len(firsts) else None
+        last = following - timedelta(days=1) if following else end
+        miles = _miles(odometer, first, following or end)
+        covered = cost = 0.0
+        for stretch in measured:
+            share = _share(stretch.start.day, stretch.end.day, first, last)
+            covered += share * stretch.miles
+            cost += share * stretch.cost_cents  # type: ignore[operator]
+        uncovered = max(0.0, miles - covered)
+        fuel = None if rate is None else cost + uncovered * rate
+        paid = [s for s in spends if first <= s.day <= last]
+        found.append(Period(first, last, miles, fuel, uncovered,
+                            sum(s.cents for s in paid if s.part == "service"),
+                            sum(s.cents for s in paid if s.part == "fees")))
+    return found
+
+
+def _next_month(day: date) -> date:
+    return date(day.year + day.month // 12, day.month % 12 + 1, 1)
+
+
+def _share(began: date, ended: date, first: date, last: date) -> float:
+    """How much of a tank that ran from ``began`` (its fill, not counted) to ``ended`` falls from ``first`` to
+    ``last``, by days. A tank filled twice on one day falls on that day."""
+    span = (ended - began).days
+    if span <= 0:
+        return 1.0 if first <= ended <= last else 0.0
+    inside = (min(ended, last) - max(began, first - timedelta(days=1))).days
+    return max(0, inside) / span
+
+
 def whole(periods: list[Period]) -> Period | None:
     """The periods added up."""
     if not periods:

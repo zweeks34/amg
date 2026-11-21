@@ -32,11 +32,21 @@ def test_a_car_or_service_not_on_offer_is_dropped():
 
 def test_a_report_is_a_link_and_fuel_keeps_only_what_it_uses():
     filters = Filters(car=2, start="2020-01-01", service="category:Tires and wheels", shop="midas")
-    assert filters.url() == "/reports?car=2&from=2020-01-01&service=category%3ATires+and+wheels&shop=midas"
+    assert filters.url() == "/reports?view=history&car=2&from=2020-01-01&service=category%3ATires+and+wheels&shop=midas"
     assert filters.url("fuel") == "/reports?view=fuel&car=2&from=2020-01-01"
+    assert filters.url("overview") == "/reports?view=overview&car=2&from=2020-01-01"
     assert Filters.read(view="spending", car="2").csv_url() == "/reports/spending.csv?car=2"
-    assert filters.cleared() == "/reports" and filters.active
+    assert filters.cleared() == "/reports?view=history" and filters.active
+    assert Filters(view="overview").url() == "/reports"                         # the bare Overview
     assert not Filters(view="fuel", shop="midas").active
+    assert not Filters(view="overview", service="brake_pads").active
+
+
+def test_the_overview_opens_first_and_older_history_links_still_work():
+    assert Filters.read().view == "overview"                                    # /reports
+    assert Filters.read(car="2").view == "history"                              # /reports?car=2, from before
+    assert Filters.read(shop="midas").view == "history"
+    assert Filters.read(view="overview", car="2").view == "overview"
 
 
 def test_unconfirmed_services_never_count(conn):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import io
 import zipfile
 from datetime import date
@@ -13,8 +14,9 @@ from amg.repo import fuel
 
 def test_nothing_to_report_says_how_to_start(signed_in):
     page = signed_in.get("/reports").text
-    assert "Nothing to report yet. Confirm receipts or log services" in page and "Show the report" not in page
+    assert "Nothing to report yet. Add a car" in page and "Show the report" not in page
     assert 'href="/reports" aria-current="page"' in page                     # the footer link
+    assert "Confirm receipts or log services" in signed_in.get("/reports?view=history").text
     assert "Log a fill-up or a charge" in signed_in.get("/reports?view=fuel").text
 
 
@@ -32,7 +34,7 @@ def test_the_history_with_its_filters_in_the_form(signed_in, conn):
 
 def test_every_service_without_filters(signed_in, conn):
     rf.garage(conn)
-    page = signed_in.get("/reports").text
+    page = signed_in.get("/reports?view=history").text
     assert page.count('class="visit__head"') == 5 and "Your own work" in page and "Done, no receipt" in page
     assert "Clear filters" not in page and "$640.00" in page                    # what the five came to
 
@@ -40,7 +42,7 @@ def test_every_service_without_filters(signed_in, conn):
 def test_nothing_matching_offers_to_clear(signed_in, conn):
     rf.garage(conn)
     page = signed_in.get("/reports?shop=nowhere").text
-    assert "No services match." in page and '<a href="/reports">Clear filters</a>' in page
+    assert "No services match." in page and '<a href="/reports?view=history">Clear filters</a>' in page
 
 
 def test_spending_by_year(signed_in, conn):
@@ -48,7 +50,7 @@ def test_spending_by_year(signed_in, conn):
     page = signed_in.get(f"/reports?view=spending&car={ids['civic']}").text
     assert '<th scope="col" class="num">2021</th>' in page and "Brakes" in page and "$300.00" in page
     assert "Other is lines with no service type" in page
-    assert 'href="/reports?car=' in page and 'aria-current="page">Spending</a>' in page   # the view switch
+    assert 'href="/reports?view=history&amp;car=' in page and 'aria-current="page">Spending</a>' in page   # the view switch
 
 
 def test_fuel_month_by_month(signed_in, conn):
@@ -76,7 +78,7 @@ def test_csv_downloads(signed_in, conn):
 
 def test_the_car_page_links_to_its_report(signed_in, conn):
     ids = rf.garage(conn)
-    assert f'href="/reports?car={ids["outback"]}">Report</a>' in signed_in.get(f"/vehicles/{ids['outback']}").text
+    assert f'href="/reports?view=history&amp;car={ids["outback"]}">Report</a>' in signed_in.get(f"/vehicles/{ids['outback']}").text
     empty = rf.car(conn, "Bare")
     assert "/reports?car=" not in signed_in.get(f"/vehicles/{empty}").text
 
@@ -125,7 +127,7 @@ def test_your_data_needs_a_session(client, conn):
 
 def test_the_history_by_year_with_stripes_and_gaps(signed_in, conn):
     rf.garage(conn)
-    page = signed_in.get("/reports").text
+    page = signed_in.get("/reports?view=history").text
     assert page.count('class="visityear"') == 4 and 'id="year-2021"' in page
     assert "2 services · <span class=\"mono\">$340.00</span>" in page        # 2021: the oil change and the rotors
     assert 'class="visit visit--2" title="Mostly brakes"' in page and "2 yr 2 mo" in page
@@ -162,3 +164,46 @@ def test_fuel_marks_the_best_and_worst_and_charts_the_price(signed_in, conn):
     page = signed_in.get("/reports?view=fuel").text
     assert 'class="tag tag--best">Best' in page and 'class="tag tag--worst">Worst' in page
     assert "Price paid" in page and "$/gal each month" in page
+
+
+# ---------- The Overview ----------
+
+
+def _driven(conn):
+    from amg.repo import odometer
+    ids = rf.garage(conn)
+    for car, readings in ((ids["outback"], (("2019-01-01", 40_000), ("2024-12-31", 100_000))),
+                          (ids["civic"], (("2021-01-01", 10_000), ("2024-12-31", 50_000)))):
+        for day, miles in readings:
+            odometer.add(conn, car, day, miles)
+    car = ids["outback"]
+    for day, odo in (("2024-09-01", 97_000), ("2024-09-15", 97_300), ("2024-10-01", 97_600)):
+        fuel.create(conn, car, fuel.FillInput(day, odo, "gas", 10.0, cost_cents=3_500))
+    return ids
+
+
+def test_reports_open_on_the_overview(signed_in, conn):
+    ids = _driven(conn)
+    page = signed_in.get("/reports").text
+    assert 'href="/reports" aria-current="page">Overview</a>' in page
+    assert "Car by car" in page and "Year by year" in page and "Month by month" in page
+    assert f'href="/vehicles/{ids["outback"]}#running-cost">Outback</a>' in page
+    assert 'class="tag tag--gap">Gap</span>' in page and "mostly estimated" in page
+    assert "Show all" in page                                                 # years of months: the rest folded
+    assert 'name="service"' not in page and 'name="shop"' not in page        # neither applies
+    assert 'href="/reports/overview.csv"' in page
+
+
+def test_the_overview_for_one_car_and_some_dates(signed_in, conn):
+    ids = _driven(conn)
+    page = signed_in.get(f"/reports?view=overview&car={ids['civic']}&from=2024-01-01&to=2024-12-31").text
+    assert "Civic" in page and 'href="/vehicles/' + str(ids["outback"]) + '#running-cost"' not in page
+    assert "Next 12 months" not in page                                       # an end date: no future
+    assert "What it costs to run · Civic · Jan 2024 – Dec 2024 · printed" in html.unescape(page)
+
+
+def test_the_overview_csv(signed_in, conn):
+    _driven(conn)
+    response = signed_in.get("/reports/overview.csv")
+    assert response.status_code == 200 and "amg-overview-all-cars-" in response.headers["content-disposition"]
+    assert response.text.lstrip("﻿").startswith("Car,Year,From,To,Miles,Fuel,")

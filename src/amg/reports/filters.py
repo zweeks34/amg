@@ -8,6 +8,11 @@ sight.
 
 A service is a type's code ("brake_pads") or a whole category
 ("category:Brakes"). Every filter set has to match.
+
+The Overview is the page's first view and what a bare /reports opens. Before
+it, History was, and its links named no view; so an address with filters and
+no view is still a History report, and every link this page makes names its
+view, but for the bare Overview.
 """
 
 from __future__ import annotations
@@ -16,13 +21,13 @@ from dataclasses import dataclass, replace
 from datetime import date
 from urllib.parse import urlencode
 
-VIEWS = {"history": "History", "spending": "Spending", "fuel": "Fuel"}
+VIEWS = {"overview": "Overview", "history": "History", "spending": "Spending", "fuel": "Fuel"}
 CATEGORY = "category:"
 
 
 @dataclass(frozen=True)
 class Filters:
-    view: str = "history"
+    view: str = "history"      # in code; an address with no view and no filters reads as the Overview
     car: int | None = None
     start: str | None = None     # ISO dates, both included
     end: str | None = None
@@ -35,7 +40,9 @@ class Filters:
         first, last = _day(start), _day(end)
         if first and last and first > last:
             first, last = last, first
-        return cls(view if view in VIEWS else "history", _number(car), first, last, (service or "").strip(),
+        if view not in VIEWS:   # no view named: the Overview, or for an older History link, History
+            view = "history" if any((v or "").strip() for v in (car, start, end, service, shop)) else "overview"
+        return cls(view, _number(car), first, last, (service or "").strip(),
                    " ".join((shop or "").split()))
 
     def within(self, cars: list[int], services: list[str]) -> Filters:
@@ -49,8 +56,8 @@ class Filters:
 
     @property
     def uses_service(self) -> bool:
-        """Do the service and shop filters apply? Fuel has neither."""
-        return self.view != "fuel"
+        """Do the service and shop filters apply? Fuel and the Overview have neither."""
+        return self.view not in ("fuel", "overview")
 
     @property
     def active(self) -> bool:
@@ -76,8 +83,9 @@ class Filters:
     def url(self, view: str | None = None) -> str:
         """This report's address — or another view's, keeping what it shares with this one."""
         target = replace(self, view=view) if view else self
-        params = {"view": target.view} if target.view != "history" else {}
-        params.update(target.params())
+        params = {"view": target.view, **target.params()}
+        if params == {"view": "overview"}:
+            params = {}
         return "/reports" + (f"?{urlencode(params)}" if params else "")
 
     def for_car(self, car: int) -> str:
