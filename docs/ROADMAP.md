@@ -561,6 +561,7 @@ import moves events or copies them; and the first Monday email arrives.
 - [x] Presets, as the page's three views: **History** (newest first; narrowed to a service, the lines that did it, the rest counted), **Spending** (categories down, years across) and **Fuel** (month by month per car, with the trend chart a dot a month)
 - [x] Sale packet (`/vehicles/{id}/sale-packet.pdf`): the car, its VIN and odometer, and every service oldest first, laid out by PyMuPDF's Story with the page each receipt starts on; then every confirmed receipt as stored, each with a bookmark
 - [x] "Download your data" zip (`/reports/your-data.zip`): cars, service history, fuel, odometer, schedules and prices as CSV; every confirmed receipt named by date, shop and car; the manuals schedules were read from; a README
+- [x] Richer reports ([plan](plans/2026-11-21-richer-reports.md)): **Spending** stacks each year by category in the budget's colours (with its type picker), shades each cell by size, and adds the latest year against the one before, a cost a mile over the odometer's miles in the dates, and where the money went by car, by labor/parts/fees and by shop. **History** groups visits under a heading a year, with a stripe for each visit's main category and how far and long it came after the one before. **Fuel** marks the best and worst months and charts the price paid a month beside the economy. The CSVs are unchanged
 
 **Decisions:**
 

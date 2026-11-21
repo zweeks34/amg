@@ -48,6 +48,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-11-03 | [City and state on a fill-up](2026-11-03-fill-up-city-state.md) | Phase 6 | `4cfaaba` |
 | 2026-11-03 | [Filter and sort the fuel log](2026-11-03-fuel-log-filters.md) | Phase 6 | `61a3624` |
 | 2026-11-17 | [Easier to reach the fill-up log](2026-11-17-fill-up-log-access.md) | Phase 6 | `01b3320`, `b11d9c7` |
+| 2026-11-21 | [Richer, better-looking reports](2026-11-21-richer-reports.md) | Phase 9 | `7b15c99` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
