@@ -36,18 +36,18 @@
       {% for tick in chart.ticks %}<span style="--y: {{ tick.y }}">{{ tick.label }}</span>{% endfor %}
     </div>
     <div class="mbars__plot" role="img"
-         aria-label="{{ chart.what }} each month, against putting aside {{ chart.per_month | dollars }} a month. The months are listed below.">
+         aria-label="{% if chart.per_month is not none %}{{ chart.what }} each month, against putting aside {{ chart.per_month | dollars }} a month. The months are listed below.{% else %}{{ chart.what }} each year. The table below has the figures.{% endif %}">
       {% for tick in chart.ticks %}<span class="mbars__grid" style="--y: {{ tick.y }}"></span>{% endfor %}
       <ol class="mbars__bars">
         {% for bar in chart.bars %}<li class="mbars__bar" style="--h: {{ bar.h }}; --i: {{ loop.index0 }}" title="{{ bar.title }}">
           {%- for seg in bar.segs %}<span class="mbars__seg mbars__seg--{{ seg.colour }}{% if seg.gap %} mbars__seg--gap{% endif %}" data-type="{{ seg.type }}" style="flex: {{ seg.cents }} 1 0" title="{{ seg.title }}"></span>{% endfor -%}
         </li>{% endfor %}
       </ol>
-      <span class="mbars__tape" style="--y: {{ chart.line }}"></span>
+      {% if chart.line is not none %}<span class="mbars__tape" style="--y: {{ chart.line }}"></span>{% endif %}
     </div>
   </div>
   <div class="mbars__labels" aria-hidden="true">
-    {%- for bar in chart.bars %}<span>{% if chart.dense %}{{ bar.label }}{% else %}{{ bar.label[:1] }}<span class="mbars__rest">{{ bar.label[1:] }}</span>{% endif %}</span>{% endfor -%}
+    {%- for bar in chart.bars %}<span>{% if bar.year %}<span class="mbars__rest">{{ bar.label[:2] }}</span>{{ bar.label[2:] }}{% elif chart.dense %}{{ bar.label }}{% else %}{{ bar.label[:1] }}<span class="mbars__rest">{{ bar.label[1:] }}</span>{% endif %}</span>{% endfor -%}
   </div>
   <figcaption class="trend__caption">
     {%- for tone in chart.colours %}
@@ -55,7 +55,7 @@
     {%- endfor %}
     <span class="trend__legend" x-show="picked" x-cloak><span class="mbars__key" :class="tones[picked] === 'other' ? '' : 'mbars__seg--' + tones[picked]" aria-hidden="true"></span><span x-text="picked"></span></span>
     <span class="trend__legend" x-show="picked" x-cloak><span class="mbars__key mbars__key--dim" aria-hidden="true"></span>Everything else</span>
-    <span class="trend__legend"><span class="mbars__tape mbars__tape--key" aria-hidden="true"></span>Put aside {{ chart.per_month | dollars }} a month</span>
+    {% if chart.per_month is not none %}<span class="trend__legend"><span class="mbars__tape mbars__tape--key" aria-hidden="true"></span>Put aside {{ chart.per_month | dollars }} a month</span>{% endif %}
   </figcaption>
 </figure>
 {%- endmacro %}

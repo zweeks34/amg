@@ -322,6 +322,13 @@ def price_trend(state: FuelStatus) -> dict | None:
                   _PRICE_STEPS[units.quantity], (lambda cents: f"${cents / 100:.2f}") if gal else (lambda cents: f"{cents:.0f}¢"))
 
 
+def month_price_chart(points: list[tuple[date, float, str, bool]], average: float, span: str, units: Units) -> dict:
+    """The price paid a month for the Fuel report, drawn as price_trend draws each fill."""
+    gal = units.quantity == "gal"
+    return _chart(points, average, span, "$/gal" if gal else "¢/kWh", "month", lambda cents: price_words(cents, units),
+                  _PRICE_STEPS[units.quantity], (lambda cents: f"${cents / 100:.2f}") if gal else (lambda cents: f"{cents:.0f}¢"))
+
+
 SPARK_TANKS = 12       # the garage card's line: this many recent tanks (or charges)
 
 

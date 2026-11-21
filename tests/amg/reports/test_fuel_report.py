@@ -65,3 +65,29 @@ def test_an_electric_car_in_kwh():
 def test_no_fills_in_the_dates_is_no_section():
     assert fuel.build(CAR, UNITS["gas"], FILLS, Filters(view="fuel", start="2026-03-01")) is None
     assert fuel.build(CAR, UNITS["gas"], [], Filters(view="fuel")) is None
+
+
+# ---------- Best and worst months, and the price paid ----------
+
+THREE_MONTHS = [
+    fill(1, "2026-01-02", 1_000, 10.0, 3_000),
+    fill(2, "2026-01-20", 1_300, 10.0, 3_000),     # Jan: 30 mpg at $3.00
+    fill(3, "2026-02-20", 1_550, 10.0, 3_500),     # Feb: 25 mpg at $3.50
+    fill(4, "2026-03-20", 1_830, 10.0, 3_200),     # Mar: 28 mpg at $3.20
+]
+
+
+def test_the_best_and_worst_months_with_three_measured():
+    section = fuel.build(CAR, UNITS["gas"], THREE_MONTHS, Filters(view="fuel"))
+    assert (section.best, section.worst) == ("2026-01", "2026-02")
+    two = fuel.build(CAR, UNITS["gas"], THREE_MONTHS[:3], Filters(view="fuel"))
+    assert (two.best, two.worst) == ("", "")
+
+
+def test_the_price_paid_a_month_is_charted():
+    section = fuel.build(CAR, UNITS["gas"], THREE_MONTHS, Filters(view="fuel"))
+    assert section.price["per"] == "month" and section.price["unit"] == "$/gal"
+    assert [p["label"] for p in section.price["points"]] == [
+        "Jan 2026: $3.000/gal", "Feb 2026: $3.500/gal", "Mar 2026: $3.200/gal"]
+    one = fuel.build(CAR, UNITS["gas"], THREE_MONTHS[:2], Filters(view="fuel"))
+    assert one.price is None

@@ -2368,9 +2368,103 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .reportdata__box p { max-width: var(--measure); }
 .printhead { display: none; }
 
+/* A report's figures carry the weight: an ink rule along the top and big numbers. */
+.figures--report { border-top: 4px solid var(--ink); }
+.figures--report .figure__value { font-size: 1.625rem; font-weight: 600; letter-spacing: -0.01em; }
+@media (min-width: 40rem) {
+  .figures--report .figure__value { font-size: 2rem; }
+}
+.figure__change { font-family: var(--mono); color: var(--done); }
+.figure__change.is-up { color: var(--gap); }
+
+/* Two panels side by side on a wide screen: two charts, or the kinds of work and the shops. */
+.reportpair { display: grid; gap: 1.25rem; min-width: 0; }
+@media (min-width: 56rem) {
+  .reportpair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+.reportpair > .block { margin-top: 0; }
+.report > .block { margin-top: 1.25rem; }
+
+/* A share of the whole, a row each: name, amount, share, and a bar against the biggest. */
+.sharelist { display: grid; gap: 0.875rem; margin: 0; list-style: none; }
+.sharelist__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 4.5rem;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+.sharelist__name { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.sharelist__pct { text-align: right; font-size: 0.875rem; color: var(--steel); }
+.sharelist__bar {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--band);
+}
+.sharelist__bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--bar);
+  border-radius: inherit;
+  background: var(--ink-2);
+  animation: share-grow 600ms ease-out both;
+}
+@keyframes share-grow { from { width: 0; } }
+.sharelist__more { font-size: 0.875rem; color: var(--steel); }
+
+/* Spending's table: each cell shaded by its size, each category keyed to its colour on the bars, and its share
+   of the whole a bar under its total. */
+.sumtable--heat tbody td[style] { background: color-mix(in srgb, var(--ink) calc(var(--heat) * 16%), transparent); }
+.sumtable__key {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin-right: 0.5rem;
+  border-radius: 2px;
+}
+.sumtable__total { position: relative; }
+.sumtable__share {
+  position: absolute;
+  right: var(--gutter);
+  bottom: 0.25rem;
+  width: 3.5rem;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--ink-2) var(--share), var(--rule-soft) 0);
+}
+
+/* The History report's years: a big year and what it came to, over its visits. */
+.visityear { display: grid; gap: 0.5rem; min-width: 0; }
+.visityear__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0 0.125rem 0.375rem;
+  border-bottom: 2px solid var(--ink);
+}
+.visityear__year { font: 700 1.75rem/1 var(--display); letter-spacing: 0.01em; }
+.visityear__sum { font: 400 0.9375rem/1.2 var(--body); color: var(--ink-2); }
+
+/* Fuel's best and worst months. */
+.tag--best, .tag--worst { margin-left: 0.375rem; vertical-align: 1px; }
+.tag--best { border-color: var(--done); color: var(--done); }
+.tag--worst { border-color: var(--gap); color: var(--gap); }
+
 /* A visit: the ledger's row on top, the lines it's reported for beneath, set under who did the work. */
 .visits { margin: 0; padding: 0; list-style: none; }
 .visit + .visit { border-top: 1px solid var(--rule-soft); }
+/* A visit's stripe: its main category's colour, as the Spending bars have it. */
+.visit--1 { box-shadow: inset 4px 0 0 var(--type-1); }
+.visit--2 { box-shadow: inset 4px 0 0 var(--type-2); }
+.visit--3 { box-shadow: inset 4px 0 0 var(--type-3); }
+.visit--other { box-shadow: inset 4px 0 0 var(--type-other); }
+.visit__since { grid-column: 2 / 4; font-size: 0.8125rem; color: var(--steel); }
 .visit__head {
   display: grid;
   grid-template-columns: 6.5rem 6.5rem minmax(0, 1fr) 7rem;
@@ -2403,12 +2497,14 @@ p.notice, div.notice { margin-bottom: 1rem; }
     grid-template-columns: auto auto 1fr;
     grid-template-areas:
       "date miles total"
-      "who who who";
+      "who who who"
+      "since since since";
   }
   .visit__date { grid-area: date; }
   .visit__miles { grid-area: miles; }
   .visit__total { grid-area: total; }
   .visit__who { grid-area: who; }
+  .visit__since { grid-area: since; }
   .visit__lines { padding-left: var(--gutter); }
   .visit__line { grid-template-columns: minmax(0, 1fr) auto; }
 }
@@ -2476,6 +2572,13 @@ p.notice, div.notice { margin-bottom: 1rem; }
   .visit__head:hover, .sumtable tbody tr:hover > * { background: none; }
   .odo__drum { background: none; color: inherit; box-shadow: inset 0 0 0 1px var(--rule); }
   .odo__drum::after { display: none; }
+  .mbars, .sumtable--heat td, .sumtable__key, .sumtable__share, .sharelist__bar, .visit, .visityear__head {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .typepick { display: none; }
+  .sharelist__row { break-inside: avoid; }
+  .visityear__head { break-after: avoid; }
 }
 
 /* ---------- Motion ---------- */

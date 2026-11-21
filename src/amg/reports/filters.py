@@ -80,6 +80,10 @@ class Filters:
         params.update(target.params())
         return "/reports" + (f"?{urlencode(params)}" if params else "")
 
+    def for_car(self, car: int) -> str:
+        """This report narrowed to one car."""
+        return replace(self, car=car).url()
+
     def csv_url(self) -> str:
         params = self.params()
         return f"/reports/{self.view}.csv" + (f"?{urlencode(params)}" if params else "")

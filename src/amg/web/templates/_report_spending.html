@@ -1,27 +1,45 @@
 {#- Spending by year: categories down, years across. Each year adds up to what was paid. In whole dollars, so a
     decade fits across a laptop screen (the CSV has the cents); on a phone the table scrolls inside its own box,
-    the category column pinned, and on paper it prints landscape. -#}
+    the category column pinned, and on paper it prints landscape.
+
+    Above it, the years as stacked bars in the budget's colours; each cell is shaded by its size, and each
+    category's share of the whole is a bar under its total. Below it, the same money by car (with more than one),
+    by kind of line, and by shop. -#}
+{% from "_budget.html" import bars as year_bars %}
+{% from "_logo.html" import named %}
 {% if spending and spending.rows %}
 <style media="print">@page { size: landscape; }</style>
-<dl class="figures sheet">
+<dl class="figures figures--report{% if latest and per_mile %} figures--four{% endif %} sheet">
   <div class="figure">
     <dt>{{ "On " ~ service_words if history.by_service else "Paid" }}</dt>
     <dd class="figure__value mono">{{ spending.total | money }}</dd>
-    <dd class="figure__note">{{ span_words(history.first, history.last) }}</dd>
+    <dd class="figure__note">{{ span_words(history.first, history.last) }} · {{ history.count }} service{{ "s" if history.count != 1 }}</dd>
   </div>
   <div class="figure">
     <dt>A year</dt>
     <dd class="figure__value mono">{{ (spending.total / spending.years | length) | round | int | dollars }}</dd>
     <dd class="figure__note">on average, over {{ spending.years | length }} year{{ "s" if spending.years | length != 1 }}</dd>
   </div>
+  {% if latest %}
   <div class="figure">
-    <dt>Services</dt>
-    <dd class="figure__value mono">{{ history.count }}</dd>
+    <dt>{{ latest.words }}</dt>
+    <dd class="figure__value mono">{{ latest.cents | dollars }}</dd>
+    {% if latest.change %}<dd class="figure__note figure__change{% if latest.up %} is-up{% endif %}">{{ latest.change }}</dd>{% endif %}
   </div>
+  {% endif %}
+  {% if per_mile %}
+  <div class="figure">
+    <dt>A mile</dt>
+    <dd class="figure__value mono">{{ cents_a_mile(per_mile) }}</dd>
+    <dd class="figure__note">over {{ "{:,}".format(miles | round | int) }} mi driven</dd>
+  </div>
+  {% endif %}
 </dl>
 
+{% if bars %}<div class="sheet">{{ year_bars(bars) }}</div>{% endif %}
+
 <div class="tablewrap sheet sheet--flush" role="region" aria-labelledby="spend-caption" tabindex="0">
-  <table class="sumtable">
+  <table class="sumtable sumtable--heat">
     <caption class="vh" id="spend-caption">Spending by category and year</caption>
     <thead>
       <tr>
@@ -33,9 +51,10 @@
     <tbody>
       {% for row in spending.rows %}
       <tr>
-        <th scope="row">{{ row.label }}</th>
-        {% for year in spending.years %}<td class="num mono">{{ row.cells[year] | dollars if year in row.cells else "" }}</td>{% endfor %}
-        <td class="num mono">{{ row.total | dollars }}</td>
+        <th scope="row"><span class="sumtable__key mbars__seg--{{ row.tone }}" aria-hidden="true"></span>{{ row.label }}</th>
+        {% for year in spending.years %}<td class="num mono"{% if year in row.cells %} style="--heat: {{ spending.heat(row.cells[year]) }}"{% endif %}>{{ row.cells[year] | dollars if year in row.cells else "" }}</td>{% endfor %}
+        <td class="num mono sumtable__total">{{ row.total | dollars }}
+          <span class="sumtable__share" style="--share: {{ spending.share(row.total) }}%" title="{{ spending.share(row.total) | round | int }}% of the whole" aria-hidden="true"></span></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -50,7 +69,72 @@
 </div>
 <p class="aside">{% if not history.by_service %}Other is lines with no service type, shop fees and supplies, and any
   difference between the lines and what you paid, a discount say. A service with no total counts its lines and tax.
-  {% endif %}Amounts are to the nearest dollar; the CSV has the cents.</p>
+  {% endif %}Amounts are to the nearest dollar; the CSV has the cents.{% if per_mile %} A mile is over the miles the
+  odometer readings say {{ "the car" if filters.car else "your cars" }} went in these dates.{% endif %}</p>
+
+{% if by_car %}
+<section class="block" aria-labelledby="spend-cars">
+  <h2 class="h3" id="spend-cars">By car</h2>
+  <div class="tablewrap sheet sheet--flush" role="region" aria-labelledby="spend-cars" tabindex="0">
+    <table class="sumtable">
+      <thead>
+        <tr>
+          <th scope="col">Car</th>
+          {% for year in spending.years %}<th scope="col" class="num">{{ year }}</th>{% endfor %}
+          <th scope="col" class="num">Total</th>
+          <th scope="col" class="num">A mile</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in by_car %}
+        <tr>
+          <th scope="row"><a href="{{ filters.for_car(row.id) }}">{{ row.label }}</a></th>
+          {% for year in spending.years %}<td class="num mono">{{ row.cells[year] | dollars if row.cells.get(year) else "" }}</td>{% endfor %}
+          <td class="num mono">{{ row.total | dollars }}</td>
+          <td class="num mono">{{ cents_a_mile(row.per_mile) or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if kinds or shops.rows %}
+<div class="reportpair">
+  {% if kinds %}
+  <section class="block" aria-labelledby="spend-kinds">
+    <h2 class="h3" id="spend-kinds">Labor, parts and fees</h2>
+    <ul class="sharelist sheet">
+      {% for row in kinds %}
+      <li class="sharelist__row">
+        <span class="sharelist__name">{{ row.label }}</span>
+        <span class="sharelist__cents mono">{{ row.cents | money }}</span>
+        <span class="sharelist__pct mono">{{ row.share }}%</span>
+        <span class="sharelist__bar" style="--bar: {{ row.bar }}%" aria-hidden="true"></span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+  {% if shops.rows %}
+  <section class="block" aria-labelledby="spend-shops">
+    <h2 class="h3" id="spend-shops">Who did the work</h2>
+    <ul class="sharelist sheet">
+      {% for row in shops.rows %}
+      <li class="sharelist__row">
+        <span class="sharelist__name">{{ named(row.shop, row.who, diy=row.diy) }}</span>
+        <span class="sharelist__cents mono">{{ row.cents | money }}</span>
+        <span class="sharelist__pct">{{ row.visits }} visit{{ "s" if row.visits != 1 }}</span>
+        <span class="sharelist__bar" style="--bar: {{ row.bar }}%" aria-hidden="true"></span>
+      </li>
+      {% endfor %}
+      {% if shops.more %}<li class="sharelist__more">and {{ shops.more }} more</li>{% endif %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
 {% elif history.visits %}
 <div class="sheet empty empty--small">
   <p>None of the {{ history.count }} matching service{{ "s" if history.count != 1 }} has an amount to add up.</p>

@@ -46,7 +46,21 @@ def page(request: Request, view: str = "", car: str = "", start: str = Query("",
         context["history"] = found
         context["anything"] = reports.has_services(conn)
         if filters.view == "spending":
-            context["spending"] = spending.table(found, filters, reports.categories(conn))
+            spent = spending.table(found, filters, reports.categories(conn))
+            context["spending"] = spent
+            if spent:
+                gone = spending.miles(conn, _cars_for(options["cars"], filters), filters)
+                total_miles = sum(gone.values())    # every car's miles, serviced in these dates or not
+                context.update(
+                    bars=spending.bars(spent),
+                    latest=spending.latest(spent),
+                    kinds=spending.kinds(found),
+                    shops=spending.shops(found),
+                    by_car=spending.by_car(found, gone),
+                    miles=total_miles,
+                    per_mile=spending.per_mile(spent.total, total_miles),
+                    cents_a_mile=fuel_status.cents_a_mile,
+                )
     return render(
         request,
         "reports.html",

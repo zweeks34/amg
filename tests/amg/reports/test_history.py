@@ -52,3 +52,52 @@ def test_what_a_visit_paid():
     assert history.paid(visit(None, 300, 4_000, None)) == 4_300  # lines and tax
     assert history.paid(visit(None, None, None)) is None         # nothing to go on
     assert history.paid(visit(0)) == 0                           # free is a price
+
+
+# ---------- Years, the gap since the visit before, the main category ----------
+
+
+def test_visits_by_year_newest_first(conn):
+    rf.garage(conn)
+    years = history.load(conn, Filters()).years()
+    assert [(y["year"], y["count"], y["paid"]) for y in years] == [
+        ("2024", 1, 0), ("2023", 1, 3_000), ("2021", 2, 34_000), ("2019", 1, 27_000)]
+
+
+def test_a_years_paid_is_the_matching_lines_when_narrowed(conn):
+    rf.garage(conn)
+    years = history.load(conn, Filters(service="category:Brakes")).years()
+    assert [(y["year"], y["paid"]) for y in years] == [("2024", 0), ("2021", 30_000), ("2019", 20_000)]
+
+
+def test_each_visit_says_how_long_after_the_one_before_for_its_car(conn):
+    ids = rf.garage(conn)
+    report = history.load(conn, Filters())
+    assert by_id(report, ids["v1"])["since"] == ""                     # the Outback's first
+    assert by_id(report, ids["v2"])["since"] == "2 yr 2 mo"            # no odometer on v2, so no miles
+    assert by_id(report, ids["v3"])["since"] == "19 mo"
+    assert by_id(report, ids["v6"])["since"] == ""                     # the Civic's first: the Outback's don't count
+
+
+def test_since_counts_the_miles_when_both_say():
+    earlier = {"performed_on": "2025-01-10", "odometer": 40_000}
+    assert history.since_words(earlier, {"performed_on": "2025-07-10", "odometer": 45_210}) == "+5,210 mi · 6 mo"
+    assert history.since_words(earlier, {"performed_on": "2025-07-09", "odometer": None}) == "5 mo"
+    assert history.since_words(earlier, {"performed_on": "2025-02-01", "odometer": 39_000}) == "3 wk"  # a lower reading: no miles
+    assert history.since_words(earlier, {"performed_on": "2025-01-10", "odometer": None}) == "same day"
+    assert history.since_words(earlier, {"performed_on": "2025-01-11", "odometer": None}) == "1 day"
+
+
+def test_narrowed_the_one_before_is_the_one_before_that_matched(conn):
+    ids = rf.garage(conn)
+    report = history.load(conn, Filters(service="category:Brakes"))
+    assert by_id(report, ids["v4"])["since"] == "5 yr 2 mo"            # back to v1's brakes, past the oil and tires
+
+
+def test_the_main_category_is_where_most_of_the_money_went(conn):
+    ids = rf.garage(conn)
+    report = history.load(conn, Filters())
+    first = by_id(report, ids["v1"])                                   # $200 of brakes, $50 of oil
+    assert (first["main"], first["tone"]) == ("Brakes", "2")
+    assert by_id(report, ids["v4"])["main"] == "Brakes"                # no amounts: the first line's
+    assert history.main_category([{"covers": [], "amount_cents": 500}]) is None

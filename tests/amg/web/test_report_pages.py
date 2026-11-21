@@ -33,7 +33,7 @@ def test_the_history_with_its_filters_in_the_form(signed_in, conn):
 def test_every_service_without_filters(signed_in, conn):
     rf.garage(conn)
     page = signed_in.get("/reports").text
-    assert page.count('class="visit"') == 5 and "Your own work" in page and "Done, no receipt" in page
+    assert page.count('class="visit__head"') == 5 and "Your own work" in page and "Done, no receipt" in page
     assert "Clear filters" not in page and "$640.00" in page                    # what the five came to
 
 
@@ -121,3 +121,44 @@ def test_your_data_downloads_from_the_reports_page(signed_in, conn):
 
 def test_your_data_needs_a_session(client, conn):
     assert client.get("/reports/your-data.zip", follow_redirects=False).status_code == 303
+
+
+def test_the_history_by_year_with_stripes_and_gaps(signed_in, conn):
+    rf.garage(conn)
+    page = signed_in.get("/reports").text
+    assert page.count('class="visityear"') == 4 and 'id="year-2021"' in page
+    assert "2 services · <span class=\"mono\">$340.00</span>" in page        # 2021: the oil change and the rotors
+    assert 'class="visit visit--2" title="Mostly brakes"' in page and "2 yr 2 mo" in page
+
+
+def test_spending_shows_the_bars_the_kinds_the_shops_and_the_cars(signed_in, conn):
+    rf.garage(conn)
+    page = signed_in.get("/reports?view=spending").text
+    assert 'class="mbars' in page and "Spending each year" in page and "Put aside" not in page
+    assert "▼ 100% on 2023" in page and "--heat: 1.0" in page
+    assert "Labor, parts and fees" in page and "Who did the work" in page and "MIDAS Auto" in page
+    assert 'id="spend-cars"' in page and 'href="/reports?view=spending&amp;car=' in page
+
+
+def test_one_cars_spending_has_no_by_car_table(signed_in, conn):
+    ids = rf.garage(conn)
+    page = signed_in.get(f"/reports?view=spending&car={ids['civic']}").text
+    assert 'id="spend-cars"' not in page and 'class="mbars' not in page      # one car, one year
+
+
+def test_spending_a_mile_once_the_odometer_says(signed_in, conn):
+    from amg.repo import odometer
+    ids = rf.garage(conn)
+    for day, miles in (("2019-01-01", 40_000), ("2025-01-01", 100_000)):
+        odometer.add(conn, ids["outback"], day, miles)
+    page = signed_in.get(f"/reports?view=spending&car={ids['outback']}&to=2024-12-31").text
+    assert "A mile" in page and "0.6¢" in page and "mi driven" in page        # $340 over about 60,000 miles
+
+
+def test_fuel_marks_the_best_and_worst_and_charts_the_price(signed_in, conn):
+    car = rf.car(conn, "Outback")
+    for day, odo in (("2026-01-02", 1_000), ("2026-01-20", 1_300), ("2026-02-20", 1_550), ("2026-03-20", 1_830)):
+        fuel.create(conn, car, fuel.FillInput(day, odo, "gas", 10.0, cost_cents=3_000))
+    page = signed_in.get("/reports?view=fuel").text
+    assert 'class="tag tag--best">Best' in page and 'class="tag tag--worst">Worst' in page
+    assert "Price paid" in page and "$/gal each month" in page
