@@ -1,0 +1,27 @@
+{#- A donut and the list beside it, which is its legend and gives the exact figures. The slices are drawn by
+    reports.spending.donut; each list row says which slice it's in ("slice") and that slice's tone. Pointing at
+    a slice or a row lights both; on a phone the donut sits above its list. -#}
+
+{% macro donut(chart, label) %}
+<div class="donut sheet" x-data="{ on: null }" :class="{ 'has-on': on !== null }">
+  <div class="donut__chart">
+    <svg class="donut__svg" viewBox="0 0 100 100" role="img" aria-label="{{ label }}: {{ chart.words }}">
+      {%- for s in chart.slices %}
+      <path class="donut__slice donut__slice--{{ s.tone }}" d="{{ s.path }}" :class="{ 'is-on': on === {{ loop.index0 }} }"
+            @mouseenter="on = {{ loop.index0 }}" @mouseleave="on = null"><title>{{ s.title }}</title></path>
+      {%- endfor %}
+    </svg>
+    <p class="donut__total"><span class="mono">{{ chart.total | dollars }}</span><span class="donut__in">in all</span></p>
+  </div>
+  <ul class="sharelist sharelist--keyed">{{ caller() }}</ul>
+</div>
+{% endmacro %}
+
+{#- A list row's hover and its swatch, for the slice it's in. -#}
+{% macro lights(row) -%}
+{% if row.slice is not none %} data-slice="{{ row.slice }}" @mouseenter="on = {{ row.slice }}" @mouseleave="on = null" :class="{ 'is-on': on === {{ row.slice }} }"{% endif %}
+{%- endmacro %}
+
+{% macro swatch(row) -%}
+<span class="donut__key{% if row.slice is not none %} donut__slice--{{ row.tone }}{% else %} donut__key--none{% endif %}" aria-hidden="true"></span>
+{%- endmacro %}

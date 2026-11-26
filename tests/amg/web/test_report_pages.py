@@ -140,12 +140,16 @@ def test_spending_shows_the_bars_the_kinds_the_shops_and_the_cars(signed_in, con
     assert "▼ 100% on 2023" in page and "--heat: 1.0" in page
     assert "Labor, parts and fees" in page and "Who did the work" in page and "MIDAS Auto" in page
     assert 'id="spend-cars"' in page and 'href="/reports?view=spending&amp;car=' in page
+    assert page.count('class="donut__svg"') == 4                             # category, kinds, shops and cars
+    assert 'aria-label="By category: Engine 14%, Brakes 78%, Tires and wheels 5%, Everything else 3%"' in page
+    assert "Tax, Other" in page and 'data-slice="0"' in page
 
 
 def test_one_cars_spending_has_no_by_car_table(signed_in, conn):
     ids = rf.garage(conn)
     page = signed_in.get(f"/reports?view=spending&car={ids['civic']}").text
     assert 'id="spend-cars"' not in page and 'class="mbars' not in page      # one car, one year
+    assert 'id="spend-carshare"' not in page
 
 
 def test_spending_a_mile_once_the_odometer_says(signed_in, conn):

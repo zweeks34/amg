@@ -3,10 +3,21 @@
     the category column pinned, and on paper it prints landscape.
 
     Above it, the years as stacked bars in the budget's colours; each cell is shaded by its size, and each
-    category's share of the whole is a bar under its total. Below it, the same money by car (with more than one),
-    by kind of line, and by shop. -#}
+    category's share of the whole is a bar under its total. Below it, the same money as donuts, each with its
+    list: by category, by kind of line, by shop and by car (with more than one); then the cars year by year. -#}
 {% from "_budget.html" import bars as year_bars %}
 {% from "_logo.html" import named %}
+{% from "_donut.html" import donut, lights, swatch %}
+{% macro shop_rows(shops, keyed=False) %}
+      {% for row in shops.rows %}
+      <li class="sharelist__row"{% if keyed %}{{ lights(row) }}{% endif %}>
+        <span class="sharelist__name">{% if keyed %}{{ swatch(row) }}{% endif %}{{ named(row.shop, row.who, diy=row.diy) }}</span>
+        <span class="sharelist__cents mono">{{ row.cents | money }}</span>
+        <span class="sharelist__pct">{{ row.visits }} visit{{ "s" if row.visits != 1 }}</span>
+      </li>
+      {% endfor %}
+      {% if shops.more %}<li class="sharelist__more">and {{ shops.more }} more{% if shops.rest > 0 %}, {{ shops.rest | money }}, in Everything else{% endif %}</li>{% endif %}
+{% endmacro %}
 {% if spending and spending.rows %}
 <style media="print">@page { size: landscape; }</style>
 <dl class="figures figures--report{% if latest and per_mile %} figures--four{% endif %} sheet">
@@ -72,6 +83,67 @@
   {% endif %}Amounts are to the nearest dollar; the CSV has the cents.{% if per_mile %} A mile is over the miles the
   odometer readings say {{ "the car" if filters.car else "your cars" }} went in these dates.{% endif %}</p>
 
+{% if donuts.categories or donuts.kinds %}
+<div class="reportpair">
+  {% if donuts.categories %}
+  <section class="block" aria-labelledby="spend-where">
+    <h2 class="h3" id="spend-where">By category</h2>
+    {% call donut(donuts.categories, "By category") %}
+      {% for row in donuts.categories.parts %}
+      <li class="sharelist__row"{{ lights(row) }}>
+        <span class="sharelist__name">{{ swatch(row) }}{{ row.label }}</span>
+        <span class="sharelist__cents mono">{{ row.cents | money }}</span>
+        <span class="sharelist__pct mono">{{ row.share }}%</span>
+        {%- if row.names %}
+        <span class="sharelist__names">{{ row.names[:4] | join(", ") }}{% if row.names | length > 4 %} and {{ row.names | length - 4 }} more{% endif %}</span>{% endif %}
+      </li>
+      {% endfor %}
+    {% endcall %}
+  </section>
+  {% endif %}
+  {% if donuts.kinds %}
+  <section class="block" aria-labelledby="spend-kinds">
+    <h2 class="h3" id="spend-kinds">Labor, parts and fees</h2>
+    {% call donut(donuts.kinds, "Labor, parts and fees") %}
+      {% for row in kinds %}
+      <li class="sharelist__row"{{ lights(row) }}>
+        <span class="sharelist__name">{{ swatch(row) }}{{ row.label }}</span>
+        <span class="sharelist__cents mono">{{ row.cents | money }}</span>
+        <span class="sharelist__pct mono">{{ row.share }}%</span>
+      </li>
+      {% endfor %}
+    {% endcall %}
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if shops.rows or donuts.cars %}
+<div class="reportpair">
+  {% if shops.rows %}
+  <section class="block" aria-labelledby="spend-shops">
+    <h2 class="h3" id="spend-shops">Who did the work</h2>
+    {% if donuts.shops %}{% call donut(donuts.shops, "Who did the work") %}{{ shop_rows(shops, keyed=True) }}{% endcall %}
+    {% else %}<ul class="sharelist sheet">{{ shop_rows(shops) }}</ul>{% endif %}
+  </section>
+  {% endif %}
+  {% if donuts.cars %}
+  <section class="block" aria-labelledby="spend-carshare">
+    <h2 class="h3" id="spend-carshare">Each car's share</h2>
+    {% call donut(donuts.cars, "Each car's share") %}
+      {% for row in by_car %}
+      <li class="sharelist__row"{{ lights(row) }}>
+        <span class="sharelist__name">{{ swatch(row) }}<a href="{{ filters.for_car(row.id) }}">{{ row.label }}</a></span>
+        <span class="sharelist__cents mono">{{ row.total | money }}</span>
+        <span class="sharelist__pct mono">{{ (row.total / donuts.cars.total * 100) | round | int if donuts.cars.total > 0 and row.total > 0 else 0 }}%</span>
+      </li>
+      {% endfor %}
+    {% endcall %}
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if by_car %}
 <section class="block" aria-labelledby="spend-cars">
   <h2 class="h3" id="spend-cars">By car</h2>
@@ -98,42 +170,6 @@
     </table>
   </div>
 </section>
-{% endif %}
-
-{% if kinds or shops.rows %}
-<div class="reportpair">
-  {% if kinds %}
-  <section class="block" aria-labelledby="spend-kinds">
-    <h2 class="h3" id="spend-kinds">Labor, parts and fees</h2>
-    <ul class="sharelist sheet">
-      {% for row in kinds %}
-      <li class="sharelist__row">
-        <span class="sharelist__name">{{ row.label }}</span>
-        <span class="sharelist__cents mono">{{ row.cents | money }}</span>
-        <span class="sharelist__pct mono">{{ row.share }}%</span>
-        <span class="sharelist__bar" style="--bar: {{ row.bar }}%" aria-hidden="true"></span>
-      </li>
-      {% endfor %}
-    </ul>
-  </section>
-  {% endif %}
-  {% if shops.rows %}
-  <section class="block" aria-labelledby="spend-shops">
-    <h2 class="h3" id="spend-shops">Who did the work</h2>
-    <ul class="sharelist sheet">
-      {% for row in shops.rows %}
-      <li class="sharelist__row">
-        <span class="sharelist__name">{{ named(row.shop, row.who, diy=row.diy) }}</span>
-        <span class="sharelist__cents mono">{{ row.cents | money }}</span>
-        <span class="sharelist__pct">{{ row.visits }} visit{{ "s" if row.visits != 1 }}</span>
-        <span class="sharelist__bar" style="--bar: {{ row.bar }}%" aria-hidden="true"></span>
-      </li>
-      {% endfor %}
-      {% if shops.more %}<li class="sharelist__more">and {{ shops.more }} more</li>{% endif %}
-    </ul>
-  </section>
-  {% endif %}
-</div>
 {% endif %}
 {% elif history.visits %}
 <div class="sheet empty empty--small">

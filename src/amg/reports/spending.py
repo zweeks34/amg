@@ -152,8 +152,9 @@ def bars(spent: Spending) -> dict | None:
 
 
 def kinds(history: History) -> list[dict]:
-    """Where the money went by kind of line (labor, parts, fees, other), then tax; what a printed total leaves
-    over (supplies, a discount) goes under Other. Adds up to the report's total. Empty with fewer than two."""
+    """Where the money went by kind of line (labor, parts, fees, other) and tax, the most first; what a printed
+    total leaves over (supplies, a discount) goes under Other. Adds up to the report's total. Empty with fewer
+    than two."""
     found: dict[str, int] = {}
 
     def add(label: str, cents: int) -> None:
@@ -171,13 +172,14 @@ def kinds(history: History) -> list[dict]:
             itemised = sum(line["amount_cents"] or 0 for line in visit["lines"])
             add("Other", visit["total_cents"] - itemised - tax)
     rows = [{"label": label, "cents": found[label]} for label in (*KINDS.values(), TAX) if found.get(label)]
+    rows.sort(key=lambda row: -row["cents"])        # the biggest first, as its donut goes
     return _shares(rows) if len(rows) >= 2 else []
 
 
 def shops(history: History, limit: int = 8) -> dict:
     """Who did the work: each shop (whatever its capitals), your own work, and work done with no receipt, with
-    what it came to and how many visits, the most spent first. {"rows", "more"}: the first ``limit``, and how many
-    more there were."""
+    what it came to and how many visits, the most spent first, each with its share of them all. {"rows", "more",
+    "rest"}: the first ``limit``, how many more there were, and what those came to."""
     found: dict[str, dict] = {}
     for visit in history.visits:              # newest first, so a shop is named as it was last spelled
         key = visit["who"].strip().lower()
@@ -185,8 +187,9 @@ def shops(history: History, limit: int = 8) -> dict:
                                      "cents": 0, "visits": 0, "last": visit["performed_on"]})
         row["cents"] += _amount(visit, history)
         row["visits"] += 1
-    rows = sorted(found.values(), key=lambda row: (-row["cents"], -row["visits"], row["who"].lower()))
-    return {"rows": _shares(rows[:limit]), "more": max(0, len(rows) - limit)}
+    rows = _shares(sorted(found.values(), key=lambda row: (-row["cents"], -row["visits"], row["who"].lower())))
+    return {"rows": rows[:limit], "more": max(0, len(rows) - limit),
+            "rest": sum(row["cents"] for row in rows[limit:])}
 
 
 def by_car(history: History, miles: dict[int, float] | None = None) -> list[dict]:
@@ -249,3 +252,79 @@ def _shares(rows: list[dict]) -> list[dict]:
         row["share"] = round(max(0, row["cents"]) / whole * 100) if whole > 0 else 0
         row["bar"] = round(max(0, row["cents"]) / top * 100, 1) if top > 0 else 0
     return rows
+
+
+# ---------- The donuts ----------
+
+SLICES = 4                      # the most a donut has: past it, the three biggest and Everything else, since
+                                # no more shades of one colour can be told apart
+EVERYTHING_ELSE = "Everything else"
+_OUTER, _INNER = 50.0, 31.0     # in a 100-square drawing, centred
+
+
+def donut(parts: list[dict], rest: int = 0, tones: bool = False, key: str = "cents",
+          name: str = "label") -> dict | None:
+    """A donut for a breakdown, biggest first: each part its own slice up to four; past that, the three biggest
+    and Everything else (with ``rest``, what parts not listed came to). Each part is marked with the slice it's
+    in ("slice", None for one with nothing to draw) and that slice's tone: three shades of one colour, darkest
+    first ("0"–"2"), then grey ("rest") for the fourth, Everything else or not; with ``tones``, the parts' own
+    "tone", as the category donut keeps the page's colours ("c1"–"c3", "cother"). ``key`` and ``name`` say
+    where a part keeps its amount and what it's called.
+
+    A slice is never negative: a refund or a discount is in the total in the middle, but draws nothing. None
+    with fewer than two slices. {"total", "slices": [{"label", "cents", "share", "tone", "path", "title"}],
+    "words"}."""
+    for part in parts:
+        part["slice"], part["tone"] = None, part.get("tone") if tones else None
+    drawn = [part for part in parts if part[key] > 0]
+    rest = max(0, rest)
+    own = drawn if len(drawn) + (1 if rest else 0) <= SLICES else drawn[:SLICES - 1]
+    groups = [{"label": part[name], "cents": part[key], "parts": [part],
+               "tone": part["tone"] if tones else str(n) if n < SLICES - 1 else "rest"}
+              for n, part in enumerate(own)]
+    others = drawn[len(own):]
+    if others or rest:
+        groups.append({"label": EVERYTHING_ELSE, "cents": sum(part[key] for part in others) + rest,
+                       "parts": others, "tone": "cother" if tones else "rest"})
+    if len(groups) < 2:
+        return None
+    whole = sum(group["cents"] for group in groups)
+    slices, start = [], 0.0
+    for n, group in enumerate(groups):
+        end = 1.0 if n == len(groups) - 1 else start + group["cents"] / whole
+        share = round(group["cents"] / whole * 100)
+        slices.append({"label": group["label"], "cents": group["cents"], "share": share, "tone": group["tone"],
+                       "path": _arc(start, end), "title": f"{group['label']}: {dollars(group['cents'])} · {share}%"})
+        for part in group["parts"]:
+            part["slice"], part["tone"] = n, group["tone"]
+        start = end
+    return {"total": sum(part[key] for part in parts) + rest, "slices": slices,
+            "words": ", ".join(f"{s['label']} {s['share']}%" for s in slices)}
+
+
+def categories(spent: Spending) -> dict | None:
+    """The category donut, in the year bars' colours and grouped as their key is: Engine, Brakes, and Tires and
+    wheels each a slice, and Everything else the rest, naming them, the most spent first."""
+    coloured = [row for label in COLOURED for row in spent.rows if row["label"] == label]
+    rest = sorted((row for row in spent.rows if row["label"] not in COLOURED), key=lambda row: -row["total"])
+    parts = [{"label": row["label"], "cents": row["total"], "tone": f"c{row['tone']}"} for row in coloured]
+    if rest:
+        parts.append({"label": EVERYTHING_ELSE, "cents": sum(row["total"] for row in rest), "tone": "cother",
+                      "names": [row["label"] for row in rest if row["total"] > 0]})
+    chart = donut(parts, tones=True)
+    if chart:
+        chart["parts"] = _shares(parts)
+    return chart
+
+
+def _arc(start: float, end: float) -> str:
+    """The ring between two fractions of the way round, clockwise from the top, as an SVG path."""
+    def at(fraction: float, radius: float) -> str:
+        angle = 2 * math.pi * fraction
+        return f"{50 + radius * math.sin(angle):.3f} {50 - radius * math.cos(angle):.3f}"
+
+    if end - start >= 0.9999:      # all the way round: two halves, as one arc can't end where it starts
+        return _arc(start, start + 0.5) + " " + _arc(start + 0.5, end)
+    big = 1 if end - start > 0.5 else 0
+    return (f"M{at(start, _OUTER)} A{_OUTER} {_OUTER} 0 {big} 1 {at(end, _OUTER)} "
+            f"L{at(end, _INNER)} A{_INNER} {_INNER} 0 {big} 0 {at(start, _INNER)} Z")

@@ -104,9 +104,9 @@ def test_labor_parts_and_fees_add_up_to_what_was_paid(conn):
     rf.garage(conn)
     found = spending.kinds(history.load(conn, Filters()))
     assert [(row["label"], row["cents"]) for row in found] == [
-        ("Labor", 58_000), ("Parts", 4_000), ("Other", 750), ("Tax", 1_250)]
+        ("Labor", 58_000), ("Parts", 4_000), ("Tax", 1_250), ("Other", 750)]           # the most first
     assert sum(row["cents"] for row in found) == 64_000
-    assert [row["share"] for row in found] == [91, 6, 1, 2] and found[0]["bar"] == 100
+    assert [row["share"] for row in found] == [91, 6, 2, 1] and found[0]["bar"] == 100
 
 
 def test_narrowed_only_the_matching_lines_by_kind(conn):
@@ -151,3 +151,60 @@ def test_the_miles_each_car_went_in_the_dates(conn):
     assert set(found) == {outback} and round(found[outback]) == 6_033    # 184 of 2024's 366 days at 12,000 a year
     assert civic not in spending.miles(conn, cars, Filters(), today=date(2026, 1, 1))   # no readings to go on
     assert spending.miles(conn, cars, Filters(car=civic), today=date(2026, 1, 1)) == {}
+
+
+# ---------- The donuts ----------
+
+
+def parts(*cents):
+    return [{"label": f"P{n}", "cents": c} for n, c in enumerate(cents)]
+
+
+def test_a_donuts_slices_add_up_to_the_whole():
+    chart = spending.donut(parts(6_000, 3_000, 1_000))
+    assert [(s["label"], s["cents"], s["share"], s["tone"]) for s in chart["slices"]] == [
+        ("P0", 6_000, 60, "0"), ("P1", 3_000, 30, "1"), ("P2", 1_000, 10, "2")]
+    assert chart["total"] == 10_000 and chart["words"] == "P0 60%, P1 30%, P2 10%"
+    assert chart["slices"][0]["path"].startswith("M50.000 0.000 A50.0 50.0 0 1 1 ")   # from the top, clockwise
+
+
+def test_four_parts_are_four_slices_and_past_that_everything_else():
+    four = spending.donut(parts(4, 3, 2, 1))
+    assert [s["label"] for s in four["slices"]] == ["P0", "P1", "P2", "P3"] and four["slices"][3]["tone"] == "rest"
+    listed = parts(5, 4, 3, 2, 1)
+    five = spending.donut(listed)
+    assert [(s["label"], s["cents"]) for s in five["slices"]] == [("P0", 5), ("P1", 4), ("P2", 3),
+                                                                  ("Everything else", 3)]
+    assert [part["slice"] for part in listed] == [0, 1, 2, 3, 3]           # each row knows its slice
+    shops = spending.donut(parts(5, 4, 3), rest=2)                         # what the list leaves out counts too
+    assert shops["slices"][-1] == {**shops["slices"][-1], "label": "Everything else", "cents": 2}
+
+
+def test_a_refund_or_a_discount_draws_no_slice():
+    listed = parts(6_000, 3_000, -500)
+    chart = spending.donut(listed)
+    assert [s["label"] for s in chart["slices"]] == ["P0", "P1"] and listed[2]["slice"] is None
+    assert chart["total"] == 8_500                                          # but it's in the total
+    assert spending.donut(parts(6_000, 0)) is None                          # one slice is no donut
+
+
+def test_the_category_donut_keeps_the_pages_colours(conn):
+    rf.garage(conn)
+    chart = spending.categories(table(conn))
+    assert [(s["label"], s["cents"], s["tone"]) for s in chart["slices"]] == [
+        ("Engine", 9_000, "c1"), ("Brakes", 50_000, "c2"), ("Tires and wheels", 3_000, "c3"),
+        ("Everything else", 2_000, "cother")]
+    assert chart["total"] == 64_000 and chart["parts"][-1]["names"] == ["Tax", "Other"]
+
+
+def test_the_shops_and_the_cars_donuts(conn):
+    ids = rf.garage(conn)
+    found = history.load(conn, Filters())
+    shops = spending.shops(found, limit=3)
+    chart = spending.donut(shops["rows"], rest=shops["rest"], name="who")
+    assert [s["label"] for s in chart["slices"]] == ["MIDAS Auto", "Midas #1234", "Your own work",
+                                                     "Everything else"]
+    assert sum(s["cents"] for s in chart["slices"]) == chart["total"] == 64_000
+    cars = spending.donut(spending.by_car(found), key="total")
+    assert [(s["label"], s["share"]) for s in cars["slices"]] == [("Outback", 53), ("Civic", 47)]
+    assert spending.donut(spending.by_car(history.load(conn, Filters(car=ids["civic"]))), key="total") is None

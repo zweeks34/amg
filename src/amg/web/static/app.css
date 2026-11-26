@@ -69,6 +69,7 @@
   --type-2: #eb6834;
   --type-3: #1baf7a;
   --type-other: #a3adb7;
+  --donut-rest: color-mix(in srgb, var(--type-other) 50%, var(--ink));   /* Everything else, apart from the blues */
 
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --body: "Public Sans", system-ui, sans-serif;
@@ -104,6 +105,7 @@
     --type-2: #d95926;
     --type-3: #199e70;
     --type-other: #5d6976;
+    --donut-rest: color-mix(in srgb, var(--type-other) 60%, var(--ink));
 
     color-scheme: dark;
   }
@@ -2414,6 +2416,36 @@ p.notice, div.notice { margin-bottom: 1rem; }
 }
 @keyframes share-grow { from { width: 0; } }
 .sharelist__more { font-size: 0.875rem; color: var(--steel); }
+.sharelist__names { grid-column: 1 / -1; margin-top: -0.375rem; padding-left: 1.25rem; font-size: 0.8125rem;
+  color: var(--steel); }
+
+/* A donut and its list: the four biggest parts at most, biggest first from the top, clockwise; the list is its
+   legend, with a swatch a row. Side by side where there's room, the donut above its list where there isn't.
+   The shades were checked apart (OKLab ΔE ≥ 15, every pair, light and dark). */
+.donut { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem; }
+.donut__chart { position: relative; flex: 0 0 9.5rem; margin-inline: auto; }
+.donut__svg { display: block; width: 100%; height: auto; overflow: visible; }
+.donut__slice { stroke: var(--sheet); stroke-width: 2px; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+  transition: opacity 120ms; }
+.donut.has-on .donut__slice:not(.is-on), .donut.has-on .sharelist__row[data-slice]:not(.is-on) { opacity: 0.35; }
+.donut__total { position: absolute; inset: 0; display: grid; place-content: center; margin: 0; text-align: center;
+  pointer-events: none; line-height: 1.2; }
+.donut__total .mono { font-weight: 600; }
+.donut__in { font-size: 0.75rem; color: var(--steel); }
+.donut .sharelist { flex: 1 1 20rem; min-width: 0; }
+.sharelist--keyed .sharelist__row { transition: opacity 120ms; }
+.sharelist--keyed .sharelist__name { display: flex; align-items: center; gap: 0.5rem; }
+.donut__key { flex: none; width: 0.75rem; height: 0.75rem; border-radius: 2px; background: var(--fill); }
+.donut__key--none { background: none; box-shadow: inset 0 0 0 1px var(--rule); }
+.donut__slice--0 { fill: color-mix(in srgb, var(--type-1) 30%, var(--ink)); --fill: color-mix(in srgb, var(--type-1) 30%, var(--ink)); }
+.donut__slice--1 { fill: var(--type-1); --fill: var(--type-1); }
+.donut__slice--2 { fill: color-mix(in srgb, var(--type-1) 50%, var(--sheet)); --fill: color-mix(in srgb, var(--type-1) 50%, var(--sheet)); }
+.donut__slice--rest { fill: var(--donut-rest); --fill: var(--donut-rest); }
+/* The category donut keeps the year bars' colours. */
+.donut__slice--c1 { fill: var(--type-1); --fill: var(--type-1); }
+.donut__slice--c2 { fill: var(--type-2); --fill: var(--type-2); }
+.donut__slice--c3 { fill: var(--type-3); --fill: var(--type-3); }
+.donut__slice--cother { fill: var(--type-other); --fill: var(--type-other); }
 
 /* Spending's table: each cell shaded by its size, each category keyed to its colour on the bars, and its share
    of the whole a bar under its total. */
@@ -2727,13 +2759,13 @@ p.notice, div.notice { margin-bottom: 1rem; }
   .visit__head:hover, .sumtable tbody tr:hover > * { background: none; }
   .odo__drum { background: none; color: inherit; box-shadow: inset 0 0 0 1px var(--rule); }
   .odo__drum::after { display: none; }
-  .mbars, .sumtable--heat td, .sumtable__key, .sumtable__share, .sharelist__bar, .visit, .visityear__head,
+  .mbars, .sumtable--heat td, .sumtable__key, .sumtable__share, .sharelist__bar, .donut__slice, .donut__key, .visit, .visityear__head,
   .splitbar, .splitkey, .costcard {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
   .typepick { display: none; }
-  .sharelist__row, .costcard { break-inside: avoid; }
+  .sharelist__row, .costcard, .donut { break-inside: avoid; }
   .visityear__head { break-after: avoid; }
 }
 

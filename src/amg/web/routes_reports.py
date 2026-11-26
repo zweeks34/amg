@@ -56,12 +56,16 @@ def page(request: Request, view: str = "", car: str = "", start: str = Query("",
             if spent:
                 gone = spending.miles(conn, _cars_for(options["cars"], filters), filters)
                 total_miles = sum(gone.values())    # every car's miles, serviced in these dates or not
+                kinds, shops, by_car = spending.kinds(found), spending.shops(found), spending.by_car(found, gone)
                 context.update(
                     bars=spending.bars(spent),
                     latest=spending.latest(spent),
-                    kinds=spending.kinds(found),
-                    shops=spending.shops(found),
-                    by_car=spending.by_car(found, gone),
+                    kinds=kinds,
+                    shops=shops,
+                    by_car=by_car,
+                    donuts={"categories": spending.categories(spent), "kinds": spending.donut(kinds),
+                            "shops": spending.donut(shops["rows"], rest=shops["rest"], name="who"),
+                            "cars": spending.donut(by_car, key="total")},
                     miles=total_miles,
                     per_mile=spending.per_mile(spent.total, total_miles),
                     cents_a_mile=fuel_status.cents_a_mile,
