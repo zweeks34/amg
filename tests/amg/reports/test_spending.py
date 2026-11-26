@@ -208,3 +208,15 @@ def test_the_shops_and_the_cars_donuts(conn):
     cars = spending.donut(spending.by_car(found), key="total")
     assert [(s["label"], s["share"]) for s in cars["slices"]] == [("Outback", 53), ("Civic", 47)]
     assert spending.donut(spending.by_car(history.load(conn, Filters(car=ids["civic"]))), key="total") is None
+
+
+def test_steering_and_suspension_has_a_colour_of_its_own(conn):
+    rf.garage(conn)
+    car = rf.car(conn, "Wrangler")
+    rf.visit(conn, car, "2024-05-01", shop="Corner Garage", lines=[rf.line("Struts", 80_000, "shocks_struts")])
+    result = table(conn)
+    assert {row["label"]: row["tone"] for row in result.rows}["Steering and suspension"] == "4"
+    chart = spending.categories(result)                     # four colours and the grey: five slices, none folded
+    assert [(s["label"], s["tone"]) for s in chart["slices"]] == [
+        ("Engine", "c1"), ("Brakes", "c2"), ("Tires and wheels", "c3"), ("Steering and suspension", "c4"),
+        ("Everything else", "cother")]

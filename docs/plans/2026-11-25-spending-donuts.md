@@ -7,6 +7,7 @@
 > **As built:** As planned, with these changes.
 > - **Four slices at most, not five.** No four shades of one colour could be told apart (the closest pair was ΔE 11; the floor is 15), so it's three blues, darkest for the biggest, then grey for the fourth part or for Everything else. All pairs were checked at 15 or more in light and dark. Rows that went into Everything else wear its grey, and pointing at one lights them all.
 > - **The category donut is grouped as the year bars' key is:** Engine, Brakes, and Tires and wheels in their colours, then Everything else in grey, with the categories in it named under its row. So a category keeps one colour all down the page, though a big category without a colour of its own (Steering and suspension, say) is in Everything else.
+>   - Later (2026-11-26): Steering and suspension got the fourth colour, magenta, everywhere the colours show (the budget's bars, History's stripes, Spending). It and the other three were checked apart, every pair, in light and dark. A fifth wouldn't pass.
 > - **Labor, parts and fees now lists the biggest first**, as its donut goes.
 > - Each car's share is its own section. The By car table, year by year, stays below it.
 > - In the half-width cards the donut sits above its list, which keeps names from wrapping. They sit side by side only where there's room.

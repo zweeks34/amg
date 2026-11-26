@@ -366,7 +366,7 @@ def chart(months: list[Month], per_month: int, count: int,
     """The month bars: maintenance a month against what's put aside each month. Heights are 0–100.
 
     Each bar is stacked by type of work (``categories`` says each schedule
-    item's): Engine, Brakes, and Tires and wheels in a colour each from the
+    item's): Engine, Brakes, Tires and wheels, and Steering and suspension in a colour each from the
     bottom up, then every other type in grey, in catalogue order. ``types``
     are the picker's rows, the most expensive first, and ``colours`` the
     legend's.
@@ -478,9 +478,10 @@ def combined_months(plans: list[CarBudget]) -> list[Month]:
 FEES = "Inspections and registration"
 _FEES_ORDER = 10    # after the catalogue's nine categories
 _OTHER = (9, "Inspections and other")   # an item with no service types, as the schedule shows it
-# A colour each on the month bars, the same everywhere; every other type shares grey. A fourth hue can't be told
-# from these three by everyone in both themes (the palette was checked against AMG's sheets, light and dark).
-COLOURED = ("Engine", "Brakes", "Tires and wheels")
+# A colour each on the month bars, the same everywhere; every other type shares grey. The four hues and the grey
+# were checked apart, every pair, against AMG's sheets in light and dark (OKLab ΔE ≥ 15 to the eye, ≥ 8 in each
+# kind of colour blindness). A fifth from the same check wouldn't pass.
+COLOURED = ("Engine", "Brakes", "Tires and wheels", "Steering and suspension")
 
 
 def type_of(due: Due | Fee, categories: dict[int, tuple[int, str]]) -> tuple[int, str]:
@@ -489,7 +490,7 @@ def type_of(due: Due | Fee, categories: dict[int, tuple[int, str]]) -> tuple[int
 
 
 def colour(label: str) -> str:
-    """The type's colour on the month bars: 1–3, or other."""
+    """The type's colour on the month bars: 1–4, or other."""
     return str(COLOURED.index(label) + 1) if label in COLOURED else "other"
 
 

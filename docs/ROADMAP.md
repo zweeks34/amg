@@ -419,7 +419,7 @@ page and moves today's estimated odometer. *That last part is yours.*
 - [x] Fuel/energy projection: miles a day (`Odometer.rate()`) × the fuel page's cost a mile, month by month
 - [x] Month-by-month budget per car (`/vehicles/{id}/budget`) and in total (`/budget`): put aside a month, due now, maintenance and fuel for the horizon, month bars, each month's jobs with where each price came from; the price list, where you set your own or ask Claude (a background job, one call per car, a few cents). The garage gets a line, and next up shows each job's cost
 - [x] By type (added after the phase shipped): the maintenance figure split by type of work on both budget pages — each type's total, share and a bar scaled to the biggest, and its jobs counted across the horizon ("3 times · 1 due now"), on the garage page with their car
-- [x] The month bars by type (added after the phase shipped): each bar stacked, Engine, Brakes, and Tires and wheels in a colour each and the rest in grey, with a legend; buttons above the bars pick out any one type and fade the rest
+- [x] The month bars by type (added after the phase shipped): each bar stacked, Engine, Brakes, Tires and wheels, and (since 2026-11-26) Steering and suspension in a colour each and the rest in grey, with a legend; buttons above the bars pick out any one type and fade the rest
 
 **Decisions:**
 

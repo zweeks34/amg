@@ -68,6 +68,7 @@
   --type-1: #2a78d6;
   --type-2: #eb6834;
   --type-3: #1baf7a;
+  --type-4: #c03c95;
   --type-other: #a3adb7;
   --donut-rest: color-mix(in srgb, var(--type-other) 50%, var(--ink));   /* Everything else, apart from the blues */
 
@@ -104,6 +105,7 @@
     --type-1: #3987e5;
     --type-2: #d95926;
     --type-3: #199e70;
+    --type-4: #d040b8;
     --type-other: #5d6976;
     --donut-rest: color-mix(in srgb, var(--type-other) 60%, var(--ink));
 
@@ -2121,6 +2123,7 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .mbars__seg--1 { background: var(--type-1); }
 .mbars__seg--2 { background: var(--type-2); }
 .mbars__seg--3 { background: var(--type-3); }
+.mbars__seg--4 { background: var(--type-4); }
 .mbars__seg--other { background: var(--type-other); }
 .mbars__seg.is-dim, .mbars__key--dim { background: var(--rule); }
 .mbars__seg--other.is-picked { background: var(--ink); }
@@ -2445,6 +2448,7 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .donut__slice--c1 { fill: var(--type-1); --fill: var(--type-1); }
 .donut__slice--c2 { fill: var(--type-2); --fill: var(--type-2); }
 .donut__slice--c3 { fill: var(--type-3); --fill: var(--type-3); }
+.donut__slice--c4 { fill: var(--type-4); --fill: var(--type-4); }
 .donut__slice--cother { fill: var(--type-other); --fill: var(--type-other); }
 
 /* Spending's table: each cell shaded by its size, each category keyed to its colour on the bars, and its share
@@ -2539,6 +2543,7 @@ p.notice, div.notice { margin-bottom: 1rem; }
 .visit--1 { box-shadow: inset 4px 0 0 var(--type-1); }
 .visit--2 { box-shadow: inset 4px 0 0 var(--type-2); }
 .visit--3 { box-shadow: inset 4px 0 0 var(--type-3); }
+.visit--4 { box-shadow: inset 4px 0 0 var(--type-4); }
 .visit--other { box-shadow: inset 4px 0 0 var(--type-other); }
 .visit__since { grid-column: 2 / 4; font-size: 0.8125rem; color: var(--steel); }
 .visit__head {

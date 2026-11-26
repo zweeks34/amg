@@ -112,8 +112,9 @@ _STEPS = (5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 2
 
 
 def bars(spent: Spending) -> dict | None:
-    """The years as stacked bars, for the budget's bar chart: a segment a category, Engine, Brakes, and Tires and
-    wheels in the budget's colours from the bottom up, the rest in grey. No put-aside tape. None for one year."""
+    """The years as stacked bars, for the budget's bar chart: a segment a category, the four coloured ones
+    (budget.COLOURED) in the budget's colours from the bottom up, the rest in grey. No put-aside tape. None
+    for one year."""
     top = max((max(0, cents) for cents in spent.totals.values()), default=0)
     if top <= 0 or len(spent.years) < 2:
         return None
@@ -278,7 +279,8 @@ def donut(parts: list[dict], rest: int = 0, tones: bool = False, key: str = "cen
         part["slice"], part["tone"] = None, part.get("tone") if tones else None
     drawn = [part for part in parts if part[key] > 0]
     rest = max(0, rest)
-    own = drawn if len(drawn) + (1 if rest else 0) <= SLICES else drawn[:SLICES - 1]
+    fits = tones or len(drawn) + (1 if rest else 0) <= SLICES     # the page's colours each tell apart
+    own = drawn if fits else drawn[:SLICES - 1]
     groups = [{"label": part[name], "cents": part[key], "parts": [part],
                "tone": part["tone"] if tones else str(n) if n < SLICES - 1 else "rest"}
               for n, part in enumerate(own)]
@@ -303,8 +305,9 @@ def donut(parts: list[dict], rest: int = 0, tones: bool = False, key: str = "cen
 
 
 def categories(spent: Spending) -> dict | None:
-    """The category donut, in the year bars' colours and grouped as their key is: Engine, Brakes, and Tires and
-    wheels each a slice, and Everything else the rest, naming them, the most spent first."""
+    """The category donut, in the year bars' colours and grouped as their key is: each coloured category a slice
+    (Engine, Brakes, Tires and wheels, Steering and suspension), and Everything else the rest, naming them, the
+    most spent first."""
     coloured = [row for label in COLOURED for row in spent.rows if row["label"] == label]
     rest = sorted((row for row in spent.rows if row["label"] not in COLOURED), key=lambda row: -row["total"])
     parts = [{"label": row["label"], "cents": row["total"], "tone": f"c{row['tone']}"} for row in coloured]
