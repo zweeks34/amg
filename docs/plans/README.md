@@ -51,6 +51,7 @@ changes go in the roadmap, or in a new plan.
 | 2026-11-21 | [Richer, better-looking reports](2026-11-21-richer-reports.md) | Phase 9 | `7b15c99` |
 | 2026-11-21 | [Overview: what the cars cost to run](2026-11-21-overview-report.md) | Phase 9 | `e515356` |
 | 2026-11-21 | [Fill-up map](2026-11-21-fill-up-map.md) | Phase 6 | `7412b5c`, `5247601` |
+| 2026-11-25 | [Donuts on Spending](2026-11-25-spending-donuts.md) | Phase 9 | `c102b35` |
 
 Also here: [the budget chart options](2026-10-05-budget-chart-options.html), the
 four month-bar designs drawn so one could be chosen (open it in a browser; the
